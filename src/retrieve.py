@@ -62,3 +62,27 @@ def retPlayers(tourneyURL):
     # API request
     response = requests.post(url=url, json={"query": body, "variables": variables}, headers=headers)
     results = response.json()
+
+    # Retrieve name of the tournament
+    tourneyName = results["data"]["event"]["tournament"]["name"]
+    
+    # Create player list
+    players = []
+    node = results["data"]["event"]["entrants"]["nodes"]
+
+    # Create a player object for each participant
+    # and add them to the list
+    for item in node:
+        partItem = item["participants"][0]
+        player = Participant(partItem["id"], partItem["gamerTag"])
+        discordItem = partItem["user"]["authorizations"]
+
+        # If they do not have a discord user linked to start.gg
+        if discordItem is not None: 
+            player.discID = discordItem[0]["externalId"]
+            player.discUser = discordItem[0]["externalUsername"]
+        
+        players.append(player)
+
+    # Return tournament name and list of players
+    return tourneyName, players
