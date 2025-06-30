@@ -8,13 +8,13 @@ class Player:
         self.discID = discID # Discord ID
         self.discUser = discUser # Discord Username
 
-# Retrieve players that are part of the event
+# Retrieve tournament name and players that are part of the event
 def retPlayers(tourneyURL):
 
     url = "https://api.start.gg/gql/alpha"
 	
     # Parse the url string to request it so that it can be used in the query
-    tourneyURL = tourneyURL[21:]
+    tourneyURL = tourneyURL.removeprefix("https://www.start.gg/")
 
     # Replace with any start.gg API token that you want
     token = ""
