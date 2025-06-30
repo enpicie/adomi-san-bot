@@ -1,2 +1,3 @@
 pynacl
 discord.py
+requests
