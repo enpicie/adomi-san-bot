@@ -74,7 +74,7 @@ def retPlayers(tourneyURL):
     # and add them to the list
     for item in node:
         partItem = item["participants"][0]
-        player = Participant(partItem["id"], partItem["gamerTag"])
+        player = Player(partItem["id"], partItem["gamerTag"])
         discordItem = partItem["user"]["authorizations"]
 
         # If they do not have a discord user linked to start.gg
@@ -86,3 +86,14 @@ def retPlayers(tourneyURL):
 
     # Return tournament name and list of players
     return tourneyName, players
+
+def outList(tourneyName, players):
+    ls = f"**{tourneyName}**\n"
+    for i in range(len(players)):
+        ls += players[i].tag
+        if players[i].discUser is not None:
+            ls += f"({players[i].discUser})"
+        if i < len(players) - 1:
+            ls += "\n"
+    
+    return ls
