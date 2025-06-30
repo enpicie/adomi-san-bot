@@ -87,6 +87,8 @@ def retPlayers(tourneyURL):
     # Return tournament name and list of players
     return tourneyName, players
 
+# Returns a vertical list of players
+# as a string
 def outList(tourneyName, players):
     ls = f"**{tourneyName}**\n"
     for i in range(len(players)):
