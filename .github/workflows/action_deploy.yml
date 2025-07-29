@@ -57,11 +57,22 @@ jobs:
           tfc_workspace: ${{ inputs.hcp_terraform_workspace }}
           tfc_token: ${{ secrets.TF_API_TOKEN }}
 
-      # TODO: Uncomment when application config is ready.
-      # - name: Deploy Application Config via HCP Terraform
-      #   uses: chzylee/action-workflow-hcp-terraform-run@v1.1.1
-      #   with:
-      #     terraform_directory: ./terraform/application # Action run from context of the repository root
-      #     tfc_organization: ${{ inputs.hcp_terraform_org }}
-      #     tfc_workspace: ${{ inputs.hcp_terraform_workspace }}
-      #     tfc_token: ${{ secrets.TF_API_TOKEN }}
+      - name: Zip Lambda source code
+        # Creates zip in terraform/application/ directory used in the next step
+        # Note that hcp_terraform_workspace is configured for this project to be in form "startgg-bracket-helper-bot-<env>"
+        run: |
+          ZIP_NAME="${{ inputs.hcp_terraform_workspace }}.zip"
+          echo "📦 Zipping contents of ./src into terraform/$ZIP_NAME..."
+          cd src
+          zip -r "../terraform/application/$ZIP_NAME" .
+          cd ..
+          echo "✅ Created terraform/$ZIP_NAME:"
+          ls -lh "terraform/$ZIP_NAME"
+
+      - name: Deploy Application Config via HCP Terraform
+        uses: chzylee/action-workflow-hcp-terraform-run@v1.1.1
+        with:
+          terraform_directory: ./terraform/application
+          tfc_organization: ${{ inputs.hcp_terraform_org }}
+          tfc_workspace: ${{ inputs.hcp_terraform_workspace }}
+          tfc_token: ${{ secrets.TF_API_TOKEN }}

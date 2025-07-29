@@ -21,6 +21,14 @@ resource "tfe_workspace_variable_set" "dev_workspace_varset" {
 resource "tfe_variable" "dev_env" {
   key             = "env"
   value           = "dev"
-  category        = "env"
+  category        = "terraform"
   variable_set_id = tfe_variable_set.dev_varset.id
 }
+
+resource "tfe_variable" "bucket_name" {
+  key             = "bucket_name"
+  value           = "enpicie-dev-lambda-artifacts"
+  category        = "terraform"
+  variable_set_id = tfe_variable_set.dev_varset.id
+}
+
