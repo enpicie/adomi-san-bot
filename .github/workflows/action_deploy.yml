@@ -35,15 +35,15 @@ jobs:
         id: setup_workspace
         uses: chzylee/action-workflow-hcp-terraform-workspace-setup@v1.1.0
         with:
-          tfc_organization: ${{ env.hcp_terraform_org }}
-          tfc_workspace: ${{ env.hcp_terraform_workspace }}
-          tfc_project: ${{ env.hcp_terraform_project }}
+          tfc_organization: ${{ inputs.hcp_terraform_org }}
+          tfc_workspace: ${{ inputs.hcp_terraform_workspace }}
+          tfc_project: ${{ inputs.hcp_terraform_project }}
           tfc_token: ${{ secrets.TF_API_TOKEN }}
 
       - name: Attach IAM Permissions Variable Set to this Workspace
         uses: chzylee/action-workflow-hcp-terraform-var-set-attach@v1.0.1
         with:
-          tfc_organization: ${{ env.hcp_terraform_org }}
+          tfc_organization: ${{ inputs.hcp_terraform_org }}
           tfc_workspace_id: ${{ steps.setup_workspace.outputs.workspace_id }}
           tfc_token: ${{ secrets.TF_API_TOKEN }}
           var_set_name: ${{ vars.AWS_TF_ROLE_VARSET_LAMB_APIGW_DDB }}
@@ -52,9 +52,9 @@ jobs:
       - name: Deploy Workspace Config via HCP Terraform
         uses: chzylee/action-workflow-hcp-terraform-run@v1.1.1
         with:
-          terraform_directory: ./terraform/workspace_config/${{ env.deployment_env }} # Get config for respective environment
-          tfc_organization: ${{ env.hcp_terraform_org }}
-          tfc_workspace: ${{ env.hcp_terraform_workspace }}
+          terraform_directory: ./terraform/workspace_config/${{ inputs.deployment_env }} # Get config for respective environment
+          tfc_organization: ${{ inputs.hcp_terraform_org }}
+          tfc_workspace: ${{ inputs.hcp_terraform_workspace }}
           tfc_token: ${{ secrets.TF_API_TOKEN }}
 
       # TODO: Uncomment when application config is ready.
@@ -62,6 +62,6 @@ jobs:
       #   uses: chzylee/action-workflow-hcp-terraform-run@v1.1.1
       #   with:
       #     terraform_directory: ./terraform/application # Action run from context of the repository root
-      #     tfc_organization: ${{ env.hcp_terraform_org }}
-      #     tfc_workspace: ${{ env.hcp_terraform_workspace }}
+      #     tfc_organization: ${{ inputs.hcp_terraform_org }}
+      #     tfc_workspace: ${{ inputs.hcp_terraform_workspace }}
       #     tfc_token: ${{ secrets.TF_API_TOKEN }}
