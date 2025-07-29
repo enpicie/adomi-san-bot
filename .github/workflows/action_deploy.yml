@@ -67,7 +67,7 @@ jobs:
           zip -r "../terraform/application/$ZIP_NAME" .
           cd ..
           echo "✅ Created terraform/$ZIP_NAME:"
-          ls -lh "terraform/$ZIP_NAME"
+          ls -lh "terraform/application/$ZIP_NAME"
 
       - name: Deploy Application Config via HCP Terraform
         uses: chzylee/action-workflow-hcp-terraform-run@v1.1.1
