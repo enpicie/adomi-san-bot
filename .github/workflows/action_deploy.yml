@@ -28,7 +28,7 @@ on:
         required: true
 
 jobs:
-  deploy:
+  DeployViaHCPTerraform:
     runs-on: ubuntu-latest
     steps:
       - name: Setup HCP Terraform Workspace
