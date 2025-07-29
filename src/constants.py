@@ -1,8 +1,1 @@
 PING_PONG = { "type": 1 }
-RESPONSE_TYPES =  {
-    "PONG": 1,
-    "ACK_NO_SOURCE": 2,
-    "MESSAGE_NO_SOURCE": 3,
-    "MESSAGE_WITH_SOURCE": 4,
-    "ACK_WITH_SOURCE": 5
-}
