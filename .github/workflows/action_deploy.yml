@@ -1,6 +1,10 @@
 on:
   workflow_call:
     inputs:
+      deployment_env:
+        description: Environment to deploy to (e.g., dev, prod)
+        required: true
+        type: string
       aws_region:
         description: AWS Region to deploy to
         required: true
@@ -48,15 +52,16 @@ jobs:
       - name: Deploy Workspace Config via HCP Terraform
         uses: chzylee/action-workflow-hcp-terraform-run@v1.1.1
         with:
-          terraform_directory: ./terraform/workspace_config # Action run from context of the repository root
+          terraform_directory: ./terraform/workspace_config/${{ env.deployment_env }} # Get config for respective environment
           tfc_organization: ${{ env.hcp_terraform_org }}
           tfc_workspace: ${{ env.hcp_terraform_workspace }}
           tfc_token: ${{ secrets.TF_API_TOKEN }}
 
-      - name: Deploy Application Config via HCP Terraform
-        uses: chzylee/action-workflow-hcp-terraform-run@v1.1.1
-        with:
-          terraform_directory: ./terraform/application # Action run from context of the repository root
-          tfc_organization: ${{ env.hcp_terraform_org }}
-          tfc_workspace: ${{ env.hcp_terraform_workspace }}
-          tfc_token: ${{ secrets.TF_API_TOKEN }}
+      # TODO: Uncomment when application config is ready.
+      # - name: Deploy Application Config via HCP Terraform
+      #   uses: chzylee/action-workflow-hcp-terraform-run@v1.1.1
+      #   with:
+      #     terraform_directory: ./terraform/application # Action run from context of the repository root
+      #     tfc_organization: ${{ env.hcp_terraform_org }}
+      #     tfc_workspace: ${{ env.hcp_terraform_workspace }}
+      #     tfc_token: ${{ secrets.TF_API_TOKEN }}
