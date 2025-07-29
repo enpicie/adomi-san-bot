@@ -54,10 +54,18 @@ jobs:
           var_set_name: ${{ vars.AWS_TF_ROLE_VARSET_LAMB_APIGW_DDB }}
           # Need permissions for Lambda, API Gateway, and DynamoDB
 
-      - name: Deploy Config via HCP Terraform
+      - name: Deploy Workspace Config via HCP Terraform
         uses: chzylee/action-workflow-hcp-terraform-run@v1.1.1
         with:
-          terraform_directory: ./terraform # Action run from context of the repository root
+          terraform_directory: ./terraform/workspace_config # Action run from context of the repository root
+          tfc_organization: ${{ env.hcp_terraform_org }}
+          tfc_workspace: ${{ env.FULL_TFC_WORKSPACE }}
+          tfc_token: ${{ secrets.TF_API_TOKEN }}
+
+      - name: Deploy Application Config via HCP Terraform
+        uses: chzylee/action-workflow-hcp-terraform-run@v1.1.1
+        with:
+          terraform_directory: ./terraform/application # Action run from context of the repository root
           tfc_organization: ${{ env.hcp_terraform_org }}
           tfc_workspace: ${{ env.FULL_TFC_WORKSPACE }}
           tfc_token: ${{ secrets.TF_API_TOKEN }}
