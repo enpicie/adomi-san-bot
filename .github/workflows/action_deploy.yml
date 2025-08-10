@@ -62,12 +62,18 @@ jobs:
         # Note that hcp_terraform_workspace is configured for this project to be in form "startgg-bracket-helper-bot-<env>"
         run: |
           ZIP_NAME="${{ inputs.hcp_terraform_workspace }}.zip"
-          echo "📦 Zipping contents of ./src into terraform/$ZIP_NAME..."
+          echo "📦 Zipping contents of ./src into terraform/application/$ZIP_NAME..."
           cd src
           zip -r "../terraform/application/$ZIP_NAME" .
           cd ..
           echo "✅ Created terraform/$ZIP_NAME:"
           ls -lh "terraform/application/$ZIP_NAME"
+
+      - name: Show terraform/application directory contents
+        # This is to verify that the zip file was created successfully before deploying
+        run: |
+          echo "Listing terraform/application just before upload:"
+          ls -lah ./terraform/application
 
       - name: Deploy Application Config via HCP Terraform
         uses: chzylee/action-workflow-hcp-terraform-run@v1.1.1
