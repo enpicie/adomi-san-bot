@@ -2,11 +2,9 @@ data "aws_s3_bucket" "lambda_bucket" {
   bucket = var.bucket_name
 }
 
-resource "aws_s3_object" "lambda_zip" {
-  bucket = data.aws_s3_bucket.lambda_bucket.id
-  key    = "${var.app_name}/${local.zip_name}"
-  source = local.zip_name
-  etag   = filemd5(local.zip_name)
+data "aws_s3_object" "lambda_zip_latest" {
+  bucket = var.bucket_name
+  key    = "${var.app_name}/${var.app_name}-latest.zip"
 }
 
 resource "aws_iam_role" "lambda_exec_role" {
@@ -33,11 +31,14 @@ resource "aws_iam_role_policy_attachment" "lambda_basic_execution" {
 resource "aws_lambda_function" "startgg_bracket_bot" {
   function_name = "${var.app_name}-${var.env}"
   s3_bucket     = data.aws_s3_bucket.lambda_bucket.id
-  s3_key        = aws_s3_object.lambda_zip.key
+  s3_key        = data.aws_s3_object.lambda_zip_latest.key
   handler       = "index.handler"
   runtime       = "nodejs18.x"
   role          = aws_iam_role.lambda_exec_role.arn
   timeout       = 10
+
+  # Ensures Lambda updates only if the zip file changes
+  source_code_hash = filebase64sha256(local.zip_name)
 }
 
 resource "aws_apigatewayv2_api" "api" {

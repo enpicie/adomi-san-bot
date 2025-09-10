@@ -1,12 +1,24 @@
 on:
   workflow_call:
     inputs:
+      app_name:
+        description: Name of the application
+        required: true
+        type: string
+      app_version:
+        description: Version of the application
+        required: true
+        type: string
       deployment_env:
         description: Environment to deploy to (e.g., dev, prod)
         required: true
         type: string
       aws_region:
         description: AWS Region to deploy to
+        required: true
+        type: string
+      artifact_s3_bucket:
+        description: S3 bucket name for storing build artifacts
         required: true
         type: string
       hcp_terraform_org:
@@ -22,6 +34,9 @@ on:
         required: true
         type: string
     secrets:
+      AWS_S3_ARTIFACT_UPLOAD_ROLE_ARN:
+        description: AWS IAM Role ARN for S3 access
+        required: true
       TF_API_TOKEN:
         required: true
       GH_ACTIONS_PAT:
@@ -57,23 +72,23 @@ jobs:
           tfc_workspace: ${{ inputs.hcp_terraform_workspace }}
           tfc_token: ${{ secrets.TF_API_TOKEN }}
 
-      - name: Zip Lambda source code
-        # Creates zip in terraform/application/ directory used in the next step
-        # Note that hcp_terraform_workspace is configured for this project to be in form "startgg-bracket-helper-bot-<env>"
-        run: |
-          ZIP_NAME="${{ inputs.hcp_terraform_workspace }}.zip"
-          echo "📦 Zipping contents of ./src into terraform/application/$ZIP_NAME..."
-          cd src
-          zip -r "../terraform/application/$ZIP_NAME" .
-          cd ..
-          echo "✅ Created terraform/$ZIP_NAME:"
-          ls -lh "terraform/application/$ZIP_NAME"
+      - name: Upload Lambda Zip to S3
+        uses: chzylee/action-workflow-upload-lambda-zip@v0.2.0
+        with:
+          source_directory: ./src # Path relative the repository root
+          app_name: ${{ inputs.app_name }}
+          artifact_name: ${{ inputs.app_name }}-latest # Always have startgg-bracket-helper-bot-latest.zip
+          s3_bucket_name: ${{ inputs.artifact_s3_bucket }}
+          aws_role_arn: ${{ secrets.AWS_S3_ARTIFACT_UPLOAD_ROLE_ARN }}
 
-      - name: Show terraform/application directory contents
-        # This is to verify that the zip file was created successfully before deploying
-        run: |
-          echo "Listing terraform/application just before upload:"
-          ls -lah ./terraform/application
+      - name: Upload Lambda Zip to S3
+        uses: chzylee/action-workflow-upload-lambda-zip@v0.2.0
+        with:
+          source_directory: ./src
+          app_name: ${{ inputs.app_name }}
+          artifact_name: ${{ inputs.app_name }}-${{ inputs.app_version }} # Archive version named like startgg-bracket-helper-bot-1.0.0.zip
+          s3_bucket_name: ${{ inputs.artifact_s3_bucket }}
+          aws_role_arn: ${{ secrets.AWS_S3_ARTIFACT_UPLOAD_ROLE_ARN }}
 
       - name: Deploy Application Config via HCP Terraform
         uses: chzylee/action-workflow-hcp-terraform-run@v1.1.1
