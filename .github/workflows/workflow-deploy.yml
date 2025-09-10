@@ -8,7 +8,7 @@ on:
         type: string
       app_version:
         description: Version of the application
-        required: true
+        required: false
         type: string
       deployment_env:
         description: Environment to deploy to (e.g., dev, prod)
@@ -73,21 +73,22 @@ jobs:
           tfc_workspace: ${{ inputs.hcp_terraform_workspace }}
           tfc_token: ${{ secrets.TF_API_TOKEN }}
 
-      - name: Upload Lambda Zip to S3
+      - name: Upload Latest Lambda Zip to S3
         uses: chzylee/action-workflow-upload-lambda-zip@v0.2.0
         with:
           source_directory: ./src # Path relative the repository root
           app_name: ${{ inputs.app_name }}
-          artifact_name: ${{ inputs.app_name }}-latest # Always have startgg-bracket-helper-bot-latest.zip
+          artifact_name: ${{ inputs.app_name }}-latest # Always have adomi-san-bot-latest.zip
           s3_bucket_name: ${{ inputs.artifact_s3_bucket }}
           aws_role_arn: ${{ secrets.AWS_S3_ARTIFACT_UPLOAD_ROLE_ARN }}
 
-      - name: Upload Lambda Zip to S3
+      - name: Upload Version Lambda Zip to S3
+        if: ${{ inputs.app_version != '' }}
         uses: chzylee/action-workflow-upload-lambda-zip@v0.2.0
         with:
           source_directory: ./src
           app_name: ${{ inputs.app_name }}
-          artifact_name: ${{ inputs.app_name }}-${{ inputs.app_version }} # Archive version named like startgg-bracket-helper-bot-1.0.0.zip
+          artifact_name: ${{ inputs.app_name }}-${{ inputs.app_version }} # Archive version named like adomi-san-bot-1.0.0.zip
           s3_bucket_name: ${{ inputs.artifact_s3_bucket }}
           aws_role_arn: ${{ secrets.AWS_S3_ARTIFACT_UPLOAD_ROLE_ARN }}
 
