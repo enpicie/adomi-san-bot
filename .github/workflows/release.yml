@@ -17,7 +17,7 @@ jobs:
   read-config:
     uses: ./.github/workflows/workflow-read-config.yml
     with:
-      config_file: ./.github/workflows/workflow-vars.yml
+      config_file: ./.github/config/pipeline-vars.yml
       # Config file defines:
       #   app_name, aws_region, hcp_terraform_org, hcp_terraform_project
 
