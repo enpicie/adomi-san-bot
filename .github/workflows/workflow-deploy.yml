@@ -1,3 +1,4 @@
+name: 'Deploy Infrastructure via HCP Terraform'
 on:
   workflow_call:
     inputs:
@@ -43,7 +44,7 @@ on:
         required: true
 
 jobs:
-  DeployViaHCPTerraform:
+  deploy-via-hcp-terraform:
     runs-on: ubuntu-latest
     steps:
       - name: Setup HCP Terraform Workspace

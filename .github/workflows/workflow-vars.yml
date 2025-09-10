@@ -1,5 +1,5 @@
 # Workflow variables shared across environments
 app_name: adomi-san-bot
 aws_region: us-east-2
-c: enpicie
+hcp_terraform_org: enpicie
 hcp_terraform_project: AWS-General

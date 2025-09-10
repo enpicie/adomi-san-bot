@@ -15,22 +15,15 @@ permissions:
 
 jobs:
   read-config:
-    runs-on: ubuntu-latest
-    outputs:
-      app_name: ${{ steps.read_config.outputs.app_name }}
-      aws_region: ${{ steps.read_config.outputs.aws_region }}
-      hcp_terraform_org: ${{ steps.read_config.outputs.hcp_terraform_org }}
-      hcp_terraform_project: ${{ steps.read_config.outputs.hcp_terraform_project }}
-    steps:
-      - uses: actions/checkout@v4
-      - name: Read shared config
-        id: read_config
-        uses: ./.github/actions/read_config.yml
-        with:
-          config_file: ./workflow_vars.yml
+    uses: ./.github/workflows/workflow-read-config.yml
+    with:
+      config_file: ./.github/workflows/workflow-vars.yml
+      # Config file defines:
+      #   app_name, aws_region, hcp_terraform_org, hcp_terraform_project
+
   deploy:
     needs: read-config
-    uses: ./.github/actions/action_deploy.yml
+    uses: ./.github/workflows/workflow-deploy.yml
     with:
       app_name: ${{ needs.read-config.outputs.app_name }}
       aws_region: ${{ needs.read-config.outputs.aws_region }}
