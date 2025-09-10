@@ -9,20 +9,24 @@ on:
     outputs:
       app_name:
         description: 'Application name'
+        value: ${{ jobs.read-config.outputs.app_name }}
       aws_region:
         description: 'AWS region'
-      artifact_s3_bucket:
-        description: 'S3 bucket name'
-      deployment_env:
-        description: 'Deployment environment'
+        value: ${{ jobs.read-config.outputs.aws_region }}
+      hcp_terraform_org:
+        description: 'HCP Terraform Organization name'
+        value: ${{ jobs.read-config.outputs.hcp_terraform_org }}
+      hcp_terraform_project:
+        description: 'HCP Terraform Project name'
+        value: ${{ jobs.read-config.outputs.hcp_terraform_project }}
 jobs:
   read-config:
     runs-on: ubuntu-latest
     outputs:
       app_name: ${{ steps.read_config.outputs.app_name }}
       aws_region: ${{ steps.read_config.outputs.aws_region }}
-      artifact_s3_bucket: ${{ steps.read_config.outputs.artifact_s3_bucket }}
-      deployment_env: ${{ steps.read_config.outputs.deployment_env }}
+      hcp_terraform_org: ${{ steps.read_config.outputs.hcp_terraform_org }}
+      hcp_terraform_project: ${{ steps.read_config.outputs.hcp_terraform_project }}
     steps:
       - uses: actions/checkout@v4
       - name: Read config YAML and set outputs
