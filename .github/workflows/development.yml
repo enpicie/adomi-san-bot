@@ -1,7 +1,6 @@
 name: Dev Pipeline
 
 on:
-  # Trigger on push to branches excluding main.
   push:
     branches-ignore:
       - main
@@ -9,25 +8,29 @@ on:
       - '!*' # Avoid accidental trigger on tag creation.
 
 permissions:
-  contents: write # This is required for actions/checkout and tag creation
+  contents: write
 
 jobs:
-  read-config:
-    uses: ./.github/workflows/workflow-read-config.yml
-    with:
-      config_file: ./.github/config/pipeline-vars.yml
-      # Config file defines:
-      #   app_name, aws_region, hcp_terraform_org, hcp_terraform_project
-
   deploy:
-    needs: read-config
-    uses: ./.github/workflows/workflow-deploy.yml
-    with:
-      app_name: ${{ needs.read-config.outputs.app_name }}
-      aws_region: ${{ needs.read-config.outputs.aws_region }}
-      hcp_terraform_org: ${{ needs.read-config.outputs.hcp_terraform_org }}
-      hcp_terraform_project: ${{ needs.read-config.outputs.hcp_terraform_project }}
-      deployment_env: 'dev'
-      artifact_s3_bucket: 'enpicie-dev-lambda-artifacts'
-      hcp_terraform_workspace: ${{ needs.read-config.outputs.app_name }}-dev
-    secrets: inherit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Load shared config file into GitHub Actions env
+        run: |
+          set -a
+          source ./.github/workflows/config.env
+          set +a
+          env | grep -v '^_' >> $GITHUB_ENV
+
+      - name: Run deploy workflow
+        uses: ./.github/workflows/workflow-deploy.yml
+        with:
+          app_name: ${{ env.APP_NAME }}
+          aws_region: ${{ env.AWS_REGION }}
+          hcp_terraform_org: ${{ env.HCP_TERRAFORM_ORG }}
+          hcp_terraform_project: ${{ env.HCP_TERRAFORM_PROJECT }}
+          deployment_env: 'dev'
+          artifact_s3_bucket: 'enpicie-dev-lambda-artifacts'
+          hcp_terraform_workspace: ${{ env.APP_NAME }}-dev
+        secrets: inherit
