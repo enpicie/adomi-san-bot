@@ -5,6 +5,7 @@ on:
       config_file:
         description: 'Path to the config YAML file to read.'
         required: false
+        type: string
         default: 'workflow_vars.yml'
     outputs:
       app_name:
