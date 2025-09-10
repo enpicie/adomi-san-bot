@@ -3,7 +3,7 @@ on:
     inputs:
       app_name:
         description: Name of the application
-        required: true
+        required: false
         type: string
       app_version:
         description: Version of the application

@@ -14,12 +14,29 @@ permissions:
   contents: write # This is required for actions/checkout and tag creation
 
 jobs:
-  Deploy:
-    uses: ./.github/workflows/action_deploy.yml
+  read-config:
+    runs-on: ubuntu-latest
+    outputs:
+      app_name: ${{ steps.read_config.outputs.app_name }}
+      aws_region: ${{ steps.read_config.outputs.aws_region }}
+      hcp_terraform_org: ${{ steps.read_config.outputs.hcp_terraform_org }}
+      hcp_terraform_project: ${{ steps.read_config.outputs.hcp_terraform_project }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read shared config
+        id: read_config
+        uses: ./.github/actions/read_config.yml
+        with:
+          config_file: ./workflow_vars.yml
+  deploy:
+    needs: read-config
+    uses: ./.github/actions/action_deploy.yml
     with:
+      app_name: ${{ needs.read-config.outputs.app_name }}
+      aws_region: ${{ needs.read-config.outputs.aws_region }}
+      hcp_terraform_org: ${{ needs.read-config.outputs.hcp_terraform_org }}
+      hcp_terraform_project: ${{ needs.read-config.outputs.hcp_terraform_project }}
       deployment_env: 'prod'
-      aws_region: 'us-east-2'
-      hcp_terraform_org: 'enpicie'
-      hcp_terraform_workspace: 'startgg-bracket-helper-bot-prod'
-      hcp_terraform_project: 'AWS-FGC'
+      artifact_s3_bucket: 'enpicie-prod-lambda-artifacts'
+      hcp_terraform_workspace: ${{ needs.read-config.outputs.app_name }}-prod
     secrets: inherit
