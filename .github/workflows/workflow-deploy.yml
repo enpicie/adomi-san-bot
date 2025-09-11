@@ -49,7 +49,7 @@ jobs:
     steps:
       - name: Setup HCP Terraform Workspace
         id: setup_workspace
-        uses: chzylee/action-workflow-hcp-terraform-workspace-setup@v1.1.0
+        uses: enpicie/action-workflow-hcp-terraform-workspace-setup@v1.1.0
         with:
           tfc_organization: ${{ inputs.hcp_terraform_org }}
           tfc_workspace: ${{ inputs.hcp_terraform_workspace }}
@@ -57,7 +57,7 @@ jobs:
           tfc_token: ${{ secrets.TF_API_TOKEN }}
 
       - name: Attach IAM Permissions Variable Set to this Workspace
-        uses: chzylee/action-workflow-hcp-terraform-var-set-attach@v1.0.1
+        uses: enpicie/action-workflow-hcp-terraform-var-set-attach@v1.0.1
         with:
           tfc_organization: ${{ inputs.hcp_terraform_org }}
           tfc_workspace_id: ${{ steps.setup_workspace.outputs.workspace_id }}
@@ -66,7 +66,7 @@ jobs:
           # Need permissions for Lambda, API Gateway, and DynamoDB
 
       - name: Deploy Workspace Config via HCP Terraform
-        uses: chzylee/action-workflow-hcp-terraform-run@v1.1.1
+        uses: enpicie/action-workflow-hcp-terraform-run@v1.1.1
         with:
           terraform_directory: ./terraform/workspace_config/${{ inputs.deployment_env }} # Get config for respective environment
           tfc_organization: ${{ inputs.hcp_terraform_org }}
@@ -74,7 +74,7 @@ jobs:
           tfc_token: ${{ secrets.TF_API_TOKEN }}
 
       - name: Upload Latest Lambda Zip to S3
-        uses: chzylee/action-workflow-upload-lambda-zip@v0.2.0
+        uses: enpicie/action-workflow-upload-lambda-zip@v0.2.0
         with:
           source_directory: ./src # Path relative the repository root
           app_name: ${{ inputs.app_name }}
@@ -84,7 +84,7 @@ jobs:
 
       - name: Upload Version Lambda Zip to S3
         if: ${{ inputs.app_version != '' }}
-        uses: chzylee/action-workflow-upload-lambda-zip@v0.2.0
+        uses: enpicie/action-workflow-upload-lambda-zip@v0.2.0
         with:
           source_directory: ./src
           app_name: ${{ inputs.app_name }}
@@ -93,7 +93,7 @@ jobs:
           aws_role_arn: ${{ secrets.AWS_S3_ARTIFACT_UPLOAD_ROLE_ARN }}
 
       - name: Deploy Application Config via HCP Terraform
-        uses: chzylee/action-workflow-hcp-terraform-run@v1.1.1
+        uses: enpicie/action-workflow-hcp-terraform-run@v1.1.1
         with:
           terraform_directory: ./terraform/application
           tfc_organization: ${{ inputs.hcp_terraform_org }}
