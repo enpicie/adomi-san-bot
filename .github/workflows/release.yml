@@ -53,7 +53,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Run Terraform via composite action
-        uses: ./.github/actions/terraform-deploy
+        uses: ./.github/workflows/workflow-deploy
         with:
           app_name: ${{ needs.read-config.outputs.APP_NAME }}
           aws_region: ${{ needs.read-config.outputs.AWS_REGION }}
