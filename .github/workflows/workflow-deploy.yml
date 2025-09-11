@@ -74,7 +74,7 @@ jobs:
           tfc_token: ${{ secrets.TF_API_TOKEN }}
 
       - name: Upload Latest Lambda Zip to S3
-        uses: enpicie/action-workflow-upload-lambda-zip@v0.2.0
+        uses: enpicie/action-workflow-upload-lambda-zip@v0.1.0
         with:
           source_directory: ./src # Path relative the repository root
           app_name: ${{ inputs.app_name }}
@@ -84,7 +84,7 @@ jobs:
 
       - name: Upload Version Lambda Zip to S3
         if: ${{ inputs.app_version != '' }}
-        uses: enpicie/action-workflow-upload-lambda-zip@v0.2.0
+        uses: enpicie/action-workflow-upload-lambda-zip@v0.1.0
         with:
           source_directory: ./src
           app_name: ${{ inputs.app_name }}
