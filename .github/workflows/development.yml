@@ -5,32 +5,45 @@ on:
     branches-ignore:
       - main
     tags:
-      - '!*' # Avoid accidental trigger on tag creation.
+      - '!*'
 
 permissions:
   contents: write
 
 jobs:
-  deploy:
+  read-config:
     runs-on: ubuntu-latest
+    outputs:
+      APP_NAME: ${{ steps.set-vars.outputs.APP_NAME }}
+      AWS_REGION: ${{ steps.set-vars.outputs.AWS_REGION }}
+      HCP_TERRAFORM_ORG: ${{ steps.set-vars.outputs.HCP_TERRAFORM_ORG }}
+      HCP_TERRAFORM_PROJECT: ${{ steps.set-vars.outputs.HCP_TERRAFORM_PROJECT }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Load shared config file into GitHub Actions env
+      - name: Load shared config file
+        id: set-vars
         run: |
+          # Load .env into bash
           set -a
           source ./.github/workflows/config.env
           set +a
-          env | grep -v '^_' >> $GITHUB_ENV
 
-      - name: Run deploy workflow
-        uses: ./.github/workflows/workflow-deploy.yml
-        with:
-          app_name: ${{ env.APP_NAME }}
-          aws_region: ${{ env.AWS_REGION }}
-          hcp_terraform_org: ${{ env.HCP_TERRAFORM_ORG }}
-          hcp_terraform_project: ${{ env.HCP_TERRAFORM_PROJECT }}
-          deployment_env: 'dev'
-          artifact_s3_bucket: 'enpicie-dev-lambda-artifacts'
-          hcp_terraform_workspace: ${{ env.APP_NAME }}-dev
-        secrets: inherit
+          # Set GitHub Actions outputs
+          echo "APP_NAME=$APP_NAME" >> $GITHUB_OUTPUT
+          echo "AWS_REGION=$AWS_REGION" >> $GITHUB_OUTPUT
+          echo "HCP_TERRAFORM_ORG=$HCP_TERRAFORM_ORG" >> $GITHUB_OUTPUT
+          echo "HCP_TERRAFORM_PROJECT=$HCP_TERRAFORM_PROJECT" >> $GITHUB_OUTPUT
+
+  deploy:
+    needs: read-config
+    uses: ./.github/workflows/workflow-deploy.yml
+    with:
+      app_name: ${{ needs.read-config.outputs.APP_NAME }}
+      aws_region: ${{ needs.read-config.outputs.AWS_REGION }}
+      hcp_terraform_org: ${{ needs.read-config.outputs.HCP_TERRAFORM_ORG }}
+      hcp_terraform_project: ${{ needs.read-config.outputs.HCP_TERRAFORM_PROJECT }}
+      deployment_env: 'dev'
+      artifact_s3_bucket: 'enpicie-dev-lambda-artifacts'
+      hcp_terraform_workspace: ${{ needs.read-config.outputs.APP_NAME }}-dev
+    secrets: inherit
