@@ -3,7 +3,7 @@ name: Release Pipeline
 on:
   push:
     tags:
-      - '[0-9]+.[0-9]+.[0-9]+' # Trigger only when tag with version (e.g. 1.0.0) is pushed.
+      - '[0-9]+.[0-9]+.[0-9]+'
   workflow_dispatch:
     inputs:
       version:
@@ -21,32 +21,44 @@ jobs:
       AWS_REGION: ${{ steps.set-vars.outputs.AWS_REGION }}
       HCP_TERRAFORM_ORG: ${{ steps.set-vars.outputs.HCP_TERRAFORM_ORG }}
       HCP_TERRAFORM_PROJECT: ${{ steps.set-vars.outputs.HCP_TERRAFORM_PROJECT }}
+      HCP_TERRAFORM_WORKSPACE: ${{ steps.set-vars.outputs.HCP_TERRAFORM_WORKSPACE }}
+      APP_VERSION: ${{ steps.set-vars.outputs.APP_VERSION }}
     steps:
       - uses: actions/checkout@v4
-
-      - name: Load shared config file
+      - name: Load config and extract tag version
         id: set-vars
         run: |
-          # Load .env into bash
           set -a
           source ./.github/workflows/config.env
           set +a
 
-          # Set GitHub Actions outputs
+          # Extract tag name if triggered by push
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            APP_VERSION="${GITHUB_REF#refs/tags/}"
+          else
+            APP_VERSION="${{ github.event.inputs.version }}"
+          fi
+
           echo "APP_NAME=$APP_NAME" >> $GITHUB_OUTPUT
           echo "AWS_REGION=$AWS_REGION" >> $GITHUB_OUTPUT
           echo "HCP_TERRAFORM_ORG=$HCP_TERRAFORM_ORG" >> $GITHUB_OUTPUT
           echo "HCP_TERRAFORM_PROJECT=$HCP_TERRAFORM_PROJECT" >> $GITHUB_OUTPUT
+          echo "HCP_TERRAFORM_WORKSPACE=$HCP_TERRAFORM_WORKSPACE_PROD" >> $GITHUB_OUTPUT
+          echo "APP_VERSION=$APP_VERSION" >> $GITHUB_OUTPUT
 
   deploy:
     needs: read-config
-    uses: ./.github/workflows/workflow-deploy.yml
-    with:
-      app_name: ${{ needs.read-config.outputs.APP_NAME }}
-      aws_region: ${{ needs.read-config.outputs.AWS_REGION }}
-      hcp_terraform_org: ${{ needs.read-config.outputs.HCP_TERRAFORM_ORG }}
-      hcp_terraform_project: ${{ needs.read-config.outputs.HCP_TERRAFORM_PROJECT }}
-      deployment_env: 'prod'
-      artifact_s3_bucket: 'enpicie-prod-lambda-artifacts'
-      hcp_terraform_workspace: ${{ needs.read-config.outputs.APP_NAME }}-prod
-    secrets: inherit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Terraform via composite action
+        uses: ./.github/actions/terraform-deploy
+        with:
+          app_name: ${{ needs.read-config.outputs.APP_NAME }}
+          aws_region: ${{ needs.read-config.outputs.AWS_REGION }}
+          hcp_terraform_org: ${{ needs.read-config.outputs.HCP_TERRAFORM_ORG }}
+          hcp_terraform_project: ${{ needs.read-config.outputs.HCP_TERRAFORM_PROJECT }}
+          app_version: ${{ needs.read-config.outputs.APP_VERSION }}
+          deployment_env: 'prod'
+          artifact_s3_bucket: 'enpicie-prod-lambda-artifacts'
+          hcp_terraform_workspace: ${{ needs.read-config.outputs.APP_NAME }}-prod

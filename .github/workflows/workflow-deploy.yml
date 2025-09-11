@@ -4,11 +4,7 @@ on:
     inputs:
       app_name:
         description: Name of the application
-        required: false
-        type: string
-      app_version:
-        description: Version of the application
-        required: false
+        required: true
         type: string
       deployment_env:
         description: Environment to deploy to (e.g., dev, prod)
@@ -33,6 +29,10 @@ on:
       hcp_terraform_project:
         description: HCP Terraform Project name
         required: true
+        type: string
+      app_version:
+        description: Version of the application
+        required: false
         type: string
     secrets:
       AWS_S3_ARTIFACT_UPLOAD_ROLE_ARN:
@@ -63,22 +63,13 @@ jobs:
           tfc_workspace_id: ${{ steps.setup_workspace.outputs.workspace_id }}
           tfc_token: ${{ secrets.TF_API_TOKEN }}
           var_set_name: ${{ vars.AWS_TF_ROLE_VARSET_LAMB_APIGW_DDB }}
-          # Need permissions for Lambda, API Gateway, and DynamoDB
-
-      - name: Deploy Workspace Config via HCP Terraform
-        uses: enpicie/action-workflow-hcp-terraform-run@v1.1.1
-        with:
-          terraform_directory: ./terraform/workspace_config/${{ inputs.deployment_env }} # Get config for respective environment
-          tfc_organization: ${{ inputs.hcp_terraform_org }}
-          tfc_workspace: ${{ inputs.hcp_terraform_workspace }}
-          tfc_token: ${{ secrets.TF_API_TOKEN }}
 
       - name: Upload Latest Lambda Zip to S3
         uses: enpicie/action-workflow-upload-lambda-zip@v0.1.0
         with:
-          source_directory: ./src # Path relative the repository root
+          source_directory: ./src
           app_name: ${{ inputs.app_name }}
-          artifact_name: ${{ inputs.app_name }}-latest # Always have adomi-san-bot-latest.zip
+          artifact_name: ${{ inputs.app_name }}-latest
           s3_bucket_name: ${{ inputs.artifact_s3_bucket }}
           aws_role_arn: ${{ secrets.AWS_S3_ARTIFACT_UPLOAD_ROLE_ARN }}
 
@@ -88,7 +79,7 @@ jobs:
         with:
           source_directory: ./src
           app_name: ${{ inputs.app_name }}
-          artifact_name: ${{ inputs.app_name }}-${{ inputs.app_version }} # Archive version named like adomi-san-bot-1.0.0.zip
+          artifact_name: ${{ inputs.app_name }}-${{ inputs.app_version }}
           s3_bucket_name: ${{ inputs.artifact_s3_bucket }}
           aws_role_arn: ${{ secrets.AWS_S3_ARTIFACT_UPLOAD_ROLE_ARN }}
 
@@ -99,3 +90,8 @@ jobs:
           tfc_organization: ${{ inputs.hcp_terraform_org }}
           tfc_workspace: ${{ inputs.hcp_terraform_workspace }}
           tfc_token: ${{ secrets.TF_API_TOKEN }}
+        env:
+          TF_VAR_app_name: ${{ inputs.app_name }}
+          TF_VAR_aws_region: ${{ inputs.aws_region }}
+          TF_VAR_deployment_env: ${{ inputs.deployment_env }}
+          TF_VAR_artifact_s3_bucket: ${{ inputs.artifact_s3_bucket }}

@@ -18,32 +18,34 @@ jobs:
       AWS_REGION: ${{ steps.set-vars.outputs.AWS_REGION }}
       HCP_TERRAFORM_ORG: ${{ steps.set-vars.outputs.HCP_TERRAFORM_ORG }}
       HCP_TERRAFORM_PROJECT: ${{ steps.set-vars.outputs.HCP_TERRAFORM_PROJECT }}
+      HCP_TERRAFORM_WORKSPACE: ${{ steps.set-vars.outputs.HCP_TERRAFORM_WORKSPACE }}
     steps:
       - uses: actions/checkout@v4
-
-      - name: Load shared config file
+      - name: Load config
         id: set-vars
         run: |
-          # Load .env into bash
           set -a
           source ./.github/workflows/config.env
           set +a
 
-          # Set GitHub Actions outputs
           echo "APP_NAME=$APP_NAME" >> $GITHUB_OUTPUT
           echo "AWS_REGION=$AWS_REGION" >> $GITHUB_OUTPUT
           echo "HCP_TERRAFORM_ORG=$HCP_TERRAFORM_ORG" >> $GITHUB_OUTPUT
           echo "HCP_TERRAFORM_PROJECT=$HCP_TERRAFORM_PROJECT" >> $GITHUB_OUTPUT
+          echo "HCP_TERRAFORM_WORKSPACE=$HCP_TERRAFORM_WORKSPACE_DEV" >> $GITHUB_OUTPUT
 
   deploy:
     needs: read-config
-    uses: ./.github/workflows/workflow-deploy.yml
-    with:
-      app_name: ${{ needs.read-config.outputs.APP_NAME }}
-      aws_region: ${{ needs.read-config.outputs.AWS_REGION }}
-      hcp_terraform_org: ${{ needs.read-config.outputs.HCP_TERRAFORM_ORG }}
-      hcp_terraform_project: ${{ needs.read-config.outputs.HCP_TERRAFORM_PROJECT }}
-      deployment_env: 'dev'
-      artifact_s3_bucket: 'enpicie-dev-lambda-artifacts'
-      hcp_terraform_workspace: ${{ needs.read-config.outputs.APP_NAME }}-dev
-    secrets: inherit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Terraform via composite action
+        uses: ./.github/actions/terraform-deploy
+        with:
+          app_name: ${{ needs.read-config.outputs.APP_NAME }}
+          aws_region: ${{ needs.read-config.outputs.AWS_REGION }}
+          hcp_terraform_org: ${{ needs.read-config.outputs.HCP_TERRAFORM_ORG }}
+          hcp_terraform_project: ${{ needs.read-config.outputs.HCP_TERRAFORM_PROJECT }}
+          deployment_env: 'dev'
+          artifact_s3_bucket: 'enpicie-dev-lambda-artifacts'
+          hcp_terraform_workspace: ${{ needs.read-config.outputs.APP_NAME }}-dev

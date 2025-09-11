@@ -1,17 +1,16 @@
-variable "aws_region" {
-  description = "AWS region to deploy resources"
-  type        = string
-  default     = "us-east-2" # Ohio
-}
-
+# config.env Settings
 variable "app_name" {
-  description = "Path to the ZIP file for Lambda deployment"
+  description = "The name of the application"
   type        = string
-  default     = "startgg-bracket-helper-bot"
 }
 
-# Set via Workspace Vars provisioned via workspace_config
-variable "env" {
+variable "aws_region" {
+  description = "AWS region to deploy resources into"
+  type        = string
+}
+
+# Passed in as ENV variables from GitHub Actions workflow
+variable "deployment_env" {
   description = "Deployment environment (e.g., dev, prod)"
   type        = string
 }
