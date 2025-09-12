@@ -49,17 +49,14 @@ jobs:
 
   deploy:
     needs: read-config
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Run Terraform via composite action
-        uses: ./.github/workflows/workflow-deploy.yml
-        with:
-          app_name: ${{ needs.read-config.outputs.APP_NAME }}
-          aws_region: ${{ needs.read-config.outputs.AWS_REGION }}
-          hcp_terraform_org: ${{ needs.read-config.outputs.HCP_TERRAFORM_ORG }}
-          hcp_terraform_project: ${{ needs.read-config.outputs.HCP_TERRAFORM_PROJECT }}
-          app_version: ${{ needs.read-config.outputs.APP_VERSION }}
-          deployment_env: 'prod'
-          artifact_s3_bucket: 'enpicie-prod-lambda-artifacts'
-          hcp_terraform_workspace: ${{ needs.read-config.outputs.APP_NAME }}-prod
+    uses: ./.github/workflows/workflow-deploy.yml
+    with:
+      app_name: ${{ needs.read-config.outputs.APP_NAME }}
+      aws_region: ${{ needs.read-config.outputs.AWS_REGION }}
+      hcp_terraform_org: ${{ needs.read-config.outputs.HCP_TERRAFORM_ORG }}
+      hcp_terraform_project: ${{ needs.read-config.outputs.HCP_TERRAFORM_PROJECT }}
+      app_version: ${{ needs.read-config.outputs.APP_VERSION }}
+      deployment_env: 'prod'
+      artifact_s3_bucket: 'enpicie-prod-lambda-artifacts'
+      hcp_terraform_workspace: ${{ needs.read-config.outputs.APP_NAME }}-prod
+    secrets: inherit
