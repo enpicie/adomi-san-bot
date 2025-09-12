@@ -90,7 +90,7 @@ jobs:
           tfc_workspace: ${{ inputs.hcp_terraform_workspace }}
           tfc_token: ${{ secrets.TF_API_TOKEN }}
         env:
-          TF_VAR_app_name: '${{ inputs.app_name }}'
-          TF_VAR_aws_region: '${{ inputs.aws_region }}'
-          TF_VAR_deployment_env: '${{ inputs.deployment_env }}'
-          TF_VAR_bucket_name: '${{ inputs.artifact_s3_bucket }}'
+          TF_VAR_app_name: '"${{ inputs.app_name }}"'
+          TF_VAR_aws_region: '"${{ inputs.aws_region }}"'
+          TF_VAR_deployment_env: '"${{ inputs.deployment_env }}"'
+          TF_VAR_bucket_name: '"${{ inputs.artifact_s3_bucket }}"'
