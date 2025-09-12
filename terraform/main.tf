@@ -34,7 +34,7 @@ data "aws_lambda_layer_version" "pynacl_layer" {
 }
 
 resource "aws_lambda_layer_version" "app_layer" {
-  layer_name               = "${var.app_name}-${var.architecture}-layer"
+  layer_name               = "${var.app_name}-layer"
   description              = "Lambda layer for dependencies of ${var.app_name}"
   s3_bucket                = var.bucket_name
   s3_key                   = var.app_lambda_layer_s3_key
