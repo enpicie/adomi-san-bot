@@ -35,6 +35,7 @@ jobs:
           echo "HCP_TERRAFORM_ORG=$HCP_TERRAFORM_ORG" >> $GITHUB_OUTPUT
           echo "HCP_TERRAFORM_PROJECT=$HCP_TERRAFORM_PROJECT" >> $GITHUB_OUTPUT
           echo "HCP_TERRAFORM_WORKSPACE=$HCP_TERRAFORM_WORKSPACE_DEV" >> $GITHUB_OUTPUT
+          echo "DISCORD_PUBLIC_KEY=$DISCORD_PUBLIC_KEY_DEV" >> $GITHUB_OUTPUT
 
   deploy:
     needs: read-config
@@ -44,6 +45,7 @@ jobs:
       aws_region: ${{ needs.read-config.outputs.AWS_REGION }}
       hcp_terraform_org: ${{ needs.read-config.outputs.HCP_TERRAFORM_ORG }}
       hcp_terraform_project: ${{ needs.read-config.outputs.HCP_TERRAFORM_PROJECT }}
+      discord_public_key: ${{ needs.read-config.outputs.DISCORD_PUBLIC_KEY }}
       deployment_env: 'dev'
       artifact_s3_bucket: 'enpicie-dev-lambda-artifacts'
       hcp_terraform_workspace: ${{ needs.read-config.outputs.APP_NAME }}-dev

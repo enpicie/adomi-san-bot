@@ -1,1 +1,1 @@
-PING_PONG = { "type": 1 }
+PING_PONG_TYPE = 1

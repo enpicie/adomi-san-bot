@@ -45,6 +45,11 @@ resource "aws_lambda_function" "bot_lambda" {
   layers = [
     data.aws_lambda_layer_version.pynacl_layer.arn
   ]
+  environment {
+    variables = {
+      PUBLIC_KEY = var.discord_public_key
+    }
+  }
 
   # Ensures Lambda updates only if the zip file changes
   source_code_hash = data.aws_s3_object.lambda_zip_latest.etag
