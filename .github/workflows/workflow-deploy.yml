@@ -14,10 +14,6 @@ on:
         description: Python runtime for Lambda (e.g., 3.11)
         required: true
         type: string
-      architecture:
-        description: Architecture for Lambda (e.g., x86_64, arm64)
-        required: true
-        type: string
       aws_region:
         description: AWS Region to deploy to
         required: true
@@ -82,7 +78,6 @@ jobs:
           requirements_path: ./src/requirements.txt # Path relative the repository root
           app_name: ${{ inputs.app_name }}
           python_runtime: ${{ inputs.python_runtime }}
-          architecture: ${{ inputs.architecture }}
           s3_bucket_name: ${{ inputs.artifact_s3_bucket }}
           aws_role_arn: ${{ secrets.AWS_S3_ARTIFACT_UPLOAD_ROLE_ARN }}
 
@@ -117,7 +112,6 @@ jobs:
           TF_VAR_app_name: '"${{ inputs.app_name }}"'
           TF_VAR_aws_region: '"${{ inputs.aws_region }}"'
           TF_VAR_python_runtime: '"${{ inputs.python_runtime }}"'
-          TF_VAR_architecture: '"${{ inputs.architecture }}"'
           TF_VAR_deployment_env: '"${{ inputs.deployment_env }}"'
           TF_VAR_bucket_name: '"${{ inputs.artifact_s3_bucket }}"'
           TF_VAR_app_lambda_layer_s3_key: '"${{ steps.build_layer.outputs.s3_artifact_key }}"'
