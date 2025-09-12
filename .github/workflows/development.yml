@@ -21,6 +21,7 @@ jobs:
       HCP_TERRAFORM_PROJECT: ${{ steps.set-vars.outputs.HCP_TERRAFORM_PROJECT }}
       HCP_TERRAFORM_WORKSPACE: ${{ steps.set-vars.outputs.HCP_TERRAFORM_WORKSPACE }}
       DISCORD_PUBLIC_KEY: ${{ steps.set-vars.outputs.DISCORD_PUBLIC_KEY }}
+      BRANCH_NAME: ${{ steps.set-vars.outputs.BRANCH_NAME }}
     steps:
       - uses: actions/checkout@v4
       - name: Load config
@@ -37,6 +38,7 @@ jobs:
           echo "HCP_TERRAFORM_PROJECT=$HCP_TERRAFORM_PROJECT" >> $GITHUB_OUTPUT
           echo "HCP_TERRAFORM_WORKSPACE=$HCP_TERRAFORM_WORKSPACE_DEV" >> $GITHUB_OUTPUT
           echo "DISCORD_PUBLIC_KEY=$DISCORD_PUBLIC_KEY_DEV" >> $GITHUB_OUTPUT
+          echo "BRANCH_NAME=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
 
   deploy:
     needs: read-config
@@ -48,6 +50,7 @@ jobs:
       hcp_terraform_project: ${{ needs.read-config.outputs.HCP_TERRAFORM_PROJECT }}
       hcp_terraform_workspace: ${{ needs.read-config.outputs.HCP_TERRAFORM_WORKSPACE }}
       discord_public_key: ${{ needs.read-config.outputs.DISCORD_PUBLIC_KEY }}
+      app_version: ${{ needs.read-config.outputs.BRANCH_NAME }}
       deployment_env: 'dev'
       artifact_s3_bucket: 'enpicie-dev-lambda-artifacts'
     secrets: inherit
