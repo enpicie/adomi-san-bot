@@ -73,7 +73,7 @@ jobs:
 
       - name: Build and Upload Lambda Layer Artifact to S3
         id: build_layer
-        uses: enpicie/action-workflow-build-python-lambda-layer-zip@v0.3.0
+        uses: enpicie/action-workflow-build-python-lambda-layer-zip@v0.4.0
         with:
           requirements_path: ./src/requirements.txt # Path relative the repository root
           app_name: ${{ inputs.app_name }}
