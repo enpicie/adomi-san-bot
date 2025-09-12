@@ -32,8 +32,8 @@ resource "aws_lambda_function" "bot_lambda" {
   function_name = "${var.app_name}-${var.deployment_env}"
   s3_bucket     = data.aws_s3_bucket.lambda_bucket.id
   s3_key        = data.aws_s3_object.lambda_zip_latest.key
-  handler       = "index.handler"
-  runtime       = "nodejs18.x"
+  handler       = "lambda_function.lambda_handler"
+  runtime       = "python3.11"
   role          = aws_iam_role.lambda_exec_role.arn
   timeout       = 10
 
