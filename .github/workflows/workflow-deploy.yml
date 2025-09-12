@@ -89,7 +89,7 @@ jobs:
       - name: Deploy Application Config via HCP Terraform
         uses: enpicie/action-workflow-hcp-terraform-run@v1.1.1
         with:
-          terraform_directory: ./terraform/application
+          terraform_directory: ./terraform
           tfc_organization: ${{ inputs.hcp_terraform_org }}
           tfc_workspace: ${{ inputs.hcp_terraform_workspace }}
           tfc_token: ${{ secrets.TF_API_TOKEN }}
