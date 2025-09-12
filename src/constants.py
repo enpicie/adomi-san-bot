@@ -1,1 +1,2 @@
 PING_PONG_TYPE = 1
+PING_PONG_RESPONSE = { "type": 1 }
