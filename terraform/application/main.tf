@@ -39,6 +39,7 @@ resource "aws_lambda_function" "bot_lambda" {
   s3_key        = data.aws_s3_object.lambda_zip_latest.key
   handler       = "lambda_handler.lambda_handler"
   runtime       = "python3.11"
+  architectures = ["arm64"]
   role          = aws_iam_role.lambda_exec_role.arn
   timeout       = 10
   layers = [
