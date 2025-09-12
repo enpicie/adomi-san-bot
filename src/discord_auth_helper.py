@@ -6,7 +6,8 @@ import constants
 # Discord uses "ping pong" message to verify bot.
 def is_ping_pong(body: dict) -> bool:
     if body["type"]:
-        return body["type"] == constants.PING_PONG_TYPE
+        # Look up type for "pong" response to Discord's ping reques.
+        return body["type"] == constants.DISCORD_RESPONSE_TYPES["PONG"]
 
 # Discord needs to verify bot application.
 def verify_signature(event: dict):

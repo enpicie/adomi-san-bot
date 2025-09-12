@@ -1,13 +1,13 @@
 import json
 import constants
-import discord_helper
+import discord_auth_helper
 
 def lambda_handler(event, context):
-    print(f"event {event}") # debug print
+    print(f"Received Event: {event}") # debug print
 
     # verify the signature
     try:
-        discord_helper.verify_signature(event)
+        discord_auth_helper.verify_signature(event)
     except Exception as e:
         raise Exception(f"[UNAUTHORIZED] Invalid request signature: {e}")
 
@@ -16,12 +16,14 @@ def lambda_handler(event, context):
 
     body = json.loads(event["body"])
 
-    if discord_helper.is_ping_pong(body):
-        print("is_ping_pong: True")
+    if discord_auth_helper.is_ping_pong(body):
+        print("discord_auth_helper.is_ping_pong: True")
         response = constants.PING_PONG_RESPONSE
     else:
         data = body["data"]
-        print(f"data: {data}") # debug print
+        print(f"Received data: {data}") # debug print
+        # TODO: implement bot logic here.
+        response = { "message": "Not implemented" }
 
-    print(f"response: {response}") # debug print
+    print(f"Response: {response}") # debug print
     return response
