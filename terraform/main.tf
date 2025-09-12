@@ -33,17 +33,27 @@ data "aws_lambda_layer_version" "pynacl_layer" {
   layer_name = "PyNaCl-311"
 }
 
+resource "aws_lambda_layer_version" "app_layer" {
+  layer_name               = "${var.app_name}-${var.architecture}-layer"
+  description              = "Lambda layer for dependencies of ${var.app_name}"
+  s3_bucket                = var.bucket_name
+  s3_key                   = var.app_lambda_layer_s3_key
+  compatible_runtimes      = ["python${var.python_runtime}"]
+  compatible_architectures = [var.architecture]
+}
+
 resource "aws_lambda_function" "bot_lambda" {
   function_name = "${var.app_name}-${var.deployment_env}"
   s3_bucket     = data.aws_s3_bucket.lambda_bucket.id
   s3_key        = data.aws_s3_object.lambda_zip_latest.key
   handler       = "lambda_handler.lambda_handler"
-  runtime       = "python3.11"
-  architectures = ["arm64"]
+  runtime       = "python${var.python_runtime}"
+  architectures = [var.architecture]
   role          = aws_iam_role.lambda_exec_role.arn
   timeout       = 10
   layers = [
-    data.aws_lambda_layer_version.pynacl_layer.arn
+    data.aws_lambda_layer_version.pynacl_layer.arn,
+    aws_lambda_layer_version.app_layer.arn
   ]
   environment {
     variables = {

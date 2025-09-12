@@ -10,6 +10,14 @@ on:
         description: Environment to deploy to (e.g., dev, prod)
         required: true
         type: string
+      python_runtime:
+        description: Python runtime for Lambda (e.g., 3.11)
+        required: true
+        type: string
+      architecture:
+        description: Architecture for Lambda (e.g., x86_64, arm64)
+        required: true
+        type: string
       aws_region:
         description: AWS Region to deploy to
         required: true
@@ -67,6 +75,17 @@ jobs:
           tfc_token: ${{ secrets.TF_API_TOKEN }}
           var_set_name: ${{ vars.AWS_TF_ROLE_VARSET_LAMB_APIGW_DDB }}
 
+      - name: Build and Upload Lambda Layer Artifact to S3
+        id: build_layer
+        uses: enpicie/action-workflow-build-python-lambda-layer-zip@v0.1.0
+        with:
+          requirements_path: ./src/requirements.txt # Path relative the repository root
+          app_name: ${{ inputs.app_name }}
+          python_runtime: ${{ inputs.python_runtime }}
+          architecture: ${{ inputs.architecture }}
+          s3_bucket_name: ${{ inputs.artifact_s3_bucket }}
+          aws_role_arn: ${{ secrets.AWS_S3_ARTIFACT_UPLOAD_ROLE_ARN }}
+
       - name: Upload Latest Lambda Zip to S3
         uses: enpicie/action-workflow-upload-lambda-zip@v0.1.0
         with:
@@ -97,6 +116,9 @@ jobs:
           # Need explicit quotes to pass strings as string literaly correctly
           TF_VAR_app_name: '"${{ inputs.app_name }}"'
           TF_VAR_aws_region: '"${{ inputs.aws_region }}"'
+          TF_VAR_python_runtime: '"${{ inputs.python_runtime }}"'
+          TF_VAR_architecture: '"${{ inputs.architecture }}"'
           TF_VAR_deployment_env: '"${{ inputs.deployment_env }}"'
           TF_VAR_bucket_name: '"${{ inputs.artifact_s3_bucket }}"'
+          TF_VAR_app_lambda_layer_s3_key: '"${{ steps.build_layer.outputs.s3_artifact_key }}"'
           TF_VAR_discord_public_key: '"${{ inputs.discord_public_key }}"'
