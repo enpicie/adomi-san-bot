@@ -56,13 +56,13 @@ resource "aws_apigatewayv2_integration" "lambda_integration" {
 
 resource "aws_apigatewayv2_route" "default" {
   api_id    = aws_apigatewayv2_api.api.id
-  route_key = "ANY /{proxy+}"
+  route_key = "ANY /${var.app_name}"
   target    = "integrations/${aws_apigatewayv2_integration.lambda_integration.id}"
 }
 
-resource "aws_apigatewayv2_stage" "default" {
+resource "aws_apigatewayv2_stage" "env_stage`" {
   api_id      = aws_apigatewayv2_api.api.id
-  name        = "$default"
+  name        = var.deployment_env
   auto_deploy = true
 }
 
