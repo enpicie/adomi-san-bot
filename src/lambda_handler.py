@@ -10,10 +10,10 @@ def lambda_handler(event, context):
     except Exception as e:
         raise Exception(f"[UNAUTHORIZED] Invalid request signature: {e}")
 
-    if not event["body-json"]:
+    if not event["body"]:
         return { "message": "Request is not Lambda event: 'body-json' not found" }
 
-    body = event["body-json"]
+    body = event["body"]
 
     if discord_helper.is_ping_pong(body):
         print("is_ping_pong: True")
