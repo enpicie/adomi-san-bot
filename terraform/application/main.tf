@@ -28,6 +28,11 @@ resource "aws_iam_role_policy_attachment" "lambda_basic_execution" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
+# Layer with PyNaCl for cryptographic operations required by Discord auth
+data "aws_lambda_layer_version" "pynacl_layer" {
+  layer_name = "PyNaCl-311"
+}
+
 resource "aws_lambda_function" "bot_lambda" {
   function_name = "${var.app_name}-${var.deployment_env}"
   s3_bucket     = data.aws_s3_bucket.lambda_bucket.id
@@ -36,6 +41,9 @@ resource "aws_lambda_function" "bot_lambda" {
   runtime       = "python3.11"
   role          = aws_iam_role.lambda_exec_role.arn
   timeout       = 10
+  layers = [
+    data.aws_lambda_layer_version.pynacl_layer.arn
+  ]
 
   # Ensures Lambda updates only if the zip file changes
   source_code_hash = data.aws_s3_object.lambda_zip_latest.etag
