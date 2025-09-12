@@ -38,7 +38,7 @@ resource "aws_lambda_function" "bot_lambda" {
   timeout       = 10
 
   # Ensures Lambda updates only if the zip file changes
-  source_code_hash = filebase64sha256("${var.app_name}-${var.deployment_env}.zip")
+  source_code_hash = data.aws_s3_object.lambda_zip_latest.etag
 }
 
 resource "aws_apigatewayv2_api" "api" {
