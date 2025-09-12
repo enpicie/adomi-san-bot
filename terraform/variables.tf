@@ -9,6 +9,16 @@ variable "aws_region" {
   type        = string
 }
 
+variable "python_runtime" {
+  description = "Python runtime for Lambda (e.g., 3.11)"
+  type        = string
+}
+
+variable "architecture" {
+  description = "Architecture for Lambda (e.g., x86_64, arm64)"
+  type        = string
+}
+
 variable "deployment_env" {
   description = "Deployment environment (e.g., dev, prod)"
   type        = string
@@ -16,6 +26,11 @@ variable "deployment_env" {
 
 variable "bucket_name" {
   description = "S3 bucket to store Lambda artifacts"
+  type        = string
+}
+
+variable "app_lambda_layer_s3_key" {
+  description = "Name of the Lambda layer built for this application"
   type        = string
 }
 

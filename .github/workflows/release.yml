@@ -20,6 +20,8 @@ jobs:
     outputs:
       APP_NAME: ${{ steps.set-vars.outputs.APP_NAME }}
       AWS_REGION: ${{ steps.set-vars.outputs.AWS_REGION }}
+      PYTHON_RUNTIME: ${{ steps.set-vars.outputs.PYTHON_RUNTIME }}
+      ARCHITECTURE: ${{ steps.set-vars.outputs.ARCHITECTURE }}
       HCP_TERRAFORM_ORG: ${{ steps.set-vars.outputs.HCP_TERRAFORM_ORG }}
       HCP_TERRAFORM_PROJECT: ${{ steps.set-vars.outputs.HCP_TERRAFORM_PROJECT }}
       HCP_TERRAFORM_WORKSPACE: ${{ steps.set-vars.outputs.HCP_TERRAFORM_WORKSPACE }}
@@ -44,6 +46,8 @@ jobs:
 
           echo "APP_NAME=$APP_NAME" >> $GITHUB_OUTPUT
           echo "AWS_REGION=$AWS_REGION" >> $GITHUB_OUTPUT
+          echo "PYTHON_RUNTIME=$PYTHON_RUNTIME" >> $GITHUB_OUTPUT
+          echo "ARCHITECTURE=$ARCHITECTURE" >> $GITHUB_OUTPUT
           echo "HCP_TERRAFORM_ORG=$HCP_TERRAFORM_ORG" >> $GITHUB_OUTPUT
           echo "HCP_TERRAFORM_PROJECT=$HCP_TERRAFORM_PROJECT" >> $GITHUB_OUTPUT
           echo "HCP_TERRAFORM_WORKSPACE=$HCP_TERRAFORM_WORKSPACE_PROD" >> $GITHUB_OUTPUT
@@ -56,6 +60,8 @@ jobs:
     with:
       app_name: ${{ needs.read-config.outputs.APP_NAME }}
       aws_region: ${{ needs.read-config.outputs.AWS_REGION }}
+      python_runtime: ${{ needs.read-config.outputs.PYTHON_RUNTIME }}
+      architecture: ${{ needs.read-config.outputs.ARCHITECTURE }}
       hcp_terraform_org: ${{ needs.read-config.outputs.HCP_TERRAFORM_ORG }}
       hcp_terraform_project: ${{ needs.read-config.outputs.HCP_TERRAFORM_PROJECT }}
       hcp_terraform_workspace: ${{ needs.read-config.outputs.HCP_TERRAFORM_WORKSPACE }}
