@@ -1,3 +1,4 @@
+import json
 import constants
 import discord_helper
 
@@ -10,14 +11,14 @@ def lambda_handler(event, context):
     except Exception as e:
         raise Exception(f"[UNAUTHORIZED] Invalid request signature: {e}")
 
-    if not event["body-json"]:
+    if not event["body"]:
         return { "message": "Request is not Lambda event: 'body-json' not found" }
 
-    body = event["body-json"]
+    body = json.loads(event["body"])
 
     if discord_helper.is_ping_pong(body):
         print("is_ping_pong: True")
-        response = constants.PING_PONG
+        response = constants.PING_PONG_RESPONSE
     else:
         data = body["data"]
         print(f"data: {data}") # debug print

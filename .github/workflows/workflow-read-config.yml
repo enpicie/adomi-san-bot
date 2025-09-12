@@ -1,0 +1,48 @@
+name: 'Read Shared Config'
+on:
+  workflow_call:
+    inputs:
+      config_file:
+        description: 'Path to the config YAML file to read.'
+        required: false
+        type: string
+        default: 'workflow_vars.yml'
+    outputs:
+      app_name:
+        description: 'Application name'
+        value: ${{ jobs.read-config.outputs.app_name }}
+      aws_region:
+        description: 'AWS region'
+        value: ${{ jobs.read-config.outputs.aws_region }}
+      hcp_terraform_org:
+        description: 'HCP Terraform Organization name'
+        value: ${{ jobs.read-config.outputs.hcp_terraform_org }}
+      hcp_terraform_project:
+        description: 'HCP Terraform Project name'
+        value: ${{ jobs.read-config.outputs.hcp_terraform_project }}
+jobs:
+  read-config:
+    runs-on: ubuntu-latest
+    outputs:
+      app_name: ${{ steps.read_config.outputs.app_name }}
+      aws_region: ${{ steps.read_config.outputs.aws_region }}
+      hcp_terraform_org: ${{ steps.read_config.outputs.hcp_terraform_org }}
+      hcp_terraform_project: ${{ steps.read_config.outputs.hcp_terraform_project }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read config YAML and set outputs
+        id: read_config
+        shell: bash
+        run: |
+          node <<'EOF'
+          const fs = require('fs');
+          const yaml = require('js-yaml');
+          const configFile = process.env.CONFIG_FILE || 'workflow_vars.yml';
+          const config = yaml.load(fs.readFileSync(configFile, 'utf8'));
+          for (const [key, value] of Object.entries(config)) {
+            console.log(`::set-output name=${key}::${value}`);
+          }
+          EOF
+        env:
+          NODE_OPTIONS: '--no-warnings'
+          CONFIG_FILE: ${{ inputs.config_file }}

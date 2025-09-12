@@ -3,7 +3,7 @@ name: Release Pipeline
 on:
   push:
     tags:
-      - '[0-9]+.[0-9]+.[0-9]+' # Trigger only when tag with version (e.g. 1.0.0) is pushed.
+      - '[0-9]+.[0-9]+.[0-9]+'
   workflow_dispatch:
     inputs:
       version:
@@ -11,15 +11,56 @@ on:
         required: true
 
 permissions:
-  contents: write # This is required for actions/checkout and tag creation
+  id-token: write # needed for AWS role assumption
+  contents: write
 
 jobs:
-  Deploy:
-    uses: ./.github/workflows/action_deploy.yml
+  read-config:
+    runs-on: ubuntu-latest
+    outputs:
+      APP_NAME: ${{ steps.set-vars.outputs.APP_NAME }}
+      AWS_REGION: ${{ steps.set-vars.outputs.AWS_REGION }}
+      HCP_TERRAFORM_ORG: ${{ steps.set-vars.outputs.HCP_TERRAFORM_ORG }}
+      HCP_TERRAFORM_PROJECT: ${{ steps.set-vars.outputs.HCP_TERRAFORM_PROJECT }}
+      HCP_TERRAFORM_WORKSPACE: ${{ steps.set-vars.outputs.HCP_TERRAFORM_WORKSPACE }}
+      DISCORD_PUBLIC_KEY: ${{ steps.set-vars.outputs.DISCORD_PUBLIC_KEY }}
+      APP_VERSION: ${{ steps.set-vars.outputs.APP_VERSION }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Load config and extract tag version
+        id: set-vars
+        # Config stored in repository root config.env
+        run: |
+          set -a
+          source ./config.env
+          set +a
+
+          # Extract tag name if triggered by push
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            APP_VERSION="${GITHUB_REF#refs/tags/}"
+          else
+            APP_VERSION="${{ github.event.inputs.version }}"
+          fi
+
+          echo "APP_NAME=$APP_NAME" >> $GITHUB_OUTPUT
+          echo "AWS_REGION=$AWS_REGION" >> $GITHUB_OUTPUT
+          echo "HCP_TERRAFORM_ORG=$HCP_TERRAFORM_ORG" >> $GITHUB_OUTPUT
+          echo "HCP_TERRAFORM_PROJECT=$HCP_TERRAFORM_PROJECT" >> $GITHUB_OUTPUT
+          echo "HCP_TERRAFORM_WORKSPACE=$HCP_TERRAFORM_WORKSPACE_PROD" >> $GITHUB_OUTPUT
+          echo "DISCORD_PUBLIC_KEY=$DISCORD_PUBLIC_KEY_PROD" >> $GITHUB_OUTPUT
+          echo "APP_VERSION=$APP_VERSION" >> $GITHUB_OUTPUT
+
+  deploy:
+    needs: read-config
+    uses: ./.github/workflows/workflow-deploy.yml
     with:
+      app_name: ${{ needs.read-config.outputs.APP_NAME }}
+      aws_region: ${{ needs.read-config.outputs.AWS_REGION }}
+      hcp_terraform_org: ${{ needs.read-config.outputs.HCP_TERRAFORM_ORG }}
+      hcp_terraform_project: ${{ needs.read-config.outputs.HCP_TERRAFORM_PROJECT }}
+      hcp_terraform_workspace: ${{ needs.read-config.outputs.HCP_TERRAFORM_WORKSPACE }}
+      app_version: ${{ needs.read-config.outputs.APP_VERSION }}
+      discord_public_key: ${{ needs.read-config.outputs.DISCORD_PUBLIC_KEY }}
       deployment_env: 'prod'
-      aws_region: 'us-east-2'
-      hcp_terraform_org: 'enpicie'
-      hcp_terraform_workspace: 'startgg-bracket-helper-bot-prod'
-      hcp_terraform_project: 'AWS-FGC'
+      artifact_s3_bucket: 'enpicie-prod-lambda-artifacts'
     secrets: inherit
