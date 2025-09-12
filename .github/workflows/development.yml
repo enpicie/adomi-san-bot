@@ -8,6 +8,7 @@ on:
       - '!*'
 
 permissions:
+  id-token: write # needed for AWS role assumption
   contents: write
 
 jobs:
