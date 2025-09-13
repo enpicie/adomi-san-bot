@@ -10,9 +10,8 @@ sys.path.append(str(SRC_DIR))
 
 from commands.command_map import command_map
 
-# Environment variables (set in GitHub Actions secrets)
-TOKEN = os.environ.get("DISCORD_BOT_TOKEN")
-APP_ID = os.environ.get("DISCORD_APP_ID")
+APP_ID = os.environ.get("DISCORD_APP_ID") # Repo Var
+TOKEN = os.environ.get("DISCORD_BOT_TOKEN") # Repo Secret
 
 if not TOKEN or not APP_ID:
     raise RuntimeError("DISCORD_BOT_TOKEN and DISCORD_APP_ID must be set as environment variables")

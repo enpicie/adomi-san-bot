@@ -1,6 +1,11 @@
 name: 'Register Discord Bot Slash Commands'
 on:
   workflow_call:
+    inputs:
+      app_id:
+        description: Discord Application ID
+        required: true
+        type: string
     secrets:
       DISCORD_BOT_TOKEN:
         required: true
@@ -24,6 +29,7 @@ jobs:
 
       - name: Register commands
         env:
+          DISCORD_APP_ID: ${{ inputs.app_id }}
           DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
         run: |
           python scripts/register_commands.py
