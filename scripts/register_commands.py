@@ -50,7 +50,7 @@ def main():
         payload = build_command_payload(name, entry)
         response = requests.post(API_URL, headers=headers, json=payload)
 
-        if response.status_code == 200:
+        if response.status_code == 200 or response.status_code == 201:
             print(f"✅ Registered command: {name}")
         else:
             print(f"❌ Failed to register command: {name} ({response.status_code})")
