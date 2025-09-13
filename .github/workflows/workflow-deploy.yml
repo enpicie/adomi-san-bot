@@ -49,6 +49,8 @@ on:
         required: true
       STARTGG_API_TOKEN:
         required: true
+      STARTGG_API_TOKEN:
+        required: true
 
 jobs:
   deploy-via-hcp-terraform:
