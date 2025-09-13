@@ -6,7 +6,7 @@ on:
         required: true
 
 jobs:
-  register:
+  register-commands:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
