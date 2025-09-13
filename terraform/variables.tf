@@ -39,3 +39,8 @@ variable "discord_public_key" {
   description = "Public Key for Discord bot verification"
   type        = string
 }
+
+variable "startgg_api_token" {
+  description = "API token for Start.gg"
+  type        = string
+}
