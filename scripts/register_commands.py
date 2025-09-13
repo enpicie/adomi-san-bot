@@ -46,6 +46,8 @@ def main():
         "Content-Type": "application/json",
     }
 
+    failed_commands = []
+
     for name, entry in command_map.items():
         payload = build_command_payload(name, entry)
         response = requests.post(API_URL, headers=headers, json=payload)
@@ -55,6 +57,10 @@ def main():
         else:
             print(f"❌ Failed to register command: {name} ({response.status_code})")
             print(response.text)
+            failed_commands.append(name)
+
+    if failed_commands:
+        raise RuntimeError(f"Failed to register commands: {', '.join(failed_commands)}")
 
 
 if __name__ == "__main__":
