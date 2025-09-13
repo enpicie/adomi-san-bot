@@ -57,7 +57,8 @@ resource "aws_lambda_function" "bot_lambda" {
   ]
   environment {
     variables = {
-      PUBLIC_KEY = var.discord_public_key
+      PUBLIC_KEY        = var.discord_public_key,
+      STARTGG_API_TOKEN = var.startgg_api_token
     }
   }
 
