@@ -47,8 +47,6 @@ on:
         required: true
       TF_API_TOKEN:
         required: true
-      GH_ACTIONS_PAT:
-        required: true
       STARTGG_API_TOKEN:
         required: true
 
