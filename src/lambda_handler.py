@@ -2,6 +2,7 @@ import json
 
 from discord import Message
 
+import bot
 import constants
 import discord_auth_helper
 
@@ -26,12 +27,7 @@ def lambda_handler(event, context) -> Message:
         data = body["data"]
         print(f"Received data: {data}") # debug print
         # TODO: implement bot logic here.
-        response = {
-            "type": constants.RESPONSE_TYPES["MESSAGE_WITH_SOURCE"],
-            "data": {
-                "content": "No commands implemented yet."
-            }
-        }
+        response = bot.process_bot_command(data)
 
     print(f"Response: {response}") # debug print
     return response
