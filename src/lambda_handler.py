@@ -6,7 +6,7 @@ import bot
 import constants
 import discord_auth_helper
 
-def lambda_handler(event, context) -> Message:
+def lambda_handler(event, context):
     print(f"Received Event: {event}") # debug print
 
     # verify the signature
