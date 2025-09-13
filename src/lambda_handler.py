@@ -24,10 +24,9 @@ def lambda_handler(event, context):
         print("discord_auth_helper.is_ping_pong: True")
         response = constants.PING_PONG_RESPONSE
     else:
-        data = body["data"]
-        print(f"Received data: {data}") # debug print
+        print(f"Received data: {body}") # debug print
         # TODO: implement bot logic here.
-        response = bot.process_bot_command(data)
+        response = bot.process_bot_command(body)
 
     print(f"Response: {response}") # debug print
     return response
