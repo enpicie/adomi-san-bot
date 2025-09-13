@@ -1,8 +1,11 @@
 import json
+
+from discord import Message
+
 import constants
 import discord_auth_helper
 
-def lambda_handler(event, context):
+def lambda_handler(event, context) -> Message:
     print(f"Received Event: {event}") # debug print
 
     # verify the signature
@@ -23,7 +26,12 @@ def lambda_handler(event, context):
         data = body["data"]
         print(f"Received data: {data}") # debug print
         # TODO: implement bot logic here.
-        response = { "message": "Not implemented" }
+        response = {
+            "type": constants.RESPONSE_TYPES["MESSAGE_WITH_SOURCE"],
+            "data": {
+                "content": "No commands implemented yet."
+            }
+        }
 
     print(f"Response: {response}") # debug print
     return response
