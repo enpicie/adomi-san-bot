@@ -94,8 +94,8 @@ def output_list(tourney_name, players) -> str:
     ls = f"**{tourney_name}**\n"
     for i in range(len(players)):
         ls += players[i].tag
-        if players[i].discUser is not None:
-            ls += f"({players[i].discUser})"
+        if players[i].discord_user is not None:
+            ls += f"({players[i].discord_user})"
         if i < len(players) - 1:
             ls += "\n"
     
