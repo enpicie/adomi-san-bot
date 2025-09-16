@@ -1,15 +1,19 @@
 import requests
 
+def retrieve_tourney(node) -> str:
+    tourney_name = node["tournament"]["name"]
+    return tourney_name
+
 # Player class
-class Player:
-    def __init__(self, partID, tag, discID = None, discUser = None):
-        self.partID = partID # ID in the start.gg bracket
-        self.tag = tag # Gamer tag
-        self.discID = discID # Discord ID
-        self.discUser = discUser # Discord Username
+# class Player:
+#     def __init__(self, partID, tag, discID = None, discUser = None):
+#         self.partID = partID # ID in the start.gg bracket
+#         self.tag = tag # Gamer tag
+#         self.discID = discID # Discord ID
+#         self.discUser = discUser # Discord Username
 
 # Retrieve tournament name and players that are part of the event
-def retPlayers(tourneyURL):
+def retPlayers(tourneyURL) -> str:
 
     url = "https://api.start.gg/gql/alpha"
 	
@@ -63,29 +67,31 @@ def retPlayers(tourneyURL):
     response = requests.post(url=url, json={"query": body, "variables": variables}, headers=headers)
     results = response.json()
 
-    # Retrieve name of the tournament
-    tourneyName = results["data"]["event"]["tournament"]["name"]
+    return results["data"]["event"]
+
+    # # Retrieve name of the tournament
+    # tourneyName = results["data"]["event"]["tournament"]["name"]
     
-    # Create player list
-    players = []
-    node = results["data"]["event"]["entrants"]["nodes"]
+    # # Create player list
+    # players = []
+    # node = results["data"]["event"]["entrants"]["nodes"]
 
-    # Create a player object for each participant
-    # and add them to the list
-    for item in node:
-        partItem = item["participants"][0]
-        player = Player(partItem["id"], partItem["gamerTag"])
-        discordItem = partItem["user"]["authorizations"]
+    # # Create a player object for each participant
+    # # and add them to the list
+    # for item in node:
+    #     partItem = item["participants"][0]
+    #     player = Player(partItem["id"], partItem["gamerTag"])
+    #     discordItem = partItem["user"]["authorizations"]
 
-        # If they do not have a discord user linked to start.gg
-        if discordItem is not None: 
-            player.discID = discordItem[0]["externalId"]
-            player.discUser = discordItem[0]["externalUsername"]
+    #     # If they do not have a discord user linked to start.gg
+    #     if discordItem is not None: 
+    #         player.discID = discordItem[0]["externalId"]
+    #         player.discUser = discordItem[0]["externalUsername"]
         
-        players.append(player)
+    #     players.append(player)
 
-    # Return tournament name and list of players
-    return tourneyName, players
+    # # Return tournament name and list of players
+    # return tourneyName, players
 
 # Returns a vertical list of players
 # as a string
