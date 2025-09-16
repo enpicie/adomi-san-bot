@@ -1,4 +1,4 @@
-%from discord.app_commands import Parameter
+#from discord.app_commands import Parameter
 from commands.types import CommandMapping
 import retrieve_players.retrieve_players_main as retrieve_players_main
 
