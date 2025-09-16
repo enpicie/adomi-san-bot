@@ -1,4 +1,6 @@
 import requests
+from discord import Message
+import os
 
 # return tournament name
 def get_tourney(node: str) -> str:
@@ -21,7 +23,7 @@ def get_players(node):
         player_item = item["participants"][0]
         player = Player(player_item["id"], player_item["gamerTag"])
 
-        discord_item = player_item["user"]["authorization"]
+        discord_item = player_item["user"]["authorizations"]
 
         # If they have a discord user linked to start.gg
         if discord_item is not None:
@@ -33,7 +35,7 @@ def get_players(node):
     return players
 
 # Retrieve json key that holds tournament name and players
-def retPlayers(tourneyURL: str) -> str:
+def get_key(tourneyURL: str) -> str:
 
     url = "https://api.start.gg/gql/alpha"
 	
@@ -41,7 +43,7 @@ def retPlayers(tourneyURL: str) -> str:
     tourneyURL = tourneyURL.removeprefix("https://www.start.gg/")
 
     # Replace with any start.gg API token that you want
-    token = ""
+    token = os.environ.get("STARTGG_API_TOKEN")
 
     headers = {
         "Authorization": "Bearer {token}".format(token = token)
@@ -60,7 +62,7 @@ def retPlayers(tourneyURL: str) -> str:
         name
         entrants(query: {
           page: 1
-          perPage: 50
+          perPage: 75
         }) {
           pageInfo {
             total
@@ -100,3 +102,9 @@ def output_list(tourney_name, players) -> str:
             ls += "\n"
     
     return ls
+
+def retrieve_player_list(startgg_link: str) -> Message:
+    node = get_key(startgg_link)
+    tourney_name = get_tourney(node)
+    players = get_players(node)
+    return Message(content=output_list(tourney_name, players))
