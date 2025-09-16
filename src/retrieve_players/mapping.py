@@ -1,9 +1,9 @@
 from commands.types import CommandMapping
-import retrieve_players.retrieve as retrieve
+from retrieve_action import retrieve_player_list
 
 retrieve_commands: CommandMapping = {
     "retrieve_players": {
-        "function": retrieve.retrieve_player_list,
+        "function": retrieve_player_list,
         "description": "Retrieves list of players of an event",
         "params": ["startgg_link"]
     }
