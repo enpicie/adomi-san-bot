@@ -1,6 +1,6 @@
 import re
 from discord import Message
-from retrieve_players.retrieve import get_key, get_tourney, get_players, output_list
+from retrieve_players.retrieve_players import get_key, get_tourney, get_players, output_list
 
 # Only validates up until the event name
 # Example:
