@@ -89,17 +89,9 @@ def retPlayers(tourneyURL: str) -> str:
 
     return results["data"]["event"]
 
-    # # Retrieve name of the tournament
-    # tourneyName = results["data"]["event"]["tournament"]["name"]
-    
-    # # Create player list
-    # players = []
-    # node = results["data"]["event"]["entrants"]["nodes"]
-
-# Returns a vertical list of players
-# as a string
-def outList(tourneyName, players):
-    ls = f"**{tourneyName}**\n"
+# Returns string of list of players
+def output_list(tourney_name, players) -> str:
+    ls = f"**{tourney_name}**\n"
     for i in range(len(players)):
         ls += players[i].tag
         if players[i].discUser is not None:
