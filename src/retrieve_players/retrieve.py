@@ -1,6 +1,5 @@
-import requests
-from discord import Message
 import os
+import requests
 
 # return tournament name
 def get_tourney(node: str) -> str:
@@ -38,17 +37,15 @@ def get_players(node):
 def get_key(tourneyURL: str) -> str:
 
     url = "https://api.start.gg/gql/alpha"
-	
-    # Parse the url string to request it so that it can be used in the query
-    tourneyURL = tourneyURL.removeprefix("https://www.start.gg/")
 
-    # Replace with any start.gg API token that you want
     token = os.environ.get("STARTGG_API_TOKEN")
 
     headers = {
         "Authorization": "Bearer {token}".format(token = token)
     }
 
+    # Parse the url string to request it so that it can be used in the query
+    tourneyURL = tourneyURL.removeprefix("https://www.start.gg/")
 
     variables = {
         "slug": tourneyURL
@@ -102,10 +99,3 @@ def output_list(tourney_name, players) -> str:
             ls += "\n"
     
     return ls
-
-# Function that the command mapping will call.
-def retrieve_player_list(startgg_link: str) -> Message:
-    node = get_key(startgg_link)
-    tourney_name = get_tourney(node)
-    players = get_players(node)
-    return Message(content=output_list(tourney_name, players))
