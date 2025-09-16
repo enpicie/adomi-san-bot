@@ -103,6 +103,7 @@ def output_list(tourney_name, players) -> str:
     
     return ls
 
+# Function that the command mapping will call.
 def retrieve_player_list(startgg_link: str) -> Message:
     node = get_key(startgg_link)
     tourney_name = get_tourney(node)
