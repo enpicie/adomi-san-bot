@@ -1,5 +1,5 @@
 from commands.types import CommandMapping
-from retrieve_action import retrieve_player_list
+from retrieve_players.retrieve_action import retrieve_player_list
 
 retrieve_commands: CommandMapping = {
     "retrieve_players": {
