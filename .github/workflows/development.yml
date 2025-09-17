@@ -53,7 +53,9 @@ jobs:
           echo "BRANCH_NAME=$SHORT_BRANCH_NAME" >> $GITHUB_OUTPUT
 
   deploy:
-    needs: read-config
+    needs:
+      - read-config
+      - register-commands
     uses: ./.github/workflows/workflow-deploy.yml
     with:
       app_name: ${{ needs.read-config.outputs.APP_NAME }}
