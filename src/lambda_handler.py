@@ -25,7 +25,6 @@ def lambda_handler(event, context):
         response = constants.PING_PONG_RESPONSE
     else:
         print(f"Received data: {body}") # debug print
-        # TODO: implement bot logic here.
         response = bot.process_bot_command(body)
 
     print(f"Response: {response}") # debug print
