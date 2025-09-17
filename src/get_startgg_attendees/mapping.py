@@ -6,6 +6,12 @@ get_attendees_commands: CommandMapping = {
     "retrieve_players": {
         "function": get_startgg_attendees_main.retrieve_player_list,
         "description": "Retrieves list of players of an event",
-        "params": []
+        "params": [
+            {
+                "name": "bracket_link",
+                "description": "Place a link for a start.gg bracket event",
+                "required": True
+            }
+        ]
     }
 }
