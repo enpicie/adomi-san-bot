@@ -4,7 +4,7 @@ import get_startgg_attendees.get_startgg_attendees_main as get_startgg_attendees
 
 get_attendees_commands: CommandMapping = {
     "retrieve_players": {
-        "function": get_startgg_attendees_main.retrieve_player_list,
+        "function": get_startgg_attendees_main.get_startgg_attendees_list,
         "description": "Retrieves list of players of an event",
         "params": [
             {
