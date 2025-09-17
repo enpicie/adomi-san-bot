@@ -11,7 +11,8 @@ get_attendees_commands: CommandMapping = {
             CommandParam(name = "bracket_link",
                          description = "Place a link for a start.gg bracket event",
                          param_type = AppCommandOptionType.string,
-                         required= True
+                         required= True,
+                         choices = None
                          )
         ]
     }
