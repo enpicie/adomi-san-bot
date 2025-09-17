@@ -20,23 +20,13 @@ API_URL = f"https://discord.com/api/v10/applications/{APP_ID}/commands"
 
 
 def build_command_payload(name: str, entry: dict) -> dict:
+    """Convert a CommandEntry TypedDict into a Discord API payload."""
     payload = {
         "name": name,
         "description": entry["description"] or "No description",
         "type": 1,  # 1 = slash command
-        "options": [],
+        "options": [param.to_dict() for param in entry.get("params", [])],
     }
-
-    for param in entry.get("params", []):
-        payload["options"].append(
-            {
-                "name": param.name,
-                "description": param.description or "No description",
-                "type": param.type.value if hasattr(param.type, "value") else param.type,
-                "required": param.required,
-            }
-        )
-
     return payload
 
 
@@ -52,7 +42,7 @@ def main():
         payload = build_command_payload(name, entry)
         response = requests.post(API_URL, headers=headers, json=payload)
 
-        if response.status_code == 200 or response.status_code == 201:
+        if response.status_code in (200, 201):
             print(f"✅ Registered command: {name}")
         else:
             print(f"❌ Failed to register command: {name} ({response.status_code})")

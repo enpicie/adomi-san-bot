@@ -1,4 +1,4 @@
-from commands.types import CommandMapping
+from commands.models.command_mapping import CommandMapping
 
 from check_in.mapping import checkin_commands
 
