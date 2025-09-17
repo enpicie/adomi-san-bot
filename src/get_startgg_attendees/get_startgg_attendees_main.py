@@ -1,6 +1,6 @@
 import re
 from discord import Message
-from retrieve_players.retrieve_players import get_key, get_tourney, get_players, output_list
+from get_startgg_attendees.get_startgg_attendees import get_key, get_tourney, get_players, output_list
 
 # Only validates up until the event name
 # Example:
@@ -11,7 +11,7 @@ def validate_link(startgg_link: str) -> bool:
     return re.fullmatch(startgg_pattern, startgg_link)
 
 # Function that the command mapping will call.
-def retrieve_player_list(startgg_link: str) -> Message:
+def get_startgg_attendees_list(startgg_link: str) -> Message:
     if validate_link(startgg_link):
         node = get_key(startgg_link)
         tourney_name = get_tourney(node)
