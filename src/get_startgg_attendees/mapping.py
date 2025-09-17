@@ -9,11 +9,12 @@ get_attendees_commands: CommandMapping = {
         "function": get_startgg_attendees_main.get_startgg_attendees_list,
         "description": "Retrieves list of players of an event",
         "params": [
-            app_commands.Parameter(
-                name = "startgg_bracket_link",
-                description = "Place a link for a start.gg bracket event",
-                required = True
-            )
+            {
+                "name": "startgg_bracket_link",
+                "description": "Place a link for a start.gg bracket event",
+                "type": str,
+                "required": True
+            }
         ]
     }
 }
