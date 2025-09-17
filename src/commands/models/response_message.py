@@ -15,6 +15,8 @@ class ResponseMessage:
     def to_dict(self) -> dict:
         return {
             "type": constants.DISCORD_RESPONSE_TYPES["MESSAGE_WITH_SOURCE"],
-            "content": self.content,
-            "embeds": [embed.to_dict() for embed in self.embeds]
+            "data": {
+                "content": self.content,
+                "embeds": [embed.to_dict() for embed in self.embeds]
+            }
         }
