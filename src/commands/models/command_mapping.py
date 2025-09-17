@@ -1,11 +1,9 @@
-from dataclasses import dataclass
-from typing import Callable, List
+from typing import Callable, List, TypedDict
 
 from discord import Message
 from commands.models.command_param import CommandParam
 
-@dataclass
-class CommandEntry():
+class CommandEntry(TypedDict):
     function: Callable[[dict], Message]
     description: str
     params: List[CommandParam]
