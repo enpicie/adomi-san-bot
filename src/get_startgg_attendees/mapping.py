@@ -1,4 +1,3 @@
-from discord import app_commands
 from commands.types import CommandMapping
 import get_startgg_attendees.get_startgg_attendees_main as get_startgg_attendees_main
 
