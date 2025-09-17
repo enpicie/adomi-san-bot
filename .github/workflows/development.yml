@@ -40,6 +40,9 @@ jobs:
           source ./config.env
           set +a
 
+          # strip all before last / if present
+          SHORT_BRANCH_NAME="${GITHUB_REF_NAME##*/}"
+
           echo "APP_NAME=$APP_NAME" >> $GITHUB_OUTPUT
           echo "AWS_REGION=$AWS_REGION" >> $GITHUB_OUTPUT
           echo "PYTHON_RUNTIME=$PYTHON_RUNTIME" >> $GITHUB_OUTPUT
@@ -47,7 +50,7 @@ jobs:
           echo "HCP_TERRAFORM_PROJECT=$HCP_TERRAFORM_PROJECT" >> $GITHUB_OUTPUT
           echo "HCP_TERRAFORM_WORKSPACE=$HCP_TERRAFORM_WORKSPACE_DEV" >> $GITHUB_OUTPUT
           echo "DISCORD_PUBLIC_KEY=$DISCORD_PUBLIC_KEY_DEV" >> $GITHUB_OUTPUT
-          echo "BRANCH_NAME=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
+          echo "BRANCH_NAME=$SHORT_BRANCH_NAME" >> $GITHUB_OUTPUT
 
   deploy:
     needs: read-config
