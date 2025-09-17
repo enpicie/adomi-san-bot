@@ -20,7 +20,7 @@ API_URL = f"https://discord.com/api/v10/applications/{APP_ID}/commands"
 
 
 def build_command_payload(name: str, entry: dict) -> dict:
-    """Convert a CommandEntry TypedDict into a Discord API payload."""
+    # Convert a CommandEntry TypedDict into a Discord API payload.
     payload = {
         "name": name,
         "description": entry["description"] or "No description",
