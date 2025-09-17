@@ -1,5 +1,5 @@
-from discord import Message
+from commands.models.response_message import ResponseMessage
 
-def check_in_user(event_body: dict) -> Message:
-    return Message(content="Checking in!")
+def check_in_user(event_body: dict) -> ResponseMessage:
+    return ResponseMessage(content="Checking in!")
 
