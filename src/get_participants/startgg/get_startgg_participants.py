@@ -3,7 +3,7 @@ from typing import List
 import requests
 from get_participants.models.participant import Participant
 
-# Retrieve json key that holds tournament name and participants
+# Retrieve json dictionary that holds tournament name and participants
 def get_event(tourneyURL: str) -> dict:
 
     url = "https://api.start.gg/gql/alpha"
@@ -13,6 +13,7 @@ def get_event(tourneyURL: str) -> dict:
     tourneyURL = tourneyURL.removeprefix("https://www.start.gg/")
 
 
+    # These two variable are for start.gg request purposes
 
     headers = {
         "Authorization": f"Bearer {token}"
@@ -74,6 +75,7 @@ def get_participants(event_dict: dict) -> List[Participant]:
     # dictionary that holds list of participants
     participant_dict = event_dict["entrants"]["nodes"]
 
+    # This list will hold participants (objects) based on the Participant class
     participants = []
 
     for item in participant_dict:
@@ -92,7 +94,7 @@ def get_participants(event_dict: dict) -> List[Participant]:
     return participants
 
 # Returns string of list of participants
-def output_list(tourney_name, participants) -> str:
+def output_list(tourney_name: str, participants: List[Participant]) -> str:
     ls = f"**{tourney_name}**\n"
     for i in range(len(participants)):
         ls += participants[i].tag

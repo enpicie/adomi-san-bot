@@ -1,5 +1,4 @@
 import re
-#from discord import Message
 from commands.models.response_message import ResponseMessage
 from get_participants.startgg.get_startgg_participants import get_event, get_tourney, get_participants, output_list
 
