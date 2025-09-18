@@ -3,17 +3,16 @@ from typing import List
 import requests
 from get_participants.models.participant import Participant
 
-# Retrieve json dictionary that holds tournament name and participants
-def get_event(tourneyURL: str) -> dict:
+# Retrieve a dictionary that holds tournament name and participants
+def get_event(tourney_url: str) -> dict:
 
     url = "https://api.start.gg/gql/alpha"
-
     token = os.environ.get("STARTGG_API_TOKEN")
+
     # Parse the url string to request it so that it can be used in the query
-    tourneyURL = tourneyURL.removeprefix("https://www.start.gg/")
+    tourney_url = tourney_url.removeprefix("https://www.start.gg/")
 
-
-    # These two variable are for start.gg request purposes
+    # These next two variable are for start.gg request purposes
 
     headers = {
         "Authorization": f"Bearer {token}"
@@ -21,7 +20,7 @@ def get_event(tourneyURL: str) -> dict:
 
     # This is where graphql takes the tourney link as an input
     variables = {
-        "slug": tourneyURL
+        "slug": tourney_url
     }
 
     body = """
@@ -96,15 +95,15 @@ def get_participants(event_dict: dict) -> List[Participant]:
 
 # Returns a string of list of participants
 def participants_to_string(tourney_name: str, participants: List[Participant]) -> str:
-    ls = f"**{tourney_name}**\n"
+    str_result = f"**{tourney_name}**\n"
 
     for i in range(len(participants)):
-        ls += participants[i].tag
+        str_result += participants[i].tag
 
         if participants[i].discord_user is not None:
-            ls += f"({participants[i].discord_user})"
+            str_result += f"({participants[i].discord_user})"
 
         if i < len(participants) - 1:
-            ls += "\n"
+            str_result += "\n"
     
-    return ls
+    return str_result

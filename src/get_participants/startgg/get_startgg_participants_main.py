@@ -8,7 +8,9 @@ from get_participants.startgg.get_startgg_participants import get_event, get_tou
 # Invalid: https://www.start.gg/tournament/midweek-melting-27/event/mbaacc-double-elim/overview
 def validate_startgg_link(startgg_link: str) -> bool:
     startgg_pattern = re.compile(r"^https:\/\/www.start.gg\/tournament\/([^\/]+)\/event\/([^\/]+)$")
-    return re.fullmatch(startgg_pattern, startgg_link)
+
+    # Typecast to bool to return True or False if the string matches pattern
+    return bool(re.fullmatch(startgg_pattern, startgg_link))
 
 # This function takes a start.gg link as an input
 # Returns a list of participants as a string to then be sent as a response message
