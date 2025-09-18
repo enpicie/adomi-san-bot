@@ -1,6 +1,6 @@
 import re
 from commands.models.response_message import ResponseMessage
-from get_participants.startgg.get_startgg_participants import get_event, get_tourney, get_participants, output_list
+from get_participants.startgg.get_startgg_participants import get_event, get_tourney, get_participants, participants_to_string
 
 # Only validates up until the event name
 # Example:
@@ -17,6 +17,6 @@ def get_startgg_participants_list(startgg_link: str) -> ResponseMessage:
         event_dict = get_event(startgg_link)
         tourney_name = get_tourney(event_dict)
         participants = get_participants(event_dict)
-        return ResponseMessage(content=output_list(tourney_name, participants))
+        return ResponseMessage(content=participants_to_string(tourney_name, participants))
     else:
         return ResponseMessage(content="Invalid start.gg link!")

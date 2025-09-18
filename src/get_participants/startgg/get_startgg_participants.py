@@ -19,6 +19,7 @@ def get_event(tourneyURL: str) -> dict:
         "Authorization": f"Bearer {token}"
     }
 
+    # This is where graphql takes the tourney link as an input
     variables = {
         "slug": tourneyURL
     }
@@ -72,13 +73,13 @@ def get_tourney(event_dict: dict) -> str:
 # return list of participants
 def get_participants(event_dict: dict) -> List[Participant]:
     
-    # dictionary that holds list of participants
-    participant_dict = event_dict["entrants"]["nodes"]
+    # dictionary that holds list of start.gg attendees
+    attendee_dict = event_dict["entrants"]["nodes"]
 
     # This list will hold participants (objects) based on the Participant class
     participants = []
 
-    for item in participant_dict:
+    for item in attendee_dict:
         participant_item = item["participants"][0]
         participant = Participant(participant_item["id"], participant_item["gamerTag"])
 
@@ -93,13 +94,16 @@ def get_participants(event_dict: dict) -> List[Participant]:
 
     return participants
 
-# Returns string of list of participants
-def output_list(tourney_name: str, participants: List[Participant]) -> str:
+# Returns a string of list of participants
+def participants_to_string(tourney_name: str, participants: List[Participant]) -> str:
     ls = f"**{tourney_name}**\n"
+
     for i in range(len(participants)):
         ls += participants[i].tag
+
         if participants[i].discord_user is not None:
             ls += f"({participants[i].discord_user})"
+
         if i < len(participants) - 1:
             ls += "\n"
     
