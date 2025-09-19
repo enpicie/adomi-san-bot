@@ -24,7 +24,7 @@ def get_event(tourney_url: str) -> dict:
         "slug": tourney_url
     }
 
-    # To access start.gg
+    # This query will only list a total of 75 players to accomodates discord 2000 character limit
     body = """
     query EventEntrants($slug: String) {
       event(slug: $slug) {
