@@ -106,6 +106,7 @@ def participants_to_string(tourney_name: str, participants: List[Participant]) -
     for i in range(len(participants)):
         str_result += participants[i].tag
 
+        # Print the discord username next to the startgg gamer tag
         if participants[i].discord_user is not None:
             str_result += f"({participants[i].discord_user})"
 
