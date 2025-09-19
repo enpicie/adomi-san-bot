@@ -19,12 +19,12 @@ def get_event(tourney_url: str) -> dict:
         "Authorization": f"Bearer {token}"
     }
 
-    # This is where graphql takes the tourney link as an input
+    # This is where graphql uses the tournament link as an input
     variables = {
         "slug": tourney_url
     }
 
-    # This query will only list a total of 75 players to accomodates discords 2000 character limit
+    # This query will only list a total of 75 players to accommodates discords 2000 character limit
     body = """
     query EventEntrants($slug: String) {
       event(slug: $slug) {
@@ -77,7 +77,6 @@ def get_participants(event_dict: dict) -> List[StartggParticipant]:
 
     participants = []
 
-    # Loop through each participant (item) from the attendee dictionary 
     for item in attendee_dict:
         
         # participants is a list of length 1.  
