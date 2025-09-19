@@ -1,111 +1,23 @@
-import os
-from typing import List
-import requests
-from get_participants.models.participant import Participant
+import re
+from commands.models.response_message import ResponseMessage
+from get_participants.startgg.startgg_utils import get_event, get_tourney_name, get_participants, participants_to_string
 
-# Retrieve a dictionary that holds tournament name and participants
-def get_event(tourney_url: str) -> dict:
+# Only validates up until the event name
+# Example:
+# Valid: https://www.start.gg/tournament/midweek-melting-27/event/mbaacc-double-elim
+# Invalid: https://www.start.gg/tournament/midweek-melting-27/event/mbaacc-double-elim/overview
+def validate_startgg_link(startgg_link: str) -> bool:
+    startgg_pattern = re.compile(r"^https:\/\/www.start.gg\/tournament\/([^\/]+)\/event\/([^\/]+)$")
 
-    token = os.environ.get("STARTGG_API_TOKEN")
+    return bool(re.fullmatch(startgg_pattern, startgg_link))
 
-    # Parse the url string so that it can be used in the query
-    tourney_url = tourney_url.removeprefix("https://www.start.gg/")
-
-    # Startgg GraphQL endpoint for HTTP Requests
-    endpoint = "https://api.start.gg/gql/alpha"
-
-    # To pass the token to the API request
-    headers = {
-        "Authorization": f"Bearer {token}"
-    }
-
-    # This is where graphql takes the tourney link as an input
-    variables = {
-        "slug": tourney_url
-    }
-
-
-    body = """
-    query EventEntrants($slug: String) {
-      event(slug: $slug) {
-        id
-        tournament {name}
-        name
-        entrants(query: {
-          page: 1
-          perPage: 75
-        }) {
-          pageInfo {
-            total
-          }
-          nodes {
-            #id
-            participants {
-              id
-              gamerTag
-              user {
-                authorizations(types:DISCORD) {
-                  externalId
-                  externalUsername
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-    """
-    
-    # Startgg API request
-    response = requests.post(url=endpoint, json={"query": body, "variables": variables}, headers=headers)
-    results = response.json()
-
-    # This event dictionary from the json file holds
-    # The name for the tournament and the list of participants
-    event_dict = results["data"]["event"]
-
-    return event_dict
-
-# Returns name of the tournament
-def get_tourney_name(event_dict: dict) -> str:
-    tourney_name = event_dict["tournament"]["name"]
-    return tourney_name
-
-# Return list of participants
-def get_participants(event_dict: dict) -> List[Participant]:
-    
-    # dictionary that holds list of start.gg attendees
-    attendee_dict = event_dict["entrants"]["nodes"]
-
-    participants = []
-
-    # Loop through each participant (item) from the attendee dictionary 
-    for item in attendee_dict:
-        participant_item = item["participants"][0]
-        participant = Participant(participant_item["id"], participant_item["gamerTag"])
-
-        discord_item = participant_item["user"]["authorizations"]
-
-        # If they have a discord account linked to start.gg
-        if discord_item is not None:
-            participant.discord_id = discord_item[0]["externalId"]
-            participant.discord_user = discord_item[0]["externalUsername"]
-          
-        participants.append(participant)
-
-    return participants
-
-# Returns a string representation of list of participants
-def participants_to_string(tourney_name: str, participants: List[Participant]) -> str:
-    str_result = f"**{tourney_name}**\n"
-
-    for i in range(len(participants)):
-        str_result += participants[i].tag
-
-        if participants[i].discord_user is not None:
-            str_result += f"({participants[i].discord_user})"
-
-        if i < len(participants) - 1:
-            str_result += "\n"
-    
-    return str_result
+# This function takes a start.gg link as an input
+# Returns a list of participants as a string to then be sent as a response message
+def get_startgg_participants_msg(startgg_link: str) -> ResponseMessage:
+    if validate_startgg_link(startgg_link):
+        event_dict = get_event(startgg_link)
+        tourney_name = get_tourney_name(event_dict)
+        participants = get_participants(event_dict)
+        return ResponseMessage(content=participants_to_string(tourney_name, participants))
+    else:
+        return ResponseMessage(content="Invalid start.gg link!")
