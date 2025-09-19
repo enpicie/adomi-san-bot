@@ -1,7 +1,7 @@
 import os
 from typing import List
 import requests
-from get_participants.models.participant import Participant
+from models.startgg_participant import StartggParticipant
 
 # Retrieve a dictionary that holds tournament name and participants
 def get_event(tourney_url: str) -> dict:
@@ -24,7 +24,7 @@ def get_event(tourney_url: str) -> dict:
         "slug": tourney_url
     }
 
-    # This query will only list a total of 75 players to accomodates discord 2000 character limit
+    # This query will only list a total of 75 players to accomodates discords 2000 character limit
     body = """
     query EventEntrants($slug: String) {
       event(slug: $slug) {
@@ -65,14 +65,13 @@ def get_event(tourney_url: str) -> dict:
 
     return event_dict
 
-
 def get_tourney_name(event_dict: dict) -> str:
     tourney_name = event_dict["tournament"]["name"]
     return tourney_name
 
 
 # Return list of participants
-def get_participants(event_dict: dict) -> List[Participant]:
+def get_participants(event_dict: dict) -> List[StartggParticipant]:
     
     # dictionary that holds list of start.gg attendees
     attendee_dict = event_dict["entrants"]["nodes"]
@@ -86,7 +85,7 @@ def get_participants(event_dict: dict) -> List[Participant]:
         # So we need to access the first element to get the participant data
         participant_item = item["participants"][0] 
 
-        participant = Participant(participant_item["id"], participant_item["gamerTag"])
+        participant = StartggParticipant(participant_item["id"], participant_item["gamerTag"])
 
         discord_item = participant_item["user"]["authorizations"]
 
@@ -100,7 +99,7 @@ def get_participants(event_dict: dict) -> List[Participant]:
     return participants
 
 # Returns a string representation of list of participants
-def participants_to_string(tourney_name: str, participants: List[Participant]) -> str:
+def participants_to_string(tourney_name: str, participants: List[StartggParticipant]) -> str:
     str_result = f"**{tourney_name}**\n"
 
     for i in range(len(participants)):
