@@ -6,14 +6,15 @@ from get_participants.models.participant import Participant
 # Retrieve a dictionary that holds tournament name and participants
 def get_event(tourney_url: str) -> dict:
 
-    url = "https://api.start.gg/gql/alpha"
     token = os.environ.get("STARTGG_API_TOKEN")
 
-    # Parse the url string to request it so that it can be used in the query
+    # Parse the url string so that it can be used in the query
     tourney_url = tourney_url.removeprefix("https://www.start.gg/")
 
-    # These next two variable are for start.gg request purposes
+    # Startgg GraphQL endpoint for HTTP Requests
+    endpoint = "https://api.start.gg/gql/alpha"
 
+    # To pass the token to the API request
     headers = {
         "Authorization": f"Bearer {token}"
     }
@@ -22,6 +23,7 @@ def get_event(tourney_url: str) -> dict:
     variables = {
         "slug": tourney_url
     }
+
 
     body = """
     query EventEntrants($slug: String) {
@@ -55,7 +57,7 @@ def get_event(tourney_url: str) -> dict:
     """
     
     # Startgg API request
-    response = requests.post(url=url, json={"query": body, "variables": variables}, headers=headers)
+    response = requests.post(url=endpoint, json={"query": body, "variables": variables}, headers=headers)
     results = response.json()
 
     # This event dictionary from the json file holds
@@ -64,27 +66,27 @@ def get_event(tourney_url: str) -> dict:
 
     return event_dict
 
-# return tournament name
-def get_tourney(event_dict: dict) -> str:
+# Returns name of the tournament
+def get_tourney_name(event_dict: dict) -> str:
     tourney_name = event_dict["tournament"]["name"]
     return tourney_name
 
-# return list of participants
+# Return list of participants
 def get_participants(event_dict: dict) -> List[Participant]:
     
     # dictionary that holds list of start.gg attendees
     attendee_dict = event_dict["entrants"]["nodes"]
 
-    # This list will hold participants (objects) based on the Participant class
     participants = []
 
+    # Loop through each participant (item) from the attendee dictionary 
     for item in attendee_dict:
         participant_item = item["participants"][0]
         participant = Participant(participant_item["id"], participant_item["gamerTag"])
 
         discord_item = participant_item["user"]["authorizations"]
 
-        # If they have a discord user linked to start.gg
+        # If they have a discord account linked to start.gg
         if discord_item is not None:
             participant.discord_id = discord_item[0]["externalId"]
             participant.discord_user = discord_item[0]["externalUsername"]
@@ -93,7 +95,7 @@ def get_participants(event_dict: dict) -> List[Participant]:
 
     return participants
 
-# Returns a string of list of participants
+# Returns a string representation of list of participants
 def participants_to_string(tourney_name: str, participants: List[Participant]) -> str:
     str_result = f"**{tourney_name}**\n"
 

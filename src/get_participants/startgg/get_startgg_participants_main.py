@@ -1,6 +1,6 @@
 import re
 from commands.models.response_message import ResponseMessage
-from get_participants.startgg.get_startgg_participants import get_event, get_tourney, get_participants, participants_to_string
+from get_participants.startgg.get_startgg_participants import get_event, get_tourney_name, get_participants, participants_to_string
 
 # Only validates up until the event name
 # Example:
@@ -17,7 +17,7 @@ def validate_startgg_link(startgg_link: str) -> bool:
 def get_startgg_participants_list(startgg_link: str) -> ResponseMessage:
     if validate_startgg_link(startgg_link):
         event_dict = get_event(startgg_link)
-        tourney_name = get_tourney(event_dict)
+        tourney_name = get_tourney_name(event_dict)
         participants = get_participants(event_dict)
         return ResponseMessage(content=participants_to_string(tourney_name, participants))
     else:
