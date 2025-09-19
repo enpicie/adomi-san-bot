@@ -1,7 +1,7 @@
 import os
 from typing import List
 import requests
-from models.startgg_participant import StartggParticipant
+from get_participants.startgg.models.startgg_participant import StartggParticipant
 
 # Retrieve a dictionary that holds tournament name and participants
 def get_event(tourney_url: str) -> dict:
@@ -59,8 +59,7 @@ def get_event(tourney_url: str) -> dict:
     response = requests.post(url=endpoint, json={"query": body, "variables": variables}, headers=headers)
     results = response.json()
 
-    # This event dictionary from the json file holds
-    # The name for the tournament and the list of participants
+    # This event dictionary holds the tournament name and participants
     event_dict = results["data"]["event"]
 
     return event_dict

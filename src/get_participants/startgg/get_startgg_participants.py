@@ -1,6 +1,6 @@
 import re
 from commands.models.response_message import ResponseMessage
-from startgg_utils import get_event, get_tourney_name, get_participants, participants_to_string
+from get_participants.startgg.startgg_utils import get_event, get_tourney_name, get_participants, participants_to_string
 
 # Only validates up until the event name
 # Example:
