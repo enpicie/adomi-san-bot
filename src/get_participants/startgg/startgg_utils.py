@@ -68,8 +68,6 @@ def get_tourney_name(event_dict: dict) -> str:
     tourney_name = event_dict["tournament"]["name"]
     return tourney_name
 
-
-# Return list of participants
 def get_participants(event_dict: dict) -> List[StartggParticipant]:
     
     # dictionary that holds list of start.gg attendees
