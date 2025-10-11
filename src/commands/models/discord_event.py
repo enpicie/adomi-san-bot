@@ -19,6 +19,12 @@ class DiscordEvent:
     def get_command_name(self) -> str:
         return self._get_event_field("data", "name")
 
+    def get_server_id(self) -> str:
+        return self._get_event_field("guild_id")
+
+    def get_channel_id(self) -> str:
+        return self._get_event_field("channel_id")
+
     def get_user_id(self) -> str:
         return self._get_event_field("member", "user", "id")
 

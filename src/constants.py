@@ -1,5 +1,6 @@
 import os
 
+AWS_REGION = os.environ.get("AWS_REGION")
 BOT_PUBLIC_KEY = os.environ.get("PUBLIC_KEY")
 STARTGG_API_TOKEN = os.environ.get("STARTGG_API_TOKEN")
 DYNAMODB_TABLE_NAME = os.environ.get("DYNAMODB_TABLE_NAME")

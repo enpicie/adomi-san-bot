@@ -1,7 +1,9 @@
+from mypy_boto3_dynamodb.service_resource import Table
+
 from commands.command_map import command_map
 from commands.models.discord_event import DiscordEvent
 
-def process_bot_command(event_body: dict) -> dict:
+def process_bot_command(event_body: dict, table: Table) -> dict:
     if "data" not in event_body:
         raise KeyError("No field 'data'. This is not a valid Discord Slash Command message.")
 
@@ -11,7 +13,9 @@ def process_bot_command(event_body: dict) -> dict:
     command = command_map.get(command_name)
     if command is None:
         raise ValueError(f"No command registered for {command_name}")
-    message = command["function"](event)
+
+    command_function = command["function"]
+    message = command_function(event, table)
     if message:
         return message.to_dict()
 
