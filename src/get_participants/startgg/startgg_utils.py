@@ -3,23 +3,18 @@ from typing import List
 import requests
 from get_participants.startgg.models.startgg_participant import StartggParticipant
 
-# Retrieve a dictionary that holds tournament name and participants
 def get_event(tourney_url: str) -> dict:
 
     token = os.environ.get("STARTGG_API_TOKEN")
 
-    # Parse the url string so that it can be used in the query
     tourney_url = tourney_url.removeprefix("https://www.start.gg/")
 
-    # Startgg GraphQL endpoint for HTTP Requests
     endpoint = "https://api.start.gg/gql/alpha"
 
-    # To pass the token to the API request
     headers = {
         "Authorization": f"Bearer {token}"
     }
 
-    # This is where graphql uses the tournament link as an input
     variables = {
         "slug": tourney_url
     }
@@ -55,11 +50,9 @@ def get_event(tourney_url: str) -> dict:
     }
     """
     
-    # Startgg API request
     response = requests.post(url=endpoint, json={"query": body, "variables": variables}, headers=headers)
     results = response.json()
 
-    # This event dictionary holds the tournament name and participants
     event_dict = results["data"]["event"]
 
     return event_dict
@@ -70,22 +63,19 @@ def get_tourney_name(event_dict: dict) -> str:
 
 def get_participants(event_dict: dict) -> List[StartggParticipant]:
     
-    # dictionary that holds list of start.gg attendees
     attendee_dict = event_dict["entrants"]["nodes"]
 
     participants = []
 
-    for item in attendee_dict:
+    for entrant in attendee_dict:
         
-        # participants is a list of length 1.  
-        # So we need to access the first element to get the participant data
-        participant_item = item["participants"][0] 
+        # participants is a list of length 1. 
+        participant_data = entrant["participants"][0] 
 
-        participant = StartggParticipant(participant_item["id"], participant_item["gamerTag"])
+        participant = StartggParticipant(participant_data["id"], participant_data["gamerTag"])
 
-        discord_item = participant_item["user"]["authorizations"]
+        discord_item = participant_data["user"]["authorizations"]
 
-        # If they have a discord account linked to start.gg
         if discord_item is not None:
             participant.discord_id = discord_item[0]["externalId"]
             participant.discord_user = discord_item[0]["externalUsername"]
@@ -94,14 +84,12 @@ def get_participants(event_dict: dict) -> List[StartggParticipant]:
 
     return participants
 
-# Returns a string representation of list of participants
 def participants_to_string(tourney_name: str, participants: List[StartggParticipant]) -> str:
     str_result = f"**{tourney_name}**\n"
 
     for i in range(len(participants)):
         str_result += participants[i].tag
 
-        # Print the discord username next to the startgg gamer tag
         if participants[i].discord_user is not None:
             str_result += f"({participants[i].discord_user})"
 
