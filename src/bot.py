@@ -1,6 +1,3 @@
-from discord import Message
-
-import constants
 from commands.command_map import command_map
 
 def process_bot_command(event_body: dict) -> dict:
