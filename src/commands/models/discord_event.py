@@ -28,5 +28,5 @@ class DiscordEvent:
     def get_user_id(self) -> str:
         return self._get_event_field("member", "user", "id")
 
-    def get_user_name(self) -> str:
+    def get_username(self) -> str:
         return self._get_event_field("member", "user", "username")
