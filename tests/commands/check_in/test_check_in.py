@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import MagicMock
 from botocore.exceptions import ClientError
-from commands.check_in import check_in
+import commands.check_in.commands as check_in
 from commands.models.discord_event import DiscordEvent
 from commands.models.response_message import ResponseMessage
 import utils.message_helper as msg_helper
