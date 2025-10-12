@@ -57,7 +57,7 @@ resource "aws_lambda_function" "bot_lambda" {
   ]
   environment {
     variables = {
-      AWS_REGION          = var.aws_region,
+      REGION              = var.aws_region,
       PUBLIC_KEY          = var.discord_public_key,
       STARTGG_API_TOKEN   = var.startgg_api_token
       DYNAMODB_TABLE_NAME = aws_dynamodb_table.adomi_discord_server_table.name
