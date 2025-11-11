@@ -74,7 +74,7 @@ jobs:
 
       - name: Build and Upload Lambda Layer Artifact to S3
         id: build_layer
-        uses: enpicie/action-workflow-build-python-lambda-layer-zip@v1.3.3
+        uses: enpicie/action-workflow-build-python-lambda-layer-zip@v2.0.0
         with:
           requirements_path: ./requirements.txt # Path relative the repository root
           app_name: ${{ inputs.app_name }}
@@ -116,5 +116,6 @@ jobs:
           TF_VAR_deployment_env: '"${{ inputs.deployment_env }}"'
           TF_VAR_bucket_name: '"${{ inputs.artifact_s3_bucket }}"'
           TF_VAR_app_lambda_layer_s3_key: '"${{ steps.build_layer.outputs.s3_artifact_key }}"'
+          TF_VAR_app_lambda_layer_hash_s3_key: '"${{ steps.build_layer.outputs.s3_artifact_hash_key }}"'
           TF_VAR_discord_public_key: '"${{ inputs.discord_public_key }}"'
           TF_VAR_startgg_api_token: '"${{ secrets.STARTGG_API_TOKEN }}"'

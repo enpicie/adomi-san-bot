@@ -33,13 +33,24 @@ data "aws_lambda_layer_version" "pynacl_layer" {
   layer_name = "PyNaCl-311"
 }
 
+data "aws_s3_object" "app_layer_zip" {
+  bucket = var.bucket_name
+  key    = var.app_lambda_layer_s3_key
+}
+
+data "aws_s3_object" "app_layer_hash" {
+  bucket = var.bucket_name
+  key    = var.app_lambda_layer_hash_s3_key
+}
+
 resource "aws_lambda_layer_version" "app_layer" {
   layer_name               = "${var.app_name}-layer"
   description              = "Lambda layer for dependencies of ${var.app_name}"
   s3_bucket                = var.bucket_name
-  s3_key                   = var.app_lambda_layer_s3_key
+  s3_key                   = data.aws_s3_object.app_layer_zip.key
   compatible_runtimes      = ["python${var.python_runtime}"]
   compatible_architectures = [var.architecture]
+  source_code_hash         = trimspace(data.aws_s3_object.app_layer_hash.body)
 }
 
 resource "aws_lambda_function" "bot_lambda" {

@@ -31,7 +31,12 @@ variable "bucket_name" {
 }
 
 variable "app_lambda_layer_s3_key" {
-  description = "Name of the Lambda layer built for this application"
+  description = "S3 key for .zip of Lambda layer built for this application"
+  type        = string
+}
+
+variable "app_lambda_layer_hash_s3_key" {
+  description = "S3 key for .hash file for Lambda layer built for this application"
   type        = string
 }
 
