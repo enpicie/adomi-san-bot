@@ -13,7 +13,7 @@ setup_commands: CommandMapping = {
             CommandParam(
                 name="event_mode",
                 description="Mode for managing event data, determining if events are managed for the whole server or in individual channels (default is Server-wide).",
-                param_type=AppCommandOptionType.string.value,
+                param_type=AppCommandOptionType.string,
                 required=False,
                 choices=[
                     ParamChoice(name="Server-wide", value=EventMode.SERVER_WIDE.value),
