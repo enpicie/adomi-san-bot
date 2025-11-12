@@ -2,7 +2,7 @@ from discord import AppCommandOptionType
 
 from enums import EventMode
 from commands.models.command_mapping import CommandMapping
-from commands.models.command_param import CommandParam
+from commands.models.command_param import CommandParam, ParamChoice
 import commands.setup.server_commands as server_commands
 
 setup_commands: CommandMapping = {
@@ -16,8 +16,8 @@ setup_commands: CommandMapping = {
                 param_type=AppCommandOptionType.string,
                 required=False,
                 choices=[
-                    CommandParam.ParamChoice(name="Server-wide", value=EventMode.SERVER_WIDE.value),
-                    CommandParam.ParamChoice(name="Per-channel", value=EventMode.PER_CHANNEL.value),
+                    ParamChoice(name="Server-wide", value=EventMode.SERVER_WIDE.value),
+                    ParamChoice(name="Per-channel", value=EventMode.PER_CHANNEL.value),
                 ]
             )
         ]
