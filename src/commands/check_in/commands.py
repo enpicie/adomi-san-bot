@@ -15,7 +15,7 @@ def check_in_user(event: DiscordEvent, table: Table) -> ResponseMessage:
     username = event.get_username()
 
     return ResponseMessage(
-        content=f"Checked in {msg_helper.get_user_ping(user_id)}!"
+        content=f"✅ Checked in {msg_helper.get_user_ping(user_id)}!"
     )
 
     # TODO: Re-enable DynamoDB logic when ready

@@ -20,3 +20,8 @@ class ResponseMessage:
                 "embeds": [embed.to_dict() for embed in self.embeds]
             }
         }
+
+    @staticmethod
+    def get_error_message() -> "ResponseMessage":
+        return ResponseMessage(content=
+            f"🙀 AH! Something went wrong! Hang tight while I take a look. This might be a case for my supervisor `@enpicie`.")

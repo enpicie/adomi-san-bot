@@ -1,3 +1,13 @@
+from dataclasses import dataclass
+from typing import List
+from discord import AppCommandOptionType
+
+@dataclass
+class DiscordInputParam:
+    name: str
+    type: AppCommandOptionType
+    value: str
+
 class DiscordEvent:
     event_body: dict
 
@@ -18,6 +28,22 @@ class DiscordEvent:
 
     def get_command_name(self) -> str:
         return self._get_event_field("data", "name")
+
+    def get_all_command_inputs(self) -> List[DiscordInputParam]:
+        inputs = []
+        options = self._get_event_field("data", "options") if "options" in self._get_event_field("data") else []
+        for option in options:
+            inputs.append(DiscordInputParam(
+                name=option["name"],
+                type=AppCommandOptionType(option["type"]),
+                value=option["value"]
+            ))
+        return inputs
+
+    def get_command_input_value(self, input_name: str) -> any:
+        inputs = self.get_all_command_inputs()
+        input = next((input for input in inputs if input.name == input_name), None)
+        return input.value if input else None
 
     def get_server_id(self) -> str:
         return self._get_event_field("guild_id")
