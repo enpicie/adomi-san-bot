@@ -26,10 +26,11 @@ def create_server_record(table: Table, pk: str) -> None:
 def setup_server(event: DiscordEvent, table: Table) -> ResponseMessage:
     """
     Sets up a CONFIG record for a server in DynamoDB if it does not already exist.
-    Adds an 'event_mode' attribute based on a command parameter in the event.
+    Sets 'event_mode' and 'organizer_role' based on command inputs.
     Only allows users with 'Manage Server' permission to run this command.
     Default event_mode is 'server-wide'.
-    If 'event_mode' is 'server-wide', also creates a SERVER record.
+    'organizer_role' is required and designates role allowed to use privileged bot commands.
+    EVENT_MODE FUNCCTIONALITY IS CURRENTLY DISABLED. Planned for later phase. Only using SERVER_WIDE.
     """
     user_permissions = event.get_user_permission_int()
     if not permissions_helper.has_manage_server_permission(user_permissions):
@@ -41,7 +42,6 @@ def setup_server(event: DiscordEvent, table: Table) -> ResponseMessage:
     pk = db_helper.get_server_pk(server_id)
 
     try:
-        # Check if the CONFIG record already exists
         existing_item = db_helper.get_server_config(server_id, table)
         if existing_item:
             return ResponseMessage(
@@ -49,8 +49,10 @@ def setup_server(event: DiscordEvent, table: Table) -> ResponseMessage:
             )
 
         event_mode = event.get_command_input_value("event_mode") or EventMode.SERVER_WIDE.value
+        print(f"Event mode: {event_mode}")
+        organizer_role = event.get_command_input_value("organizer_role")
+        print(f"Organizer role: {organizer_role}")
 
-        # Create CONFIG record
         table.put_item(
             Item={
                 "PK": pk,
@@ -60,8 +62,9 @@ def setup_server(event: DiscordEvent, table: Table) -> ResponseMessage:
             ConditionExpression="attribute_not_exists(PK) AND attribute_not_exists(SK)"
         )
 
-        if event_mode == EventMode.SERVER_WIDE.value:
-            create_server_record(table, pk)
+        # TODO: Re-enable condition when event-mode functionality is enabled again.
+        # if event_mode == EventMode.SERVER_WIDE.value:
+        create_server_record(table, pk)
 
         return ResponseMessage(
             content=f"👍 Server setup complete with event mode `{event_mode}`."
@@ -74,72 +77,73 @@ def setup_server(event: DiscordEvent, table: Table) -> ResponseMessage:
             )
         raise
 
-def setup_event_mode(event: DiscordEvent, table: Table) -> ResponseMessage:
-    """
-    Updates the event_mode property of the existing CONFIG record.
-    - Only allows users with 'Manage Server' permission.
-    - Returns a message if the event_mode is unchanged.
-    - When switching to PER_CHANNEL:
-        • Delete all SERVER records.
-    - When switching to SERVER_WIDE:
-        • Delete all CHANNEL* records.
-        • Create a SERVER record.
-    """
+# TODO: Uncomment when ready to implement this functionality fully.
+# def setup_event_mode(event: DiscordEvent, table: Table) -> ResponseMessage:
+#     """
+#     Updates the event_mode property of the existing CONFIG record.
+#     - Only allows users with 'Manage Server' permission.
+#     - Returns a message if the event_mode is unchanged.
+#     - When switching to PER_CHANNEL:
+#         • Delete all SERVER records.
+#     - When switching to SERVER_WIDE:
+#         • Delete all CHANNEL* records.
+#         • Create a SERVER record.
+#     """
 
-    user_permissions = event.get_user_permission_int()
-    if not permissions_helper.has_manage_server_permission(user_permissions):
-        return ResponseMessage(
-            content="⚠️ You need the 'Manage Server' permission to change the event mode."
-        )
+#     user_permissions = event.get_user_permission_int()
+#     if not permissions_helper.has_manage_server_permission(user_permissions):
+#         return ResponseMessage(
+#             content="⚠️ You need the 'Manage Server' permission to change the event mode."
+#         )
 
-    server_id = event.get_server_id()
-    pk = db_helper.get_server_pk(server_id)
+#     server_id = event.get_server_id()
+#     pk = db_helper.get_server_pk(server_id)
 
-    # Load existing config
-    existing_item = db_helper.get_server_config(server_id, table)
-    if not existing_item:
-        return ResponseMessage(
-            content="This server is not set up! Run `/setup-server` first to get started. "
-                    "You can set event-mode there 👍"
-        )
+#     # Load existing config
+#     existing_item = db_helper.get_server_config(server_id, table)
+#     if not existing_item:
+#         return ResponseMessage(
+#             content="This server is not set up! Run `/setup-server` first to get started. "
+#                     "You can set event-mode there 👍"
+#         )
 
-    old_mode = existing_item.get("event_mode")
-    new_mode = event.get_command_input_value("event_mode")
+#     old_mode = existing_item.get("event_mode")
+#     new_mode = event.get_command_input_value("event_mode")
 
-    # If no change, return early
-    if new_mode == old_mode:
-        return ResponseMessage(
-            content=f"ℹ️ Event mode is already `{new_mode}`. My work is already complete 🫡!"
-        )
+#     # If no change, return early
+#     if new_mode == old_mode:
+#         return ResponseMessage(
+#             content=f"ℹ️ Event mode is already `{new_mode}`. My work is already complete 🫡!"
+#         )
 
-    try:
-        table.update_item(
-            Key={"PK": pk, "SK": SK_CONFIG},
-            UpdateExpression="SET event_mode = :m",
-            ExpressionAttributeValues={":m": new_mode}
-        )
-    except ClientError:
-        raise
+#     try:
+#         table.update_item(
+#             Key={"PK": pk, "SK": SK_CONFIG},
+#             UpdateExpression="SET event_mode = :m",
+#             ExpressionAttributeValues={":m": new_mode}
+#         )
+#     except ClientError:
+#         raise
 
-    # Clean up old data based on new mode
-    if new_mode == EventMode.PER_CHANNEL.value:
-        # Delete old SERVER record
-        server_items = db_helper.query_items_by_sk(server_id, table, SK_SERVER)
-        for item in server_items:
-            table.delete_item(Key={"PK": item["PK"], "SK": item["SK"]})
+#     # Clean up old data based on new mode
+#     if new_mode == EventMode.PER_CHANNEL.value:
+#         # Delete old SERVER record
+#         server_items = db_helper.query_items_by_sk(server_id, table, SK_SERVER)
+#         for item in server_items:
+#             table.delete_item(Key={"PK": item["PK"], "SK": item["SK"]})
 
-    elif new_mode == EventMode.SERVER_WIDE.value:
-        # Delete old CHANNEL data
-        channel_items = db_helper.query_items_with_sk_prefix(server_id, table, "CHANNEL")
-        for item in channel_items:
-            table.delete_item(Key={"PK": item["PK"], "SK": item["SK"]})
+#     elif new_mode == EventMode.SERVER_WIDE.value:
+#         # Delete old CHANNEL data
+#         channel_items = db_helper.query_items_with_sk_prefix(server_id, table, "CHANNEL")
+#         for item in channel_items:
+#             table.delete_item(Key={"PK": item["PK"], "SK": item["SK"]})
 
-        create_server_record(table, pk)
+#         create_server_record(table, pk)
 
-    old_data_note = "Server" if old_mode == EventMode.SERVER_WIDE.value else "Channel"
+#     old_data_note = "Server" if old_mode == EventMode.SERVER_WIDE.value else "Channel"
 
-    return ResponseMessage(
-        content=f"👍 Changed event mode from `{old_mode}` to `{new_mode}`."
-                f" I've cleaned out old {old_data_note} data 🫡"
-    )
+#     return ResponseMessage(
+#         content=f"👍 Changed event mode from `{old_mode}` to `{new_mode}`."
+#                 f" I've cleaned out old {old_data_note} data 🫡"
+#     )
 
