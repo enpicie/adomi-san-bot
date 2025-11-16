@@ -19,7 +19,7 @@ setup_commands: CommandMapping = {
         ]
     },
     "set-organizer-role": {
-        "function": server_commands.set_organier_role,
+        "function": server_commands.set_organizer_role,
         "description": "Set the role for event organizers who can use privileged commands.",
         "params": [
             CommandParam(
@@ -31,18 +31,4 @@ setup_commands: CommandMapping = {
             )
         ]
     }
-    # TODO: Uncomment when event-mode functionality is enabled again.
-    # "setup-event-mode": {
-    #     "function": server_commands.setup_event_mode,
-    #     "description": "Set event-mode for how bot will manage event data.",
-    #     "params": [
-    #         CommandParam(
-    #             name="event_mode",
-    #             description="Choose if events are managed for the whole server or in individual channels (default=Server-wide)",
-    #             param_type=AppCommandOptionType.string,
-    #             required=True,
-    #             choices=EVENT_MODE_CHOICES
-    #         )
-    #     ]
-    # }
 }
