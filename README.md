@@ -10,7 +10,9 @@ Click [here](https://discord.com/oauth2/authorize?client_id=1388611843655860254&
 
 ### Local Testing
 
-Below are the instructions to run unit tests locally. The [unit test workflow](./.github/workflows/workflow-run-unit-tests.yml) uses these same steps to verify unit tests pass before deployment.
+To test locally, run `make test` in your command line.
+
+Here is how the Makefile sets up and runs unit tests. The [unit test workflow](./.github/workflows/workflow-run-unit-tests.yml) uses these same steps to verify unit tests pass before deployment.
 
 1. Create virtual environment:
    ```
