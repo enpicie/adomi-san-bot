@@ -1,8 +1,7 @@
 from discord import AppCommandOptionType
 
-from enums import EventMode
 from commands.models.command_mapping import CommandMapping
-from commands.models.command_param import CommandParam, ParamChoice
+from commands.models.command_param import CommandParam
 import commands.setup.server_commands as server_commands
 
 setup_commands: CommandMapping = {
@@ -19,6 +18,19 @@ setup_commands: CommandMapping = {
             )
         ]
     },
+    "set-organizer-role": {
+        "function": server_commands.set_organier_role,
+        "description": "Set the role for event organizers who can use privileged commands.",
+        "params": [
+            CommandParam(
+                name="organizer_role",
+                description="Role for event organizers who can use privileged commands",
+                param_type=AppCommandOptionType.role,
+                required=True,
+                choices=None
+            )
+        ]
+    }
     # TODO: Uncomment when event-mode functionality is enabled again.
     # "setup-event-mode": {
     #     "function": server_commands.setup_event_mode,

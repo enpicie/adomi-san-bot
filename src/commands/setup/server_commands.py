@@ -77,6 +77,43 @@ def setup_server(event: DiscordEvent, table: Table) -> ResponseMessage:
             )
         raise
 
+def set_organizer_role(event: DiscordEvent, table: Table) -> ResponseMessage:
+    """
+    Sets the organizer_role property of the existing CONFIG record.
+    - Only allows users with 'Manage Server' permission.
+    """
+
+    user_permissions = event.get_user_permission_int()
+    if not permissions_helper.has_manage_server_permission(user_permissions):
+        return ResponseMessage(
+            content="⚠️ You need the 'Manage Server' permission to change the organizer role."
+        )
+
+    server_id = event.get_server_id()
+    pk = db_helper.get_server_pk(server_id)
+
+    existing_item = db_helper.get_server_config(server_id, table)
+    if not existing_item:
+        return ResponseMessage(
+            content="This server is not set up! Run `/setup-server` first to get started. "
+                    "You can set the organizer role there 👍"
+        )
+
+    organizer_role = event.get_command_input_value("organizer_role")
+
+    try:
+        table.update_item(
+            Key={"PK": pk, "SK": SK_CONFIG},
+            UpdateExpression="SET organizer_role = :r",
+            ExpressionAttributeValues={":r": organizer_role}
+        )
+    except ClientError:
+        raise
+
+    return ResponseMessage(
+        content=f"👍 Organizer role updated successfully."
+    )
+
 # TODO: Uncomment when ready to implement this functionality fully.
 # def setup_event_mode(event: DiscordEvent, table: Table) -> ResponseMessage:
 #     """
