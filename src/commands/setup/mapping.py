@@ -13,7 +13,7 @@ setup_commands: CommandMapping = {
             CommandParam(
                 name="organizer_role",
                 description="Role for event organizers who can use privileged commands",
-                param_type=AppCommandOptionType.string,
+                param_type=AppCommandOptionType.role,
                 required=True,
                 choices=None
             )
