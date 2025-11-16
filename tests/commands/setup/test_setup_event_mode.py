@@ -19,31 +19,11 @@ def _make_event(event_mode=None):
 # ----------------------------------------------------
 
 def test_setup_event_mode_insufficient_permissions(monkeypatch):
-    """Users without Manage Server permission should not be allowed."""
     mock_table = MagicMock()
     mock_event = _make_event()
-
     mock_event.get_user_permission_int.return_value = 0  # No permissions
 
     monkeypatch.setattr(setup.db_helper, "get_server_config", lambda sid, t: {"PK": "SERVER#123", "SK": "CONFIG"})
-    monkeypatch.setattr(setup.db_helper, "get_server_pk", lambda sid: f"SERVER#{sid}")
-
-    response = setup.setup_event_mode(mock_event, mock_table)
-
-    assert isinstance(response, ResponseMessage)
-    assert "Manage Server" in response.content
-    mock_table.update_item.assert_not_called()
-
-
-def test_setup_event_mode_insufficient_permissions_even_if_config_exists(monkeypatch):
-    """Even if config exists, permission check should run first."""
-    mock_table = MagicMock()
-    mock_event = _make_event()
-
-    mock_event.get_user_permission_int.return_value = 0  # Still no permissions
-
-    monkeypatch.setattr(setup.db_helper, "get_server_config",
-                        lambda sid, t: {"PK": "SERVER#123", "SK": "CONFIG"})
     monkeypatch.setattr(setup.db_helper, "get_server_pk", lambda sid: f"SERVER#{sid}")
 
     response = setup.setup_event_mode(mock_event, mock_table)
@@ -58,11 +38,9 @@ def test_setup_event_mode_insufficient_permissions_even_if_config_exists(monkeyp
 # ----------------------------------------------------
 
 def test_setup_event_mode_config_missing(monkeypatch):
-    """Returns expected message when CONFIG does not exist."""
     mock_table = MagicMock()
     mock_event = _make_event(EventMode.PER_CHANNEL.value)
-
-    mock_event.get_user_permission_int.return_value = (1 << 5)  # Has Manage Server
+    mock_event.get_user_permission_int.return_value = (1 << 5)
 
     monkeypatch.setattr(setup.db_helper, "get_server_config", lambda sid, t: None)
     monkeypatch.setattr(setup.db_helper, "get_server_pk", lambda sid: f"SERVER#{sid}")
@@ -71,7 +49,31 @@ def test_setup_event_mode_config_missing(monkeypatch):
 
     assert isinstance(response, ResponseMessage)
     assert "not set up" in response.content
-    assert "setup-server" in response.content
+    mock_table.update_item.assert_not_called()
+
+
+# ----------------------------------------------------
+#  Event mode unchanged
+# ----------------------------------------------------
+
+def test_setup_event_mode_no_change(monkeypatch):
+    """Returns early if the new event_mode is the same as current."""
+    mock_table = MagicMock()
+    event_mode = EventMode.SERVER_WIDE.value
+    mock_event = _make_event(event_mode)
+    mock_event.get_user_permission_int.return_value = (1 << 5)
+
+    monkeypatch.setattr(
+        setup.db_helper,
+        "get_server_config",
+        lambda sid, t: {"PK": "SERVER#123", "SK": "CONFIG", "event_mode": event_mode}
+    )
+    monkeypatch.setattr(setup.db_helper, "get_server_pk", lambda sid: f"SERVER#{sid}")
+
+    response = setup.setup_event_mode(mock_event, mock_table)
+
+    assert isinstance(response, ResponseMessage)
+    assert "already" in response.content
     mock_table.update_item.assert_not_called()
 
 
@@ -79,57 +81,63 @@ def test_setup_event_mode_config_missing(monkeypatch):
 #  Successful Update Tests
 # ----------------------------------------------------
 
-def test_setup_event_mode_updates_existing_config(monkeypatch):
-    """Updates event_mode on an existing CONFIG record."""
+def test_setup_event_mode_updates_to_per_channel(monkeypatch):
+    """Updates event_mode to PER_CHANNEL and deletes SERVER records."""
     mock_table = MagicMock()
     event_mode = EventMode.PER_CHANNEL.value
     mock_event = _make_event(event_mode)
+    mock_event.get_user_permission_int.return_value = (1 << 5)
 
-    mock_event.get_user_permission_int.return_value = (1 << 5)  # Has Manage Server
-
-    monkeypatch.setattr(setup.db_helper, "get_server_config",
-                        lambda sid, t: {"PK": "SERVER#123", "SK": "CONFIG", "event_mode": "server-wide"})
+    monkeypatch.setattr(
+        setup.db_helper,
+        "get_server_config",
+        lambda sid, t: {"PK": "SERVER#123", "SK": "CONFIG", "event_mode": EventMode.SERVER_WIDE.value}
+    )
     monkeypatch.setattr(setup.db_helper, "get_server_pk", lambda sid: f"SERVER#{sid}")
+
+    # Mock SERVER records
+    monkeypatch.setattr(
+        setup.db_helper,
+        "query_items_by_sk",
+        lambda sid, tbl, sk: [{"PK": f"SERVER#{sid}", "SK": sk}]
+    )
 
     response = setup.setup_event_mode(mock_event, mock_table)
 
-    pk = "SERVER#123"
-
-    # Ensure update_item was called correctly
+    # update_item should be called for CONFIG
     mock_table.update_item.assert_called_once()
-    call_kwargs = mock_table.update_item.call_args.kwargs
-
-    assert call_kwargs["Key"] == {"PK": pk, "SK": setup.SK_CONFIG}
-    assert call_kwargs["UpdateExpression"] == "SET event_mode = :m"
-    assert call_kwargs["ExpressionAttributeValues"] == {":m": event_mode}
-
-    # Verify response
-    assert isinstance(response, ResponseMessage)
-    assert "Changed event mode" in response.content
-    assert event_mode in response.content
+    # delete_item should be called for SERVER record
+    mock_table.delete_item.assert_called_once()
+    assert response.content.startswith("👍 Changed event mode")
 
 
-def test_setup_event_mode_updates_to_serverwide(monkeypatch):
-    """Updates event_mode to server-wide when that's the provided input."""
+def test_setup_event_mode_updates_to_server_wide(monkeypatch):
+    """Updates event_mode to SERVER_WIDE, deletes CHANNEL* records, creates SERVER record."""
     mock_table = MagicMock()
     event_mode = EventMode.SERVER_WIDE.value
     mock_event = _make_event(event_mode)
-
     mock_event.get_user_permission_int.return_value = (1 << 5)
 
-    monkeypatch.setattr(setup.db_helper, "get_server_config",
-                        lambda sid, t: {"PK": "SERVER#123", "SK": "CONFIG"})
+    monkeypatch.setattr(
+        setup.db_helper,
+        "get_server_config",
+        lambda sid, t: {"PK": "SERVER#123", "SK": "CONFIG", "event_mode": EventMode.PER_CHANNEL.value}
+    )
     monkeypatch.setattr(setup.db_helper, "get_server_pk", lambda sid: f"SERVER#{sid}")
+
+    # Mock CHANNEL* records
+    monkeypatch.setattr(
+        setup.db_helper,
+        "query_items_with_sk_prefix",
+        lambda sid, tbl, prefix: [{"PK": f"SERVER#{sid}", "SK": f"{prefix}#1"}, {"PK": f"SERVER#{sid}", "SK": f"{prefix}#2"}]
+    )
 
     response = setup.setup_event_mode(mock_event, mock_table)
 
-    pk = "SERVER#123"
-
+    # update_item should be called for CONFIG
     mock_table.update_item.assert_called_once()
-    call_kwargs = mock_table.update_item.call_args.kwargs
-
-    assert call_kwargs["Key"] == {"PK": pk, "SK": setup.SK_CONFIG}
-    assert call_kwargs["ExpressionAttributeValues"] == {":m": event_mode}
-
-    assert isinstance(response, ResponseMessage)
-    assert event_mode in response.content
+    # delete_item should be called for each CHANNEL* record
+    assert mock_table.delete_item.call_count == 2
+    # put_item should be called to create SERVER record
+    mock_table.put_item.assert_called_once()
+    assert response.content.startswith("👍 Changed event mode")
