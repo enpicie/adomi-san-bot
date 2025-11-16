@@ -14,6 +14,44 @@ def _make_event(event_mode=None):
     mock_event.get_command_input_value.return_value = event_mode
     return mock_event
 
+def test_setup_server_insufficient_permissions(monkeypatch):
+    """Users without Manage Server permission should not be allowed."""
+    mock_table = MagicMock()
+    mock_event = _make_event()
+
+    # User has NO permissions
+    mock_event.get_user_permission_int.return_value = 0
+
+    # Ensure DB is never touched
+    monkeypatch.setattr(setup.db_helper, "get_server_config", lambda sid, t: None)
+    monkeypatch.setattr(setup.db_helper, "get_server_pk", lambda sid: f"SERVER#{sid}")
+
+    response = setup.setup_server(mock_event, mock_table)
+
+    assert isinstance(response, ResponseMessage)
+    assert "Manage Server" in response.content
+    mock_table.put_item.assert_not_called()
+
+
+def test_setup_server_insufficient_permissions_even_if_config_exists(monkeypatch):
+    """Even if CONFIG already exists, permissions should be checked first."""
+    mock_table = MagicMock()
+    mock_event = _make_event()
+
+    # User still has NO permissions
+    mock_event.get_user_permission_int.return_value = 0
+
+    # Simulate config exists — should NOT matter because perms fail first
+    monkeypatch.setattr(setup.db_helper, "get_server_config",
+                        lambda sid, t: {"PK": "SERVER#123", "SK": "CONFIG"})
+    monkeypatch.setattr(setup.db_helper, "get_server_pk", lambda sid: f"SERVER#{sid}")
+
+    response = setup.setup_server(mock_event, mock_table)
+
+    assert isinstance(response, ResponseMessage)
+    assert "Manage Server" in response.content
+    mock_table.put_item.assert_not_called()
+
 
 def test_setup_server_when_config_already_exists(monkeypatch):
     """Test returns expected message when server config record already exists."""

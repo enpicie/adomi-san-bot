@@ -3,6 +3,7 @@ from botocore.exceptions import ClientError
 
 import constants
 import utils.dynamodb_helper as db_helper
+import utils.permissions_helper as permissions_helper
 from enums import EventMode
 from commands.models.discord_event import DiscordEvent
 from commands.models.response_message import ResponseMessage
@@ -14,9 +15,16 @@ def setup_server(event: DiscordEvent, table: Table) -> ResponseMessage:
     """
     Sets up a CONFIG record for a server in DynamoDB if it does not already exist.
     Adds an 'event_mode' attribute based on a command parameter in the event.
+    Only allows users with 'Manage Server' permission to run this command.
     Default event_mode is 'server-wide'.
     If 'event_mode' is 'server-wide', also creates a SERVER record.
     """
+    user_permissions = event.get_user_permission_int()
+    if not permissions_helper.has_manage_server_permission(user_permissions):
+        return ResponseMessage(
+            content="⚠️ You need the 'Manage Server' permission to set things up for this server."
+        )
+
     server_id = event.get_server_id()
     pk = db_helper.get_server_pk(server_id)
 

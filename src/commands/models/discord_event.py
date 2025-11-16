@@ -56,3 +56,6 @@ class DiscordEvent:
 
     def get_username(self) -> str:
         return self._get_event_field("member", "user", "username")
+
+    def get_user_permission_int(self) -> int:
+        return int(self._get_event_field("member", "permissions"))
