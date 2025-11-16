@@ -17,7 +17,7 @@ setup_commands: CommandMapping = {
                 required=False,
                 choices=[
                     ParamChoice(name="Server-wide", value=EventMode.SERVER_WIDE.value),
-                    ParamChoice(name="Per-channel", value=EventMode.PER_CHANNEL.value),
+                    ParamChoice(name="Per-channel", value=EventMode.PER_CHANNEL.value)
                 ]
             )
         ]
