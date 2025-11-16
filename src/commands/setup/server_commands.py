@@ -48,7 +48,8 @@ def setup_server(event: DiscordEvent, table: Table) -> ResponseMessage:
                 content=f"This server is already set up! Check out other commands to configure the settings for this server."
             )
 
-        event_mode = event.get_command_input_value("event_mode") or EventMode.SERVER_WIDE.value
+        # TODO: set based on user-input when functionality is fully built.
+        event_mode = EventMode.SERVER_WIDE.value
         print(f"Event mode: {event_mode}")
         organizer_role = event.get_command_input_value("organizer_role")
         print(f"Organizer role: {organizer_role}")
@@ -57,14 +58,13 @@ def setup_server(event: DiscordEvent, table: Table) -> ResponseMessage:
             Item={
                 "PK": pk,
                 "SK": SK_CONFIG,
-                "event_mode": event_mode or EventMode.SERVER_WIDE.value
+                "event_mode": EventMode.SERVER_WIDE.value
             },
             ConditionExpression="attribute_not_exists(PK) AND attribute_not_exists(SK)"
         )
 
-        # TODO: Re-enable condition when event-mode functionality is enabled again.
-        # if event_mode == EventMode.SERVER_WIDE.value:
-        create_server_record(table, pk)
+        if event_mode == EventMode.SERVER_WIDE.value:
+            create_server_record(table, pk)
 
         return ResponseMessage(
             content=f"👍 Server setup complete with event mode `{event_mode}`."
