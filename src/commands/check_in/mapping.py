@@ -1,9 +1,9 @@
 from commands.models.command_mapping import CommandMapping
-import check_in.check_in as check_in
+import commands.check_in.commands as commands
 
 checkin_commands: CommandMapping = {
     "check-in": {
-        "function": check_in.check_in_user,
+        "function": commands.check_in_user,
         "description": "Check in the calling user.",
         "params": []
     }

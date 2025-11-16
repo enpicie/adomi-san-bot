@@ -52,8 +52,19 @@ jobs:
           echo "DISCORD_PUBLIC_KEY=$DISCORD_PUBLIC_KEY_DEV" >> $GITHUB_OUTPUT
           echo "BRANCH_NAME=$SHORT_BRANCH_NAME" >> $GITHUB_OUTPUT
 
+  unit-test:
+    needs:
+      - read-config
+    uses: ./.github/workflows/workflow-run-unit-tests.yml
+    with:
+      python_runtime: ${{ needs.read-config.outputs.PYTHON_RUNTIME }}
+      tests_path: tests/
+
   deploy:
-    needs: read-config
+    needs:
+      - register-commands
+      - read-config
+      - unit-test
     uses: ./.github/workflows/workflow-deploy.yml
     with:
       app_name: ${{ needs.read-config.outputs.APP_NAME }}

@@ -7,22 +7,6 @@ data "aws_s3_object" "lambda_zip_latest" {
   key    = "${var.app_name}/${var.app_name}-latest.zip"
 }
 
-resource "aws_iam_role" "lambda_exec_role" {
-  name = "LambdaExecutionRole-${var.app_name}-${var.deployment_env}"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17",
-    Statement = [{
-      Action = "sts:AssumeRole",
-      Principal = {
-        Service = "lambda.amazonaws.com"
-      },
-      Effect = "Allow",
-      Sid    = ""
-    }]
-  })
-}
-
 resource "aws_iam_role_policy_attachment" "lambda_basic_execution" {
   role       = aws_iam_role.lambda_exec_role.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
@@ -33,13 +17,24 @@ data "aws_lambda_layer_version" "pynacl_layer" {
   layer_name = "PyNaCl-311"
 }
 
+data "aws_s3_object" "app_layer_zip" {
+  bucket = var.bucket_name
+  key    = var.app_lambda_layer_s3_key
+}
+
+data "aws_s3_object" "app_layer_hash" {
+  bucket = var.bucket_name
+  key    = var.app_lambda_layer_hash_s3_key
+}
+
 resource "aws_lambda_layer_version" "app_layer" {
   layer_name               = "${var.app_name}-layer"
   description              = "Lambda layer for dependencies of ${var.app_name}"
   s3_bucket                = var.bucket_name
-  s3_key                   = var.app_lambda_layer_s3_key
+  s3_key                   = data.aws_s3_object.app_layer_zip.key
   compatible_runtimes      = ["python${var.python_runtime}"]
   compatible_architectures = [var.architecture]
+  source_code_hash         = trimspace(data.aws_s3_object.app_layer_hash.body)
 }
 
 resource "aws_lambda_function" "bot_lambda" {
@@ -57,8 +52,10 @@ resource "aws_lambda_function" "bot_lambda" {
   ]
   environment {
     variables = {
-      PUBLIC_KEY        = var.discord_public_key,
-      STARTGG_API_TOKEN = var.startgg_api_token
+      REGION              = var.aws_region,
+      PUBLIC_KEY          = var.discord_public_key,
+      STARTGG_API_TOKEN   = var.startgg_api_token
+      DYNAMODB_TABLE_NAME = aws_dynamodb_table.adomi_discord_server_table.name
     }
   }
 

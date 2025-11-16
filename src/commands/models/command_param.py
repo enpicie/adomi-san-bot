@@ -11,7 +11,7 @@ class ParamChoice:
 @dataclass
 class CommandParam:
   name: str
-  description: str
+  description: str # Max allowed length by Discord is 100 chars.
   param_type: AppCommandOptionType
   required: bool
   choices: Optional[List[ParamChoice]]
