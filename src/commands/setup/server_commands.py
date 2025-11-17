@@ -2,7 +2,9 @@ from mypy_boto3_dynamodb.service_resource import Table
 from botocore.exceptions import ClientError
 
 import constants
-import database.dynamodb_helper as db_helper
+import database.dynamodb_queries as db_helper
+import database.event_data_keys as event_data_keys
+import database.server_config_keys as server_config_keys
 import utils.permissions_helper as permissions_helper
 from enums import EventMode
 from commands.models.discord_event import DiscordEvent
@@ -14,9 +16,9 @@ def create_server_record(table: Table, pk: str) -> None:
         Item={
             "PK": pk,
             "SK": constants.SK_SERVER,
-            "checked_in": {}, # Initialize empty checked_in map
-            "registered": {}, # Initialize empty registered map
-            "queued": {}     # Initialize empty queued map
+            event_data_keys.CHECKED_IN: {}, # Initialize empty checked_in map
+            event_data_keys.REGISTERED: {}, # Initialize empty registered map
+            event_data_keys.QUEUE: {}     # Initialize empty queue map
         },
         ConditionExpression="attribute_not_exists(PK) AND attribute_not_exists(SK)"
     )
@@ -56,7 +58,8 @@ def setup_server(event: DiscordEvent, table: Table) -> ResponseMessage:
             Item={
                 "PK": pk,
                 "SK": constants.SK_CONFIG,
-                "event_mode": EventMode.SERVER_WIDE.value
+                server_config_keys.EVENT_MODE: EventMode.SERVER_WIDE.value,
+                server_config_keys.ORGANIZER_ROLE: organizer_role
             },
             ConditionExpression="attribute_not_exists(PK) AND attribute_not_exists(SK)"
         )
@@ -101,7 +104,7 @@ def set_organizer_role(event: DiscordEvent, table: Table) -> ResponseMessage:
     try:
         table.update_item(
             Key={"PK": pk, "SK": constants.SK_CONFIG},
-            UpdateExpression="SET organizer_role = :r",
+            UpdateExpression=f"SET {server_config_keys.ORGANIZER_ROLE} = :r",
             ExpressionAttributeValues={":r": organizer_role}
         )
     except ClientError:

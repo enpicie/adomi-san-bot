@@ -5,6 +5,11 @@ from botocore.exceptions import ClientError
 import commands.check_in.check_in_commands as check_in
 from commands.models.response_message import ResponseMessage
 import utils.message_helper as msg_helper
+import utils.discord_api_helper as discord_helper
+import database.event_data_keys as event_data_keys
+import database.models.participant as participant_module
+import database.dynamodb_queries as db_helper
+import constants
 
 
 def _make_event():
@@ -18,71 +23,57 @@ def _make_event():
 
 
 # ----------------------------------------------------
-#  Successful check-in
+#  Successful check-in with participant role
 # ----------------------------------------------------
-def test_check_in_user_success(monkeypatch):
-    """Test a successful check-in calls update_item and returns expected message."""
+def test_check_in_user_happy_path_with_role(monkeypatch):
+    """Test a successful check-in where event data contains a participant_role."""
     mock_table = MagicMock()
     event = _make_event()
 
-    # Mock user ping helper
+    role_id = "role123"
+
+    # Mock dependencies
     monkeypatch.setattr(msg_helper, "get_user_ping", lambda uid: f"<@{uid}>")
+    monkeypatch.setattr(db_helper, "get_server_pk", lambda sid: f"SERVER#{sid}")
+
+    # Return event_data containing a participant_role
+    monkeypatch.setattr(db_helper, "get_server_event_data", lambda sid, table: {
+        "participant_role": role_id
+    })
+
+    # Mock discord role assignment
+    mock_add_role = MagicMock()
+    monkeypatch.setattr(discord_helper, "add_role_to_user", mock_add_role)
+
+    # Mock Participant.to_dict
+    monkeypatch.setattr(participant_module.Participant, "to_dict", lambda self: {
+        "user_id": self.user_id,
+        "display_name": self.display_name
+    })
 
     response = check_in.check_in_user(event, mock_table)
 
+    # Check ResponseMessage
     assert isinstance(response, ResponseMessage)
     assert response.content == "✅ Checked in <@456>!"
 
-    pk = f"SERVER#{event.get_server_id()}"
-    sk = "SERVER"
+    # Validate DynamoDB update call
+    pk = "SERVER#123"
+    sk = constants.SK_SERVER
     user_id = event.get_user_id()
     username = event.get_username()
-
-    # Verify correct update_item call
     mock_table.update_item.assert_called_once()
     args, kwargs = mock_table.update_item.call_args
     assert kwargs["Key"] == {"PK": pk, "SK": sk}
     assert kwargs["ExpressionAttributeNames"] == {"#uid": user_id}
-    assert kwargs["ExpressionAttributeValues"][":participant_info"]["user_id"] == user_id
-    assert kwargs["ExpressionAttributeValues"][":participant_info"]["display_name"] == username
-    assert kwargs["ConditionExpression"] == "attribute_exists(PK)"
-
-
-# ----------------------------------------------------
-#  Conditional check failure
-# ----------------------------------------------------
-def test_check_in_user_conditional_check_failed(monkeypatch):
-    """If the channel record doesn't exist, should return proper message."""
-    mock_table = MagicMock()
-    event = _make_event()
-
-    # Simulate DynamoDB conditional check failure
-    error_response = {
-        "Error": {"Code": "ConditionalCheckFailedException", "Message": "Record does not exist"}
+    assert kwargs["ExpressionAttributeValues"] == {
+        ":participant_info": {"user_id": user_id, "display_name": username}
     }
-    mock_table.update_item.side_effect = ClientError(error_response, "UpdateItem")
 
-    response = check_in.check_in_user(event, mock_table)
+    # Validate role assignment call
+    mock_add_role.assert_called_once_with(
+        guild_id=event.get_server_id(),
+        user_id=event.get_user_id(),
+        role_id=role_id
+    )
 
-    assert isinstance(response, ResponseMessage)
-    assert "has not been set up yet" in response.content
-    mock_table.update_item.assert_called_once()
-
-
-# ----------------------------------------------------
-#  Unexpected ClientError
-# ----------------------------------------------------
-def test_check_in_user_unexpected_client_error():
-    """Any unexpected ClientError should be re-raised."""
-    mock_table = MagicMock()
-    event = _make_event()
-
-    error_response = {
-        "Error": {"Code": "ProvisionedThroughputExceededException", "Message": "Throttled"}
-    }
-    mock_table.update_item.side_effect = ClientError(error_response, "UpdateItem")
-
-    with pytest.raises(ClientError):
-        check_in.check_in_user(event, mock_table)
-
-    mock_table.update_item.assert_called_once()

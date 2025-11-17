@@ -5,6 +5,7 @@ from botocore.exceptions import ClientError
 import constants
 import commands.setup.server_commands as setup
 from commands.models.response_message import ResponseMessage
+import database.server_config_keys as server_config_keys
 
 
 def _make_event():
@@ -47,7 +48,9 @@ def test_set_organizer_role_insufficient_permissions_even_if_config_exists():
     mock_event.get_user_permission_int.return_value = 0
 
     # Pretend CONFIG exists
-    mock_table.get_item.return_value = {"Item": {"PK": "SERVER#123", "SK": constants.SK_CONFIG}}
+    mock_table.get_item.return_value = {
+        "Item": {"PK": "SERVER#123", "SK": constants.SK_CONFIG}
+    }
 
     response = setup.set_organizer_role(mock_event, mock_table)
 
@@ -106,7 +109,7 @@ def test_set_organizer_role_updates_config():
     call = mock_table.update_item.call_args.kwargs
 
     assert call["Key"] == {"PK": "SERVER#123", "SK": constants.SK_CONFIG}
-    assert call["UpdateExpression"] == "SET organizer_role = :r"
+    assert call["UpdateExpression"] == f"SET {server_config_keys.ORGANIZER_ROLE} = :r"
     assert call["ExpressionAttributeValues"] == {":r": "Role123"}
 
     assert isinstance(response, ResponseMessage)
