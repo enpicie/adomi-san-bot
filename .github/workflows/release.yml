@@ -75,4 +75,8 @@ jobs:
       discord_public_key: ${{ needs.read-config.outputs.DISCORD_PUBLIC_KEY }}
       deployment_env: 'prod'
       artifact_s3_bucket: 'enpicie-prod-lambda-artifacts'
-    secrets: inherit
+    secrets:
+      AWS_S3_ARTIFACT_UPLOAD_ROLE_ARN: ${{ secrets.AWS_S3_ARTIFACT_UPLOAD_ROLE_ARN }}
+      TF_API_TOKEN: ${{ secrets.TF_API_TOKEN }}
+      STARTGG_API_TOKEN: ${{ secrets.STARTGG_API_TOKEN }}
+      DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN_PROD }}
