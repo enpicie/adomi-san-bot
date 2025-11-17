@@ -1,4 +1,3 @@
-from mypy_boto3_dynamodb.service_resource import Table
 from botocore.exceptions import ClientError
 
 import constants
@@ -6,23 +5,26 @@ import database.dynamodb_queries as db_helper
 import database.event_data_keys as event_data_keys
 import utils.discord_api_helper as discord_helper
 import utils.message_helper as msg_helper
+import commands.check_in.queue_role_removal as role_removal_queue
+from aws_services import AWSServices
 from database.models.participant import Participant
 from commands.models.discord_event import DiscordEvent
 from commands.models.response_message import ResponseMessage
 
 
-def check_in_user(event: DiscordEvent, table: Table) -> ResponseMessage:
+def check_in_user(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
     """
     Adds a user to the checked_in map for a channel record in DynamoDB.
     Returns a ResponseMessage indicating success or failure.
     """
+    table = aws_services.dynamotb_table
     pk = db_helper.get_server_pk(event.get_server_id())
     sk = constants.SK_SERVER
 
     event_data = db_helper.get_server_event_data(event.get_server_id(), table)
     if not event_data:
         return ResponseMessage(
-            content="🙀 Event data is not set up yet! Run `/setup-server` first to get started. "
+            content="🙀 Event data is not set up yet! Run `/setup-server` first to get started."
         )
     participant_role = event_data.get(event_data_keys.PARTICIPANT_ROLE, "")
 
@@ -33,7 +35,7 @@ def check_in_user(event: DiscordEvent, table: Table) -> ResponseMessage:
         user_id=user_id
     )
 
-    table.update_item(
+    aws_services.dynamotb_table.update_item(
         Key={"PK": pk, "SK": sk},
         UpdateExpression="SET checked_in.#uid = :participant_info",
         ExpressionAttributeNames={"#uid": user_id},
@@ -48,4 +50,46 @@ def check_in_user(event: DiscordEvent, table: Table) -> ResponseMessage:
         )
     return ResponseMessage(
         content=f"✅ Checked in {msg_helper.get_user_ping(user_id)}!"
+    )
+
+def clear_check_ins(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
+    """
+    Clears all checked-in users from the channel record in DynamoDB.
+    Returns a ResponseMessage indicating success or failure.
+    """
+    table = aws_services.dynamotb_table
+    server_id = event.get_server_id()
+    pk = db_helper.get_server_pk(server_id)
+    sk = constants.SK_SERVER
+
+    event_data = db_helper.get_server_event_data(server_id, table)
+    if not event_data:
+        return ResponseMessage(
+            content="🙀 There is no check-in data to clear! Run `/setup-server` first to get started."
+        )
+    participant_role = event_data.get(event_data_keys.PARTICIPANT_ROLE, "")
+    checked_in = event_data.get(event_data_keys.CHECKED_IN, {})
+    if not checked_in:
+        return ResponseMessage(
+            content="ℹ️ There are no checked-in users to clear."
+        )
+    checked_in_users = list(checked_in.keys())
+
+    try:
+        table.update_item(
+            Key={"PK": pk, "SK": sk},
+            UpdateExpression="SET checked_in = :empty_map",
+            ExpressionAttributeValues={":empty_map": {}}
+        )
+        role_removal_queue.enqueue_remove_role_jobs(
+            guild_id=server_id,
+            user_ids=checked_in_users,
+            role_id=participant_role,
+            sqs_queue=aws_services.remove_role_sqs_queue
+        )
+    except ClientError:
+        raise
+
+    return ResponseMessage(
+        content="✅ All check-ins have been cleared, and I've queued up participant role removals 🫡"
     )

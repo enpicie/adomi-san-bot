@@ -6,6 +6,7 @@ import database.dynamodb_queries as db_helper
 import database.event_data_keys as event_data_keys
 import database.server_config_keys as server_config_keys
 import utils.permissions_helper as permissions_helper
+from aws_services import AWSServices
 from enums import EventMode
 from commands.models.discord_event import DiscordEvent
 from commands.models.response_message import ResponseMessage
@@ -23,7 +24,7 @@ def create_server_record(table: Table, pk: str) -> None:
         ConditionExpression="attribute_not_exists(PK) AND attribute_not_exists(SK)"
     )
 
-def setup_server(event: DiscordEvent, table: Table) -> ResponseMessage:
+def setup_server(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
     """
     Sets up a CONFIG record for a server in DynamoDB if it does not already exist.
     - Sets 'event_mode' and 'organizer_role' based on command inputs.
@@ -32,6 +33,7 @@ def setup_server(event: DiscordEvent, table: Table) -> ResponseMessage:
     - 'organizer_role' is required and designates role allowed to use privileged bot commands.
     - EVENT_MODE FUNCCTIONALITY IS CURRENTLY DISABLED. Planned for later phase. Only using SERVER_WIDE.
     """
+    table = aws_services.dynamotb_table
     user_permissions = event.get_user_permission_int()
     if not permissions_helper.has_manage_server_permission(user_permissions):
         return ResponseMessage(
@@ -42,7 +44,7 @@ def setup_server(event: DiscordEvent, table: Table) -> ResponseMessage:
     pk = db_helper.get_server_pk(server_id)
 
     try:
-        existing_item = db_helper.get_server_config(server_id, table)
+        existing_item = db_helper.get_server_config(server_id, aws_services.dynamotb_table)
         if existing_item:
             return ResponseMessage(
                 content=f"This server is already set up! Check out other commands to configure the settings for this server."
@@ -78,11 +80,12 @@ def setup_server(event: DiscordEvent, table: Table) -> ResponseMessage:
             )
         raise
 
-def set_organizer_role(event: DiscordEvent, table: Table) -> ResponseMessage:
+def set_organizer_role(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
     """
     Sets the organizer_role property of the existing CONFIG record.
     - Only allows users with 'Manage Server' permission.
     """
+    table = aws_services.dynamotb_table
     user_permissions = event.get_user_permission_int()
     if not permissions_helper.has_manage_server_permission(user_permissions):
         return ResponseMessage(
@@ -92,7 +95,7 @@ def set_organizer_role(event: DiscordEvent, table: Table) -> ResponseMessage:
     server_id = event.get_server_id()
     pk = db_helper.get_server_pk(server_id)
 
-    existing_item = db_helper.get_server_config(server_id, table)
+    existing_item = db_helper.get_server_config(server_id, aws_services.dynamotb_table)
     if not existing_item:
         return ResponseMessage(
             content="This server is not set up! Run `/setup-server` first to get started. "

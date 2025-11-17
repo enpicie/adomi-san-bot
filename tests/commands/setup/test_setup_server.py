@@ -10,6 +10,7 @@ from enums import EventMode
 from commands.models.response_message import ResponseMessage
 import database.dynamodb_queries as db_helper
 import utils.permissions_helper as permissions_helper
+from aws_services import AWSServices
 
 
 def _make_event():
@@ -24,11 +25,12 @@ def _make_event():
 # ----------------------------------------------------
 def test_setup_server_insufficient_permissions(monkeypatch):
     mock_table = MagicMock()
+    aws_services = AWSServices(table=mock_table, remove_role_sqs_queue=MagicMock())
     mock_event = _make_event()
 
     monkeypatch.setattr(permissions_helper, "has_manage_server_permission", lambda perms: False)
 
-    response = setup.setup_server(mock_event, mock_table)
+    response = setup.setup_server(mock_event, aws_services)
 
     assert isinstance(response, ResponseMessage)
     assert "Manage Server" in response.content
@@ -37,12 +39,13 @@ def test_setup_server_insufficient_permissions(monkeypatch):
 
 def test_setup_server_insufficient_permissions_even_if_config_exists(monkeypatch):
     mock_table = MagicMock()
+    aws_services = AWSServices(table=mock_table, remove_role_sqs_queue=MagicMock())
     mock_event = _make_event()
 
     monkeypatch.setattr(permissions_helper, "has_manage_server_permission", lambda perms: False)
-    monkeypatch.setattr(db_helper, "get_server_config", lambda sid, table: {"PK": "SERVER#123", "SK": constants.SK_CONFIG})
+    monkeypatch.setattr(db_helper, "get_server_config", lambda sid, aws_services: {"PK": "SERVER#123", "SK": constants.SK_CONFIG})
 
-    response = setup.setup_server(mock_event, mock_table)
+    response = setup.setup_server(mock_event, aws_services)
 
     assert isinstance(response, ResponseMessage)
     assert "Manage Server" in response.content
@@ -54,12 +57,13 @@ def test_setup_server_insufficient_permissions_even_if_config_exists(monkeypatch
 # ----------------------------------------------------
 def test_setup_server_when_config_already_exists(monkeypatch):
     mock_table = MagicMock()
+    aws_services = AWSServices(table=mock_table, remove_role_sqs_queue=MagicMock())
     mock_event = _make_event()
 
     monkeypatch.setattr(permissions_helper, "has_manage_server_permission", lambda perms: True)
-    monkeypatch.setattr(db_helper, "get_server_config", lambda sid, table: {"PK": "SERVER#123", "SK": constants.SK_CONFIG})
+    monkeypatch.setattr(db_helper, "get_server_config", lambda sid, aws_services: {"PK": "SERVER#123", "SK": constants.SK_CONFIG})
 
-    response = setup.setup_server(mock_event, mock_table)
+    response = setup.setup_server(mock_event, aws_services)
 
     assert isinstance(response, ResponseMessage)
     assert "already set up" in response.content
@@ -71,13 +75,14 @@ def test_setup_server_when_config_already_exists(monkeypatch):
 # ----------------------------------------------------
 def test_setup_server_creates_config_and_server(monkeypatch):
     mock_table = MagicMock()
+    aws_services = AWSServices(table=mock_table, remove_role_sqs_queue=MagicMock())
     mock_event = _make_event()
 
     monkeypatch.setattr(permissions_helper, "has_manage_server_permission", lambda perms: True)
-    monkeypatch.setattr(db_helper, "get_server_config", lambda sid, table: None)
+    monkeypatch.setattr(db_helper, "get_server_config", lambda sid, aws_services: None)
     monkeypatch.setattr(db_helper, "get_server_pk", lambda sid: f"SERVER#{sid}")
 
-    response = setup.setup_server(mock_event, mock_table)
+    response = setup.setup_server(mock_event, aws_services)
 
     pk = "SERVER#123"
 

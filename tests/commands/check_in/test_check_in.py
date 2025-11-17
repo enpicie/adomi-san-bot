@@ -3,13 +3,14 @@ from unittest.mock import MagicMock
 from botocore.exceptions import ClientError
 
 import commands.check_in.check_in_commands as check_in
-from commands.models.response_message import ResponseMessage
 import utils.message_helper as msg_helper
 import utils.discord_api_helper as discord_helper
 import database.event_data_keys as event_data_keys
 import database.models.participant as participant_module
 import database.dynamodb_queries as db_helper
 import constants
+from aws_services import AWSServices
+from commands.models.response_message import ResponseMessage
 
 
 def _make_event():
@@ -28,6 +29,7 @@ def _make_event():
 def test_check_in_user_happy_path_with_role(monkeypatch):
     """Test a successful check-in where event data contains a participant_role."""
     mock_table = MagicMock()
+    aws_services = AWSServices(table=mock_table, remove_role_sqs_queue=MagicMock())
     event = _make_event()
 
     role_id = "role123"
@@ -37,7 +39,7 @@ def test_check_in_user_happy_path_with_role(monkeypatch):
     monkeypatch.setattr(db_helper, "get_server_pk", lambda sid: f"SERVER#{sid}")
 
     # Return event_data containing a participant_role
-    monkeypatch.setattr(db_helper, "get_server_event_data", lambda sid, table: {
+    monkeypatch.setattr(db_helper, "get_server_event_data", lambda sid, aws_services: {
         "participant_role": role_id
     })
 
@@ -51,7 +53,7 @@ def test_check_in_user_happy_path_with_role(monkeypatch):
         "display_name": self.display_name
     })
 
-    response = check_in.check_in_user(event, mock_table)
+    response = check_in.check_in_user(event, aws_services)
 
     # Check ResponseMessage
     assert isinstance(response, ResponseMessage)
@@ -76,4 +78,3 @@ def test_check_in_user_happy_path_with_role(monkeypatch):
         user_id=event.get_user_id(),
         role_id=role_id
     )
-

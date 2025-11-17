@@ -4,6 +4,11 @@ variable "app_name" {
   type        = string
 }
 
+variable "sqs_worker_name" {
+  description = "The name of the sqs worker lambda"
+  type        = string
+}
+
 variable "aws_region" {
   description = "AWS region to deploy resources into"
   type        = string
@@ -37,6 +42,16 @@ variable "app_lambda_layer_s3_key" {
 
 variable "app_lambda_layer_hash_s3_key" {
   description = "S3 key for .hash file for Lambda layer built for this application"
+  type        = string
+}
+
+variable "worker_lambda_layer_s3_key" {
+  description = "S3 key for .zip of Lambda layer built for the SQS worker"
+  type        = string
+}
+
+variable "worker_lambda_layer_hash_s3_key" {
+  description = "S3 key for .hash file for Lambda layer built for the SQS worker"
   type        = string
 }
 

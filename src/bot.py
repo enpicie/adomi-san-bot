@@ -1,10 +1,10 @@
-from mypy_boto3_dynamodb.service_resource import Table
+from aws_services import AWSServices
 
 from commands.command_map import command_map
 from commands.models.discord_event import DiscordEvent
 from commands.models.response_message import ResponseMessage
 
-def process_bot_command(event_body: dict, table: Table) -> dict:
+def process_bot_command(event_body: dict, aws_services: AWSServices) -> dict:
     if "data" not in event_body:
         raise KeyError("No field 'data'. This is not a valid Discord Slash Command message.")
 
@@ -17,7 +17,7 @@ def process_bot_command(event_body: dict, table: Table) -> dict:
 
     command_function = command["function"]
     try:
-        message = command_function(event, table)
+        message = command_function(event, aws_services)
     except Exception as e:
         print(f"ERROR: Exception while processing command '{command_name}': {e}")
         message = ResponseMessage.get_error_message()

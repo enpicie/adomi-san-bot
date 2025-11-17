@@ -7,11 +7,6 @@ data "aws_s3_object" "lambda_zip_latest" {
   key    = "${var.app_name}/${var.app_name}-latest.zip"
 }
 
-resource "aws_iam_role_policy_attachment" "lambda_basic_execution" {
-  role       = aws_iam_role.lambda_exec_role.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
-}
-
 # Layer with PyNaCl for cryptographic operations required by Discord auth
 data "aws_lambda_layer_version" "pynacl_layer" {
   layer_name = "PyNaCl-311"
@@ -28,7 +23,7 @@ data "aws_s3_object" "app_layer_hash" {
 }
 
 resource "aws_lambda_layer_version" "app_layer" {
-  layer_name               = "${var.app_name}-layer"
+  layer_name               = "${var.app_name}-layer-${var.deployment_env}"
   description              = "Lambda layer for dependencies of ${var.app_name}"
   s3_bucket                = var.bucket_name
   s3_key                   = data.aws_s3_object.app_layer_zip.key
@@ -52,11 +47,12 @@ resource "aws_lambda_function" "bot_lambda" {
   ]
   environment {
     variables = {
-      REGION              = var.aws_region
-      PUBLIC_KEY          = var.discord_public_key
-      STARTGG_API_TOKEN   = var.startgg_api_token
-      DISCORD_BOT_TOKEN   = var.discord_bot_token
-      DYNAMODB_TABLE_NAME = aws_dynamodb_table.adomi_discord_server_table.name
+      REGION                = var.aws_region
+      PUBLIC_KEY            = var.discord_public_key
+      STARTGG_API_TOKEN     = var.startgg_api_token
+      DISCORD_BOT_TOKEN     = var.discord_bot_token
+      DYNAMODB_TABLE_NAME   = aws_dynamodb_table.adomi_discord_server_table.name
+      REMOVE_ROLE_QUEUE_URL = aws_sqs_queue.remove_role_queue.url
     }
   }
 
