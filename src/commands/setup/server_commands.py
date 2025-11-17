@@ -8,16 +8,14 @@ from enums import EventMode
 from commands.models.discord_event import DiscordEvent
 from commands.models.response_message import ResponseMessage
 
-SK_CONFIG = "CONFIG"
-SK_SERVER = "SERVER"
-
 def create_server_record(table: Table, pk: str) -> None:
     """Creates a SERVER record for the given PK in the provided DynamoDB table."""
     table.put_item(
         Item={
             "PK": pk,
-            "SK": SK_SERVER,
+            "SK": constants.SK_SERVER,
             "checked_in": {}, # Initialize empty checked_in map
+            "registered": {}, # Initialize empty registered map
             "queued": {}     # Initialize empty queued map
         },
         ConditionExpression="attribute_not_exists(PK) AND attribute_not_exists(SK)"
@@ -57,7 +55,7 @@ def setup_server(event: DiscordEvent, table: Table) -> ResponseMessage:
         table.put_item(
             Item={
                 "PK": pk,
-                "SK": SK_CONFIG,
+                "SK": constants.SK_CONFIG,
                 "event_mode": EventMode.SERVER_WIDE.value
             },
             ConditionExpression="attribute_not_exists(PK) AND attribute_not_exists(SK)"
@@ -103,7 +101,7 @@ def set_organizer_role(event: DiscordEvent, table: Table) -> ResponseMessage:
 
     try:
         table.update_item(
-            Key={"PK": pk, "SK": SK_CONFIG},
+            Key={"PK": pk, "SK": constants.SK_CONFIG},
             UpdateExpression="SET organizer_role = :r",
             ExpressionAttributeValues={":r": organizer_role}
         )
