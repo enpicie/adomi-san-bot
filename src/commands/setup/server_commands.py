@@ -2,7 +2,7 @@ from mypy_boto3_dynamodb.service_resource import Table
 from botocore.exceptions import ClientError
 
 import constants
-import utils.dynamodb_helper as db_helper
+import database.dynamodb_helper as db_helper
 import utils.permissions_helper as permissions_helper
 from enums import EventMode
 from commands.models.discord_event import DiscordEvent
