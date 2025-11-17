@@ -5,7 +5,7 @@ import commands.check_in.commands as commands
 checkin_commands: CommandMapping = {
     "get-all-users": {
         "function": commands.get_all_users,
-        "description": "Retrieve all users across all tables.",
+        "description": "Retrieve all users in CONFIG table",
         "params": []
     },
     "search-user": {
@@ -21,7 +21,7 @@ checkin_commands: CommandMapping = {
     },
     "delete-user": {
         "function": commands.delete_user,
-        "description": "Delete given user",
+        "description": "Delete given user from CONFIG",
         "params": [
             {
                 "name": "user",
@@ -46,8 +46,8 @@ checkin_commands: CommandMapping = {
         "description": "Delete server by ID",
         "params": [
             {
-                "name": "channel",
-                "description": "Discord channel passed as argument",
+                "name": "server",
+                "description": "Discord server passed as argument",
                 "type": AppCommandOptionType.string
             }
         ]
