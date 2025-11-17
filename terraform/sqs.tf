@@ -1,5 +1,5 @@
 resource "aws_sqs_queue" "remove_role" {
-  name                       = "remove-role-queue"
+  name                       = var.sqs_worker_name
   visibility_timeout_seconds = 60
   message_retention_seconds  = 86400
 }
@@ -21,7 +21,7 @@ data "aws_s3_object" "worker_layer_hash" {
 
 resource "aws_lambda_layer_version" "worker_layer" {
   layer_name               = "${var.sqs_worker_name}-layer-${var.deployment_env}"
-  description              = "Lambda layer for dependencies of ${var.app_name}"
+  description              = "Lambda layer for dependencies of ${var.sqs_worker_name}"
   s3_bucket                = var.bucket_name
   s3_key                   = data.aws_s3_object.worker_layer_zip.key
   compatible_runtimes      = ["python${var.python_runtime}"]

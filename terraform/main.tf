@@ -52,7 +52,7 @@ resource "aws_lambda_function" "bot_lambda" {
       STARTGG_API_TOKEN     = var.startgg_api_token
       DISCORD_BOT_TOKEN     = var.discord_bot_token
       DYNAMODB_TABLE_NAME   = aws_dynamodb_table.adomi_discord_server_table.name
-      REMOVE_ROLE_QUEUE_URL = aws_sqs_queue.remove_role_queue.url
+      REMOVE_ROLE_QUEUE_URL = aws_sqs_queue.remove_role.url
     }
   }
 
