@@ -10,7 +10,7 @@ def delete_server(event: DiscordEvent, table: Table) -> ResponseMessage:
     """
     Drops current server (by PK)
     """
-    server_id = event.get_server_id
+    server_id = event.get_server_id()
     pk = f"SERVER#{server_id}"
 
     try:
