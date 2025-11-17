@@ -99,7 +99,7 @@ jobs:
           aws_role_arn: ${{ secrets.AWS_S3_ARTIFACT_UPLOAD_ROLE_ARN }}
 
       - name: Upload Latest Lambda Zip to S3 - Main Lambda
-        uses: enpicie/action-workflow-upload-lambda-zip@v0.1.0
+        uses: enpicie/action-workflow-upload-lambda-zip@v0.3.0
         with:
           source_directory: ./src
           app_name: ${{ inputs.app_name }}
@@ -109,7 +109,7 @@ jobs:
 
       - name: Upload Version Lambda Zip to S3 - Main Lambda
         if: ${{ inputs.app_version != '' }}
-        uses: enpicie/action-workflow-upload-lambda-zip@v0.1.0
+        uses: enpicie/action-workflow-upload-lambda-zip@v0.3.0
         with:
           source_directory: ./src
           app_name: ${{ inputs.app_name }}
@@ -118,7 +118,7 @@ jobs:
           aws_role_arn: ${{ secrets.AWS_S3_ARTIFACT_UPLOAD_ROLE_ARN }}
 
       - name: Upload Latest Lambda Zip to S3 - SWS Worker Lambda
-        uses: enpicie/action-workflow-upload-lambda-zip@v0.2.0
+        uses: enpicie/action-workflow-upload-lambda-zip@v0.3.0
         with:
           source_directory: ./jobs/remove_role
           app_name: ${{ inputs.sqs_worker_name }}
