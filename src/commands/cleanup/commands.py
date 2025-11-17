@@ -13,13 +13,14 @@ def delete_server(event: DiscordEvent, table: Table) -> ResponseMessage:
     server_id = event.get_server_id
     pk = f"SERVER#{server_id}"
     sk = "CONFIG"
-    
+
     try:
         with table.batch_writer() as batch:
             batch.delete_item(
                 Key={"PK": pk, "SK": sk},
-                ConditionExpression="attribute_exists(PK)"  # Ensures the record exists
-                )
+                # Ensures the record exists
+                ConditionExpression="attribute_exists(PK)"
+            )
         return ResponseMessage(
             content=f"Deleted config for server: {server_id}!"
         )
@@ -30,4 +31,3 @@ def delete_server(event: DiscordEvent, table: Table) -> ResponseMessage:
             )
         # Re-raise unexpected errors
         raise
-
