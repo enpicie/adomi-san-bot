@@ -8,17 +8,15 @@ from commands.models.response_message import ResponseMessage
 
 def delete_server(event: DiscordEvent, table: Table) -> ResponseMessage:
     """
-    Drops CONFIG server record for the current server
+    Drops current server (by PK)
     """
     server_id = event.get_server_id
     pk = f"SERVER#{server_id}"
-    sk = "CONFIG"
 
     try:
         with table.batch_writer() as batch:
             batch.delete_item(
-                Key={"PK": pk, "SK": sk},
-                # Ensures the record exists
+                Key={"PK": pk},
                 ConditionExpression="attribute_exists(PK)"
             )
         return ResponseMessage(
@@ -29,5 +27,4 @@ def delete_server(event: DiscordEvent, table: Table) -> ResponseMessage:
             return ResponseMessage(
                 content=f"Not found: Server {server_id} does not exist."
             )
-        # Re-raise unexpected errors
         raise
