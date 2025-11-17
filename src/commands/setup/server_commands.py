@@ -24,11 +24,11 @@ def create_server_record(table: Table, pk: str) -> None:
 def setup_server(event: DiscordEvent, table: Table) -> ResponseMessage:
     """
     Sets up a CONFIG record for a server in DynamoDB if it does not already exist.
-    Sets 'event_mode' and 'organizer_role' based on command inputs.
-    Only allows users with 'Manage Server' permission to run this command.
-    Default event_mode is 'server-wide'.
-    'organizer_role' is required and designates role allowed to use privileged bot commands.
-    EVENT_MODE FUNCCTIONALITY IS CURRENTLY DISABLED. Planned for later phase. Only using SERVER_WIDE.
+    - Sets 'event_mode' and 'organizer_role' based on command inputs.
+    - Only allows users with 'Manage Server' permission to run this command.
+    - Default event_mode is 'server-wide'.
+    - 'organizer_role' is required and designates role allowed to use privileged bot commands.
+    - EVENT_MODE FUNCCTIONALITY IS CURRENTLY DISABLED. Planned for later phase. Only using SERVER_WIDE.
     """
     user_permissions = event.get_user_permission_int()
     if not permissions_helper.has_manage_server_permission(user_permissions):
@@ -80,7 +80,6 @@ def set_organizer_role(event: DiscordEvent, table: Table) -> ResponseMessage:
     Sets the organizer_role property of the existing CONFIG record.
     - Only allows users with 'Manage Server' permission.
     """
-
     user_permissions = event.get_user_permission_int()
     if not permissions_helper.has_manage_server_permission(user_permissions):
         return ResponseMessage(
