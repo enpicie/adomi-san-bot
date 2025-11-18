@@ -2,6 +2,7 @@ from mypy_boto3_dynamodb.service_resource import Table
 
 from commands.command_map import command_map
 from commands.models.discord_event import DiscordEvent
+from commands.models.response_message import ResponseMessage
 
 def process_bot_command(event_body: dict, table: Table) -> dict:
     if "data" not in event_body:
@@ -15,7 +16,11 @@ def process_bot_command(event_body: dict, table: Table) -> dict:
         raise ValueError(f"No command registered for {command_name}")
 
     command_function = command["function"]
-    message = command_function(event, table)
+    try:
+        message = command_function(event, table)
+    except Exception as e:
+        print(f"ERROR: Exception while processing command '{command_name}': {e}")
+        message = ResponseMessage.get_error_message()
     if message:
         return message.to_dict()
 
