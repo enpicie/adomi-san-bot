@@ -1,6 +1,5 @@
 import json
 import boto3
-from mypy_boto3_dynamodb.service_resource import Table
 
 import bot
 import constants
@@ -8,11 +7,11 @@ import utils.discord_auth_helper as auth_helper
 from aws_services import AWSServices
 
 dynamodb = boto3.resource("dynamodb", region_name=constants.AWS_REGION)
-sqs = boto3.client("sqs")
+sqs_resource = boto3.resource("sqs", region_name=constants.AWS_REGION)
 
 aws_services = AWSServices(
     table=dynamodb.Table(constants.DYNAMODB_TABLE_NAME),
-    remove_role_sqs_client=sqs.Queue(constants.REMOVE_ROLE_SQS_QUEUE_URL)
+    remove_role_sqs_client=sqs_resource.Queue(constants.REMOVE_ROLE_SQS_QUEUE_URL)
 )
 
 def lambda_handler(event, context):
