@@ -11,7 +11,7 @@ sqs_resource = boto3.resource("sqs", region_name=constants.AWS_REGION)
 
 aws_services = AWSServices(
     table=dynamodb.Table(constants.DYNAMODB_TABLE_NAME),
-    remove_role_sqs_client=sqs_resource.Queue(constants.REMOVE_ROLE_SQS_QUEUE_URL)
+    remove_role_sqs_client=sqs_resource.Queue(constants.SQS_REMOVE_ROLE_QUEUE_URL)
 )
 
 def lambda_handler(event, context):
