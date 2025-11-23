@@ -77,13 +77,13 @@ def test_clear_check_ins_happy_path(monkeypatch):
         event_data_keys.CHECKED_IN: checked_in_data
     })
 
-    # Patch enqueue_remove_role_jobs to track call
+    # Patch enqueue_remove_role_jobs
     mock_enqueue = MagicMock()
     monkeypatch.setattr(role_removal_queue, "enqueue_remove_role_jobs", mock_enqueue)
 
     response = check_in.clear_check_ins(event, aws_services)
 
-    # DynamoDB update should be called
+    # DynamoDB update called
     pk = f"SERVER#{event.get_server_id()}"
     sk = constants.SK_SERVER
     mock_table.update_item.assert_called_once_with(
@@ -92,9 +92,9 @@ def test_clear_check_ins_happy_path(monkeypatch):
         ExpressionAttributeValues={":empty_map": {}}
     )
 
-    # Queue should be called for all checked-in users
+    # Updated function signature uses 'server_id' instead of 'guild_id'
     mock_enqueue.assert_called_once_with(
-        guild_id=event.get_server_id(),
+        server_id=event.get_server_id(),
         user_ids=list(checked_in_data.keys()),
         role_id=participant_role,
         sqs_queue=mock_queue
