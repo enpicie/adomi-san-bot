@@ -7,6 +7,11 @@ checkin_commands: CommandMapping = {
         "description": "Check in the calling user and assign Participant role if set",
         "params": []
     },
+    "show-check-ins": {
+        "function": check_in_commands.show_check_ins,
+        "description": "Show list of checked-in users",
+        "params": []
+    },
     "clear-check-ins": {
         "function": check_in_commands.clear_check_ins,
         "description": "Clear list of checked-in users and remove Participant roles if set",
