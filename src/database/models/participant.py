@@ -16,7 +16,8 @@ class Participant:
     def to_dict(self) -> dict:
         return {
             "display_name": self.display_name,
-            "user_id": self.user_id
+            "user_id": self.user_id,
+            "time_added": self.time_added
         }
 
     def __eq__(self, other):
