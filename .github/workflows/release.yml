@@ -11,21 +11,15 @@ on:
         required: true
 
 permissions:
-  id-token: write # needed for AWS role assumption
+  id-token: write
   contents: write
 
 jobs:
-  register-commands:
-    uses: ./.github/workflows/workflow-register-commands.yml
-    with:
-      app_id: ${{ vars.DISCORD_APP_ID_PROD }}
-    secrets:
-      DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN_PROD }}
-
   read-config:
     runs-on: ubuntu-latest
     outputs:
       APP_NAME: ${{ steps.set-vars.outputs.APP_NAME }}
+      SQS_WORKER_NAME: ${{ steps.set-vars.outputs.SQS_WORKER_NAME }}
       AWS_REGION: ${{ steps.set-vars.outputs.AWS_REGION }}
       PYTHON_RUNTIME: ${{ steps.set-vars.outputs.PYTHON_RUNTIME }}
       HCP_TERRAFORM_ORG: ${{ steps.set-vars.outputs.HCP_TERRAFORM_ORG }}
@@ -37,7 +31,6 @@ jobs:
       - uses: actions/checkout@v4
       - name: Load config and extract tag version
         id: set-vars
-        # Config stored in repository root config.env
         run: |
           set -a
           source ./config.env
@@ -51,6 +44,7 @@ jobs:
           fi
 
           echo "APP_NAME=$APP_NAME" >> $GITHUB_OUTPUT
+          echo "SQS_WORKER_NAME=$SQS_WORKER_NAME" >> $GITHUB_OUTPUT
           echo "AWS_REGION=$AWS_REGION" >> $GITHUB_OUTPUT
           echo "PYTHON_RUNTIME=$PYTHON_RUNTIME" >> $GITHUB_OUTPUT
           echo "HCP_TERRAFORM_ORG=$HCP_TERRAFORM_ORG" >> $GITHUB_OUTPUT
@@ -59,13 +53,21 @@ jobs:
           echo "DISCORD_PUBLIC_KEY=$DISCORD_PUBLIC_KEY_PROD" >> $GITHUB_OUTPUT
           echo "APP_VERSION=$APP_VERSION" >> $GITHUB_OUTPUT
 
+  unit-test:
+    needs:
+      - read-config
+    uses: ./.github/workflows/workflow-run-unit-tests.yml
+    with:
+      python_runtime: ${{ needs.read-config.outputs.PYTHON_RUNTIME }}
+
   deploy:
     needs:
       - read-config
-      - register-commands
+      - unit-test
     uses: ./.github/workflows/workflow-deploy.yml
     with:
       app_name: ${{ needs.read-config.outputs.APP_NAME }}
+      sqs_worker_name: ${{ needs.read-config.outputs.SQS_WORKER_NAME }}
       aws_region: ${{ needs.read-config.outputs.AWS_REGION }}
       python_runtime: ${{ needs.read-config.outputs.PYTHON_RUNTIME }}
       hcp_terraform_org: ${{ needs.read-config.outputs.HCP_TERRAFORM_ORG }}
@@ -75,4 +77,17 @@ jobs:
       discord_public_key: ${{ needs.read-config.outputs.DISCORD_PUBLIC_KEY }}
       deployment_env: 'prod'
       artifact_s3_bucket: 'enpicie-prod-lambda-artifacts'
-    secrets: inherit
+    secrets:
+      AWS_S3_ARTIFACT_UPLOAD_ROLE_ARN: ${{ secrets.AWS_S3_ARTIFACT_UPLOAD_ROLE_ARN }}
+      TF_API_TOKEN: ${{ secrets.TF_API_TOKEN }}
+      STARTGG_API_TOKEN: ${{ secrets.STARTGG_API_TOKEN }}
+      DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN_PROD }}
+
+  register-commands:
+    needs: deploy
+    uses: ./.github/workflows/workflow-register-commands.yml
+    with:
+      environment: 'prod'
+    secrets:
+      DISCORD_BOT_TOKEN_DEV: ${{ secrets.DISCORD_BOT_TOKEN_DEV }}
+      DISCORD_BOT_TOKEN_PROD: ${{ secrets.DISCORD_BOT_TOKEN_PROD }}

@@ -1,17 +1,25 @@
 import json
-
-from discord import Message
+import boto3
 
 import bot
 import constants
-import discord_auth_helper
+import utils.discord_auth_helper as auth_helper
+from aws_services import AWSServices
+
+dynamodb = boto3.resource("dynamodb", region_name=constants.AWS_REGION)
+sqs_resource = boto3.resource("sqs", region_name=constants.AWS_REGION)
+
+aws_services = AWSServices(
+    table=dynamodb.Table(constants.DYNAMODB_TABLE_NAME),
+    remove_role_sqs_queue=sqs_resource.Queue(constants.SQS_REMOVE_ROLE_QUEUE_URL)
+)
 
 def lambda_handler(event, context):
     print(f"Received Event: {event}") # debug print
 
     # verify the signature
     try:
-        discord_auth_helper.verify_signature(event)
+        auth_helper.verify_signature(event)
     except Exception as e:
         raise Exception(f"[UNAUTHORIZED] Invalid request signature: {e}")
 
@@ -20,12 +28,12 @@ def lambda_handler(event, context):
 
     body = json.loads(event["body"])
 
-    if discord_auth_helper.is_ping_pong(body):
+    if auth_helper.is_ping_pong(body):
         print("discord_auth_helper.is_ping_pong: True")
         response = constants.PING_PONG_RESPONSE
     else:
         print(f"Received data: {body}") # debug print
-        response = bot.process_bot_command(body)
+        response = bot.process_bot_command(body, aws_services)
 
     print(f"Response: {response}") # debug print
     return response

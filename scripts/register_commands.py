@@ -46,11 +46,13 @@ def main():
             print(f"✅ Registered command: {name}")
         else:
             print(f"❌ Failed to register command: {name} ({response.status_code})")
-            print(response.text)
+            print(f"PAYLOAD: {payload}")
+            print(f"RESPONSE: {response.text}")
             failed_commands.append(name)
 
     if failed_commands:
-        raise RuntimeError(f"Failed to register commands: {', '.join(failed_commands)}")
+        failed_list = ', '.join(failed_commands)
+        raise RuntimeError(f"Failed to register commands: {failed_list}")
 
 
 if __name__ == "__main__":

@@ -1,0 +1,25 @@
+name: 'Run Unit Tests'
+
+on:
+  workflow_call:
+    inputs:
+      python_runtime:
+        description: 'Python version to use (e.g., 3.11)'
+        required: true
+        type: string
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ inputs.python_runtime }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python_runtime }}
+
+      - name: Install dependencies and run tests via Makefile
+        run: make test
