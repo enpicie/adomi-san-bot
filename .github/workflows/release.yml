@@ -85,7 +85,7 @@ jobs:
 
   register-commands:
     needs: deploy
-    uses: ./.github/workflows/register-discord-commands.yml
+    uses: ./.github/workflows/workflow-register-commands.yml
     with:
       environment: 'prod'
     secrets:

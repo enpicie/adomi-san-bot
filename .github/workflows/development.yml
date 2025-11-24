@@ -83,7 +83,7 @@ jobs:
   register-commands:
     needs: deploy
     if: ${{ github.event.inputs.run_register_commands == 'true' || github.event.inputs.run_register_commands == true }}
-    uses: ./.github/workflows/register-discord-commands.yml
+    uses: ./.github/workflows/workflow-register-commands.yml
     with:
       environment: 'dev'
     secrets:
