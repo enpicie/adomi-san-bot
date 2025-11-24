@@ -12,7 +12,9 @@ Click [here](https://discord.com/oauth2/authorize?client_id=1388611843655860254&
 
 The [commands/](./src/commands/) directory is organized by groups of commands. **Create a directory for the set of commands you are working on, or find the existing directory and add to it.**
 
-[command_map.py](./src/commands/command_map.py) combines [CommandMapping](./src/commands/models/command_mapping.py) dicts from each set of commands' mapping.py file to build the full set of commands. The [register_commands script](./scripts/register_commands.py) will read these and register the commands with Discord when the pipeline runs.
+[command_map.py](./src/commands/command_map.py) combines [CommandMapping](./src/commands/models/command_mapping.py) dicts from each set of commands' mapping.py file to build the full set of commands.
+
+**Run the `register-commands` workflow via GH Actions workflow dispatch to register new commands with discord**. The [register_commands script](./scripts/register_commands.py) will discover commands via command_map.py and call Discord's API to register them.
 
 Here is an example of the structure of a command mapping using a fully-populated entry:
 

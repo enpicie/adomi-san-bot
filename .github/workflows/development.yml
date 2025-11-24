@@ -12,13 +12,6 @@ permissions:
   contents: write
 
 jobs:
-  register-commands:
-    uses: ./.github/workflows/workflow-register-commands.yml
-    with:
-      app_id: ${{ vars.DISCORD_APP_ID_DEV }}
-    secrets:
-      DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN_DEV }}
-
   read-config:
     runs-on: ubuntu-latest
     outputs:
@@ -64,7 +57,6 @@ jobs:
 
   deploy:
     needs:
-      - register-commands
       - read-config
       - unit-test
     uses: ./.github/workflows/workflow-deploy.yml
