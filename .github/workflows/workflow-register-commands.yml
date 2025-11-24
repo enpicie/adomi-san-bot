@@ -11,14 +11,24 @@ on:
           - dev
           - prod
 
+  workflow_call:
+    inputs:
+      environment:
+        description: Deployment environment (dev or prod)
+        required: true
+        type: string
+    secrets:
+      DISCORD_BOT_TOKEN_DEV:
+        required: true
+      DISCORD_BOT_TOKEN_PROD:
+        required: true
+
 jobs:
   register-commands:
     runs-on: ubuntu-latest
     env:
-      # Pick the correct APP ID based on environment
-      DISCORD_APP_ID: ${{ inputs.environment == 'prod' && vars.DISCORD_APP_ID_PROD || vars.DISCORD_APP_ID_DEV }}
-      # Pick the correct bot token secret based on environment
-      DISCORD_BOT_TOKEN: ${{ inputs.environment == 'prod' && secrets.DISCORD_BOT_TOKEN_PROD || secrets.DISCORD_BOT_TOKEN_DEV }}
+      DISCORD_APP_ID: ${{ (inputs.environment == 'prod') && vars.DISCORD_APP_ID_PROD || vars.DISCORD_APP_ID_DEV }}
+      DISCORD_BOT_TOKEN: ${{ (inputs.environment == 'prod') && secrets.DISCORD_BOT_TOKEN_PROD || secrets.DISCORD_BOT_TOKEN_DEV }}
 
     steps:
       - name: Checkout repository
