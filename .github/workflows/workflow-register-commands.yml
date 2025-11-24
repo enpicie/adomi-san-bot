@@ -1,19 +1,35 @@
 name: 'Register Discord Bot Slash Commands'
 
 on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Deployment environment (dev or prod)
+        required: true
+        type: choice
+        options:
+          - dev
+          - prod
+
   workflow_call:
     inputs:
-      app_id:
-        description: Discord Application ID
+      environment:
+        description: Deployment environment (dev or prod)
         required: true
         type: string
     secrets:
-      DISCORD_BOT_TOKEN:
+      DISCORD_BOT_TOKEN_DEV:
+        required: true
+      DISCORD_BOT_TOKEN_PROD:
         required: true
 
 jobs:
   register-commands:
     runs-on: ubuntu-latest
+    env:
+      DISCORD_APP_ID: ${{ (inputs.environment == 'prod') && vars.DISCORD_APP_ID_PROD || vars.DISCORD_APP_ID_DEV }}
+      DISCORD_BOT_TOKEN: ${{ (inputs.environment == 'prod') && secrets.DISCORD_BOT_TOKEN_PROD || secrets.DISCORD_BOT_TOKEN_DEV }}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -21,7 +37,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.11' # or your bot's Python version
+          python-version: '3.11'
 
       - name: Install dependencies
         run: |
@@ -29,8 +45,8 @@ jobs:
           pip install -r requirements.txt
 
       - name: Register commands
-        env:
-          DISCORD_APP_ID: ${{ inputs.app_id }}
-          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
         run: |
           python scripts/register_commands.py
+        env:
+          DISCORD_APP_ID: ${{ env.DISCORD_APP_ID }}
+          DISCORD_BOT_TOKEN: ${{ env.DISCORD_BOT_TOKEN }}
