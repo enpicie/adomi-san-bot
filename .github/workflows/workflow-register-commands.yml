@@ -15,8 +15,10 @@ jobs:
   register-commands:
     runs-on: ubuntu-latest
     env:
-      # Dynamically pick the correct APP ID based on environment
+      # Pick the correct APP ID based on environment
       DISCORD_APP_ID: ${{ inputs.environment == 'prod' && vars.DISCORD_APP_ID_PROD || vars.DISCORD_APP_ID_DEV }}
+      # Pick the correct bot token secret based on environment
+      DISCORD_BOT_TOKEN: ${{ inputs.environment == 'prod' && secrets.DISCORD_BOT_TOKEN_PROD || secrets.DISCORD_BOT_TOKEN_DEV }}
 
     steps:
       - name: Checkout repository
@@ -33,8 +35,8 @@ jobs:
           pip install -r requirements.txt
 
       - name: Register commands
-        env:
-          DISCORD_APP_ID: ${{ env.DISCORD_APP_ID }}
-          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
         run: |
           python scripts/register_commands.py
+        env:
+          DISCORD_APP_ID: ${{ env.DISCORD_APP_ID }}
+          DISCORD_BOT_TOKEN: ${{ env.DISCORD_BOT_TOKEN }}
