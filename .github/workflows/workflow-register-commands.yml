@@ -10,10 +10,23 @@ on:
     secrets:
       DISCORD_BOT_TOKEN:
         required: true
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Deployment environment (dev or prod)
+        required: true
+        type: choice
+        options:
+          - dev
+          - prod
 
 jobs:
   register-commands:
     runs-on: ubuntu-latest
+    env:
+      # Dynamically pick the correct APP ID based on environment
+      DISCORD_APP_ID: ${{ inputs.environment == 'prod' && vars.DISCORD_APP_ID_PROD || vars.DISCORD_APP_ID_DEV }}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -21,7 +34,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.11' # or your bot's Python version
+          python-version: '3.11'
 
       - name: Install dependencies
         run: |
@@ -30,7 +43,7 @@ jobs:
 
       - name: Register commands
         env:
-          DISCORD_APP_ID: ${{ inputs.app_id }}
+          DISCORD_APP_ID: ${{ env.DISCORD_APP_ID }}
           DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
         run: |
           python scripts/register_commands.py
