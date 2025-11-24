@@ -7,10 +7,6 @@ on:
         description: 'Python version to use (e.g., 3.11)'
         required: true
         type: string
-      tests_path:
-        description: 'Path to the tests directory (e.g., tests/)'
-        required: true
-        type: string
 
 jobs:
   test:
@@ -25,22 +21,5 @@ jobs:
         with:
           python-version: ${{ inputs.python_runtime }}
 
-      - name: Create virtual environment
-        run: |
-          python -m venv .venv
-          source .venv/bin/activate
-          python -m pip install --upgrade pip setuptools
-
-      - name: Install dependencies
-        run: |
-          source .venv/bin/activate
-          pip install -r requirements.txt
-          pip install -r requirements-dev.txt
-
-      - name: Set PYTHONPATH
-        run: echo "PYTHONPATH=$(pwd)/src" >> $GITHUB_ENV
-
-      - name: Run tests
-        run: |
-          source .venv/bin/activate
-          pytest ${{ inputs.tests_path }} --maxfail=1 --disable-warnings -q
+      - name: Install dependencies and run tests via Makefile
+        run: make test

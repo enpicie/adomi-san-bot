@@ -2,8 +2,11 @@ import pytest
 from unittest.mock import MagicMock
 from botocore.exceptions import ClientError
 
+import constants
 import commands.setup.server_commands as setup
 from commands.models.response_message import ResponseMessage
+import database.server_config_keys as server_config_keys
+from aws_services import AWSServices
 
 
 def _make_event():
@@ -18,42 +21,34 @@ def _make_event():
 # ----------------------------------------------------
 
 def test_set_organizer_role_insufficient_permissions():
-    """Users without Manage Server permission should not be allowed."""
     mock_table = MagicMock()
+    aws_services = AWSServices(table=mock_table, remove_role_sqs_queue=MagicMock())
     mock_event = _make_event()
 
     # User has no permissions
     mock_event.get_user_permission_int.return_value = 0
 
-    response = setup.set_organizer_role(mock_event, mock_table)
+    response = setup.set_organizer_role(mock_event, aws_services)
 
     assert isinstance(response, ResponseMessage)
     assert "Manage Server" in response.content
-
-    # Database should never be written to
     mock_table.update_item.assert_not_called()
 
 
 def test_set_organizer_role_insufficient_permissions_even_if_config_exists():
-    """
-    Even if the CONFIG record exists, insufficient permissions should stop the flow
-    before any DB calls are made.
-    """
     mock_table = MagicMock()
+    aws_services = AWSServices(table=mock_table, remove_role_sqs_queue=MagicMock())
     mock_event = _make_event()
 
-    # No permissions
     mock_event.get_user_permission_int.return_value = 0
 
     # Pretend CONFIG exists
-    mock_table.get_item.return_value = {"Item": {"PK": "SERVER#123", "SK": setup.SK_CONFIG}}
+    mock_table.get_item.return_value = {"Item": {"PK": "SERVER#123", "SK": constants.SK_CONFIG}}
 
-    response = setup.set_organizer_role(mock_event, mock_table)
+    response = setup.set_organizer_role(mock_event, aws_services)
 
     assert isinstance(response, ResponseMessage)
     assert "Manage Server" in response.content
-
-    # Never writes
     mock_table.update_item.assert_not_called()
 
 
@@ -62,8 +57,8 @@ def test_set_organizer_role_insufficient_permissions_even_if_config_exists():
 # ----------------------------------------------------
 
 def test_set_organizer_role_when_config_does_not_exist():
-    """Should return setup-required message when CONFIG is missing."""
     mock_table = MagicMock()
+    aws_services = AWSServices(table=mock_table, remove_role_sqs_queue=MagicMock())
     mock_event = _make_event()
 
     # Provide Manage Server permission
@@ -72,11 +67,10 @@ def test_set_organizer_role_when_config_does_not_exist():
     # No CONFIG record
     mock_table.get_item.return_value = {}
 
-    response = setup.set_organizer_role(mock_event, mock_table)
+    response = setup.set_organizer_role(mock_event, aws_services)
 
     assert isinstance(response, ResponseMessage)
     assert "This server is not set up" in response.content
-
     mock_table.update_item.assert_not_called()
 
 
@@ -85,27 +79,26 @@ def test_set_organizer_role_when_config_does_not_exist():
 # ----------------------------------------------------
 
 def test_set_organizer_role_updates_config():
-    """Test that organizer_role is updated when permissions and config are valid."""
     mock_table = MagicMock()
+    aws_services = AWSServices(table=mock_table, remove_role_sqs_queue=MagicMock())
     mock_event = _make_event()
 
     # Permissions OK
     mock_event.get_user_permission_int.return_value = (1 << 5)
 
     # CONFIG exists
-    mock_table.get_item.return_value = {"Item": {"PK": "SERVER#123", "SK": setup.SK_CONFIG}}
+    mock_table.get_item.return_value = {"Item": {"PK": "SERVER#123", "SK": constants.SK_CONFIG}}
 
     # Organizer role provided
     mock_event.get_command_input_value.return_value = "Role123"
 
-    response = setup.set_organizer_role(mock_event, mock_table)
+    response = setup.set_organizer_role(mock_event, aws_services)
 
     # Validate DB update call
     mock_table.update_item.assert_called_once()
     call = mock_table.update_item.call_args.kwargs
-
-    assert call["Key"] == {"PK": "SERVER#123", "SK": setup.SK_CONFIG}
-    assert call["UpdateExpression"] == "SET organizer_role = :r"
+    assert call["Key"] == {"PK": "SERVER#123", "SK": constants.SK_CONFIG}
+    assert call["UpdateExpression"] == f"SET {server_config_keys.ORGANIZER_ROLE} = :r"
     assert call["ExpressionAttributeValues"] == {":r": "Role123"}
 
     assert isinstance(response, ResponseMessage)
@@ -117,15 +110,15 @@ def test_set_organizer_role_updates_config():
 # ----------------------------------------------------
 
 def test_set_organizer_role_raises_on_client_error():
-    """ClientError during update should bubble upward."""
     mock_table = MagicMock()
+    aws_services = AWSServices(table=mock_table, remove_role_sqs_queue=MagicMock())
     mock_event = _make_event()
 
     # Valid permission
     mock_event.get_user_permission_int.return_value = (1 << 5)
 
     # CONFIG exists
-    mock_table.get_item.return_value = {"Item": {"PK": "SERVER#123", "SK": setup.SK_CONFIG}}
+    mock_table.get_item.return_value = {"Item": {"PK": "SERVER#123", "SK": constants.SK_CONFIG}}
 
     # Organizer role provided
     mock_event.get_command_input_value.return_value = "Role123"
@@ -137,4 +130,4 @@ def test_set_organizer_role_raises_on_client_error():
     )
 
     with pytest.raises(ClientError):
-        setup.set_organizer_role(mock_event, mock_table)
+        setup.set_organizer_role(mock_event, aws_services)

@@ -2,36 +2,38 @@ from mypy_boto3_dynamodb.service_resource import Table
 from botocore.exceptions import ClientError
 
 import constants
-import utils.dynamodb_helper as db_helper
+import database.dynamodb_queries as db_helper
+import database.event_data_keys as event_data_keys
+import database.server_config_keys as server_config_keys
 import utils.permissions_helper as permissions_helper
+from aws_services import AWSServices
 from enums import EventMode
 from commands.models.discord_event import DiscordEvent
 from commands.models.response_message import ResponseMessage
-
-SK_CONFIG = "CONFIG"
-SK_SERVER = "SERVER"
 
 def create_server_record(table: Table, pk: str) -> None:
     """Creates a SERVER record for the given PK in the provided DynamoDB table."""
     table.put_item(
         Item={
             "PK": pk,
-            "SK": SK_SERVER,
-            "checked_in": {}, # Initialize empty checked_in map
-            "queued": {}     # Initialize empty queued map
+            "SK": constants.SK_SERVER,
+            event_data_keys.CHECKED_IN: {}, # Initialize empty checked_in map
+            event_data_keys.REGISTERED: {}, # Initialize empty registered map
+            event_data_keys.QUEUE: {}     # Initialize empty queue map
         },
         ConditionExpression="attribute_not_exists(PK) AND attribute_not_exists(SK)"
     )
 
-def setup_server(event: DiscordEvent, table: Table) -> ResponseMessage:
+def setup_server(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
     """
     Sets up a CONFIG record for a server in DynamoDB if it does not already exist.
-    Sets 'event_mode' and 'organizer_role' based on command inputs.
-    Only allows users with 'Manage Server' permission to run this command.
-    Default event_mode is 'server-wide'.
-    'organizer_role' is required and designates role allowed to use privileged bot commands.
-    EVENT_MODE FUNCCTIONALITY IS CURRENTLY DISABLED. Planned for later phase. Only using SERVER_WIDE.
+    - Sets 'event_mode' and 'organizer_role' based on command inputs.
+    - Only allows users with 'Manage Server' permission to run this command.
+    - Default event_mode is 'server-wide'.
+    - 'organizer_role' is required and designates role allowed to use privileged bot commands.
+    - EVENT_MODE FUNCCTIONALITY IS CURRENTLY DISABLED. Planned for later phase. Only using SERVER_WIDE.
     """
+    table = aws_services.dynamotb_table
     user_permissions = event.get_user_permission_int()
     if not permissions_helper.has_manage_server_permission(user_permissions):
         return ResponseMessage(
@@ -42,7 +44,7 @@ def setup_server(event: DiscordEvent, table: Table) -> ResponseMessage:
     pk = db_helper.get_server_pk(server_id)
 
     try:
-        existing_item = db_helper.get_server_config(server_id, table)
+        existing_item = db_helper.get_server_config(server_id, aws_services.dynamotb_table)
         if existing_item:
             return ResponseMessage(
                 content=f"This server is already set up! Check out other commands to configure the settings for this server."
@@ -57,8 +59,9 @@ def setup_server(event: DiscordEvent, table: Table) -> ResponseMessage:
         table.put_item(
             Item={
                 "PK": pk,
-                "SK": SK_CONFIG,
-                "event_mode": EventMode.SERVER_WIDE.value
+                "SK": constants.SK_CONFIG,
+                server_config_keys.EVENT_MODE: EventMode.SERVER_WIDE.value,
+                server_config_keys.ORGANIZER_ROLE: organizer_role
             },
             ConditionExpression="attribute_not_exists(PK) AND attribute_not_exists(SK)"
         )
@@ -77,12 +80,12 @@ def setup_server(event: DiscordEvent, table: Table) -> ResponseMessage:
             )
         raise
 
-def set_organizer_role(event: DiscordEvent, table: Table) -> ResponseMessage:
+def set_organizer_role(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
     """
     Sets the organizer_role property of the existing CONFIG record.
     - Only allows users with 'Manage Server' permission.
     """
-
+    table = aws_services.dynamotb_table
     user_permissions = event.get_user_permission_int()
     if not permissions_helper.has_manage_server_permission(user_permissions):
         return ResponseMessage(
@@ -92,7 +95,7 @@ def set_organizer_role(event: DiscordEvent, table: Table) -> ResponseMessage:
     server_id = event.get_server_id()
     pk = db_helper.get_server_pk(server_id)
 
-    existing_item = db_helper.get_server_config(server_id, table)
+    existing_item = db_helper.get_server_config(server_id, aws_services.dynamotb_table)
     if not existing_item:
         return ResponseMessage(
             content="This server is not set up! Run `/setup-server` first to get started. "
@@ -103,8 +106,8 @@ def set_organizer_role(event: DiscordEvent, table: Table) -> ResponseMessage:
 
     try:
         table.update_item(
-            Key={"PK": pk, "SK": SK_CONFIG},
-            UpdateExpression="SET organizer_role = :r",
+            Key={"PK": pk, "SK": constants.SK_CONFIG},
+            UpdateExpression=f"SET {server_config_keys.ORGANIZER_ROLE} = :r",
             ExpressionAttributeValues={":r": organizer_role}
         )
     except ClientError:
