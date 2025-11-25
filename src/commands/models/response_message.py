@@ -1,27 +1,38 @@
-from typing import List, Optional
-
+from typing import Dict, List, Optional
 from discord import Embed
 
 import constants
+import utils.adomin_messages as adomin_messages
 
 class ResponseMessage:
     content: str
     embeds: Optional[List[Embed]]
+    allowed_mentions: Optional[Dict] = None
 
     def __init__(self, content: str, embeds: List[Embed] = None):
         self.content = content
         self.embeds = embeds or []
 
+    def silent(self) -> "ResponseMessage":
+        self.allowed_mentions = {
+            "parse": [] # Disable all automatic pings
+        }
+        return self
+
     def to_dict(self) -> dict:
+        data = {
+            "content": self.content,
+            "embeds": [embed.to_dict() for embed in self.embeds]
+        }
+
+        if self.allowed_mentions is not None:
+            data["allowed_mentions"] = self.allowed_mentions
+
         return {
             "type": constants.DISCORD_CALLBACK_TYPES["MESSAGE_WITH_SOURCE"],
-            "data": {
-                "content": self.content,
-                "embeds": [embed.to_dict() for embed in self.embeds]
-            }
+            "data": data
         }
 
     @staticmethod
     def get_error_message() -> "ResponseMessage":
-        return ResponseMessage(content=
-            f"🙀 AH! Something went wrong! Hang tight while I take a look. This might be a case for my supervisor `@enpicie`.")
+        return ResponseMessage(content=adomin_messages.GENERAL_ERROR)
