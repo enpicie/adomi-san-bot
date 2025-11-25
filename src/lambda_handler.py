@@ -10,7 +10,7 @@ dynamodb = boto3.resource("dynamodb", region_name=constants.AWS_REGION)
 sqs_resource = boto3.resource("sqs", region_name=constants.AWS_REGION)
 
 aws_services = AWSServices(
-    table=dynamodb.Table(constants.DYNAMODB_TABLE_NAME),
+    dynamodb_table=dynamodb.Table(constants.DYNAMODB_TABLE_NAME),
     remove_role_sqs_queue=sqs_resource.Queue(constants.SQS_REMOVE_ROLE_QUEUE_URL)
 )
 
