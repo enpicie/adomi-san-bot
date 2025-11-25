@@ -1,5 +1,3 @@
-from botocore.exceptions import ClientError
-
 import database.dynamodb_utils as db_helper
 import utils.permissions_helper as permissions_helper
 from aws_services import AWSServices
@@ -21,18 +19,15 @@ def set_participant_role(event: DiscordEvent, aws_services: AWSServices) -> Resp
     participant_role = event.get_command_input_value("participant_role")
     should_remove_role = event.get_command_input_value("remove_role") or False # Default to No removal
 
-    try:
-        if should_remove_role:
-            participant_role = "" # Set to empty string to remove
+    if should_remove_role:
+        participant_role = "" # Set to empty string to remove
 
-        aws_services.dynamodb_table.update_item(
-            # Participant role is configured at level of event data (SK_SERVER for server-wide mode)
-            Key={"PK": db_helper.build_server_pk(server_id), "SK": EventData.Keys.SK_SERVER},
-            UpdateExpression=f"SET {EventData.Keys.PARTICIPANT_ROLE} = :r",
-            ExpressionAttributeValues={":r": participant_role}
-        )
-    except ClientError:
-        raise
+    aws_services.dynamodb_table.update_item(
+        # Participant role is configured at level of event data (SK_SERVER for server-wide mode)
+        Key={"PK": db_helper.build_server_pk(server_id), "SK": EventData.Keys.SK_SERVER},
+        UpdateExpression=f"SET {EventData.Keys.PARTICIPANT_ROLE} = :r",
+        ExpressionAttributeValues={":r": participant_role}
+    )
 
     operation = "removed" if should_remove_role else "updated"
     return ResponseMessage(
