@@ -178,7 +178,7 @@ def test_show_check_ins_success(mock_db_helper, mock_verify_role, mock_discord_e
     mock_db_helper.get_server_event_data_or_fail.return_value = mock_event_data
 
     # Execute
-    response = target_module.show_check_ins(mock_discord_event, mock_aws_services)
+    response = target_module.show_checked_in(mock_discord_event, mock_aws_services)
 
     # Assertions
     expected_content = (
@@ -199,7 +199,7 @@ def test_show_check_ins_empty(mock_db_helper, mock_verify_role, mock_discord_eve
     mock_db_helper.get_server_event_data_or_fail.return_value = mock_event_data
 
     # Execute
-    response = target_module.show_check_ins(mock_discord_event, mock_aws_services)
+    response = target_module.show_checked_in(mock_discord_event, mock_aws_services)
 
     # Assertions
     assert response.content == "ℹ️ There are currently no checked-in users."
@@ -210,7 +210,7 @@ def test_show_check_ins_permission_fail(mock_verify_role, mock_discord_event, mo
     expected_response = target_module.ResponseMessage(content="No Permission")
     mock_verify_role.return_value = expected_response
 
-    result = target_module.show_check_ins(mock_discord_event, mock_aws_services)
+    result = target_module.show_checked_in(mock_discord_event, mock_aws_services)
 
     assert result is expected_response
 
@@ -233,7 +233,7 @@ def test_clear_check_ins_success_with_role(mock_db_helper, mock_verify_role, moc
     mock_db_helper.get_server_event_data_or_fail.return_value = mock_event_data
 
     # Execute
-    response = target_module.clear_check_ins(mock_discord_event, mock_aws_services)
+    response = target_module.clear_checked_in(mock_discord_event, mock_aws_services)
 
     # Assertions for success response
     assert response.content == "✅ All check-ins have been cleared, and I've queued up participant role removals 🫡"
@@ -264,7 +264,7 @@ def test_clear_check_ins_success_no_role(mock_db_helper, mock_verify_role, mock_
     mock_db_helper.get_server_event_data_or_fail.return_value = mock_event_data
 
     # Execute
-    target_module.clear_check_ins(mock_discord_event, mock_aws_services)
+    target_module.clear_checked_in(mock_discord_event, mock_aws_services)
 
     # Assertions for role removal queue (called even if role is None)
     mock_role_removal_queue.enqueue_remove_role_jobs.assert_called_once()
@@ -279,7 +279,7 @@ def test_clear_check_ins_permission_fail(mock_verify_role, mock_discord_event, m
     expected_response = target_module.ResponseMessage(content="No Permission")
     mock_verify_role.return_value = expected_response
 
-    result = target_module.clear_check_ins(mock_discord_event, mock_aws_services)
+    result = target_module.clear_checked_in(mock_discord_event, mock_aws_services)
 
     assert result is expected_response
 
@@ -293,7 +293,7 @@ def test_clear_check_ins_empty(mock_db_helper, mock_verify_role, mock_discord_ev
     mock_db_helper.get_server_event_data_or_fail.return_value = mock_event_data
 
     # Execute
-    response = target_module.clear_check_ins(mock_discord_event, mock_aws_services)
+    response = target_module.clear_checked_in(mock_discord_event, mock_aws_services)
 
     # Assertions
     assert response.content == "ℹ️ There are no checked-in users to clear."
@@ -313,4 +313,4 @@ def test_clear_check_ins_dynamodb_error(mock_db_helper, mock_verify_role, mock_d
 
     # Execute and Assert
     with pytest.raises(ClientError):
-        target_module.clear_check_ins(mock_discord_event, mock_aws_services)
+        target_module.clear_checked_in(mock_discord_event, mock_aws_services)

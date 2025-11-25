@@ -7,11 +7,11 @@ from commands.models.command_param import CommandParam
 get_participants_commands: CommandMapping = {
     "get-participants-startgg": {
         "function": startgg_commands.get_participants_startgg,
-        "description": "Gets list of registered participants in a start.gg Tournement Event",
+        "description": "Gets registered participants from a start.gg Tournement Event, replacing existing registered list",
         "params": [
             CommandParam(
                 name = "event_link",
-                description = "Link to a start.gg Tournament's Event (ex: start.gg/tournament/<tourney-name>/event/<EVENT-name>)",
+                description = "Link to a start.gg Tournament Event (ex: start.gg/tournament/midweek-melting/event/mbaacc-bracket)",
                 param_type = AppCommandOptionType.string,
                 required= True,
                 choices = None

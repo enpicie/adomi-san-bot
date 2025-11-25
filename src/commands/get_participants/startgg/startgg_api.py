@@ -1,10 +1,16 @@
+import re
 import requests
 
 import constants
-import get_participants.startgg.startgg_graphql as startgg_graphql
-from get_participants.startgg.models.startgg_event import StartggEvent
+import commands.get_participants.startgg.startgg_graphql as startgg_graphql
+from commands.get_participants.startgg.models.startgg_event import StartggEvent
 
 STARTGG_API_URL = "https://api.start.gg/gql/alpha"
+
+def is_valid_startgg_url(startgg_link: str) -> bool:
+    startgg_pattern = re.compile(r"^https:\/\/www.start.gg\/tournament\/([^\/]+)\/event\/([^\/]+)$")
+
+    return bool(re.fullmatch(startgg_pattern, startgg_link))
 
 def query_startgg_event(tourney_url: str) -> StartggEvent:
     """

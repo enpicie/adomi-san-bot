@@ -25,40 +25,7 @@ def _verify_has_organizer_role(event: DiscordEvent, aws_services: AWSServices) -
         return needs_role_msg
     # Implicit return None on success
 
-def check_in_user(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
-    """
-    Adds the user who invoked the command to the 'checked_in' map for the server's event record in DynamoDB.
-    Assigns the participant role if configured.
-    Returns a ResponseMessage indicating success or failure.
-    """
-    data_result = db_helper.get_server_event_data_or_fail(event.get_server_id(), aws_services.dynamodb_table)
-    if isinstance(data_result, ResponseMessage):
-        return data_result
-
-    user_id = event.get_user_id()
-    checked_in_user = Participant(
-        display_name=event.get_username(),
-        user_id=user_id
-    )
-
-    aws_services.dynamodb_table.update_item(
-        Key={"PK": db_helper.build_server_pk(event.get_server_id()), "SK": EventData.Keys.SK_SERVER},
-        UpdateExpression=f"SET {EventData.Keys.CHECKED_IN}.#uid = :participant_info",
-        ExpressionAttributeNames={"#uid": user_id},
-        ExpressionAttributeValues={":participant_info": checked_in_user.to_dict()}
-    )
-    if data_result.participant_role:
-        print(f"Assigning participant role {data_result.participant_role} to user {user_id}")
-        discord_helper.add_role_to_user(
-            guild_id=event.get_server_id(),
-            user_id=user_id,
-            role_id=data_result.participant_role
-        )
-    return ResponseMessage(
-        content=f"✅ Checked in {msg_helper.get_user_ping(user_id)}!"
-    )
-
-def show_checked_in(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
+def show_registered(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
     """
     Retrieves and displays a list of all currently checked-in users for the server event.
     Requires the calling user to have the organizer role.
@@ -86,7 +53,7 @@ def show_checked_in(event: DiscordEvent, aws_services: AWSServices) -> ResponseM
 
     return ResponseMessage(content=content)
 
-def clear_checked_in(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
+def clear_registered(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
     """
     Clears all checked-in users from the server event record in DynamoDB.
     Queues jobs to remove the participant role from all cleared users.
