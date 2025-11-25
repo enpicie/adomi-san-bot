@@ -9,15 +9,14 @@ from database.models.event_data import EventData
 
 def set_participant_role(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
     """Sets the participant_role property of the existing SERVER/CHANNEL event data record."""
-    error_message = permissions_helper.require_organizer_role(event)
-    if isinstance(error_message, ResponseMessage):
-          return error_message
-
     server_id = event.get_server_id()
 
     config_result = db_helper.get_server_config_or_fail(server_id, aws_services.dynamodb_table)
     if isinstance(config_result, ResponseMessage):
         return config_result
+    error_message = permissions_helper.require_organizer_role(config_result, event)
+    if isinstance(error_message, ResponseMessage):
+          return error_message
 
     participant_role = event.get_command_input_value("participant_role")
     should_remove_role = event.get_command_input_value("remove_role") or False # Default to No removal
