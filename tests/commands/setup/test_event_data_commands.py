@@ -31,37 +31,52 @@ def mock_discord_event():
     )
     return event
 
-# --- Permission Failure Tests ---
-
-@patch('commands.setup.event_data_commands.permissions_helper')
-def test_set_participant_role_insufficient_permissions(mock_permissions_helper, mock_discord_event, mock_aws_services):
-    """Tests failure when user lacks 'manage_server' permission."""
-    expected_response = ResponseMessage(content="Permission Denied")
-    mock_permissions_helper.require_organizer_role.return_value = expected_response
-
-    response = event_data_commands.set_participant_role(mock_discord_event, mock_aws_services)
-
-    # Assertions
-    assert response is expected_response
-    mock_permissions_helper.require_organizer_role.assert_called_once_with(mock_discord_event)
-    mock_aws_services.dynamodb_table.update_item.assert_not_called()
-
 # --- Config/Database Pre-Check Failure Tests ---
 
 @patch('commands.setup.event_data_commands.db_helper')
 @patch('commands.setup.event_data_commands.permissions_helper')
 def test_set_participant_role_config_check_failure(mock_permissions_helper, mock_db_helper, mock_discord_event, mock_aws_services):
     """Tests failure when the server config is not found/fails to load."""
-    # Setup mocks
-    mock_permissions_helper.require_manage_server_permission.return_value = None # Permission success
+    # Arrange
+    MOCK_SERVER_ID = mock_discord_event.get_server_id.return_value
     expected_response = ResponseMessage(content="Config Missing/Error")
+
+    # Setup mocks: Config retrieval fails immediately
     mock_db_helper.get_server_config_or_fail.return_value = expected_response
 
+    # Act
     response = event_data_commands.set_participant_role(mock_discord_event, mock_aws_services)
 
     # Assertions
     assert response is expected_response
-    mock_db_helper.get_server_config_or_fail.assert_called_once()
+    mock_db_helper.get_server_config_or_fail.assert_called_once_with(MOCK_SERVER_ID, mock_aws_services.dynamodb_table)
+    mock_permissions_helper.require_organizer_role.assert_not_called() # Permission check should not be reached
+    mock_aws_services.dynamodb_table.update_item.assert_not_called()
+
+# --- Permission Failure Tests (Organizer Role) ---
+
+@patch('commands.setup.event_data_commands.db_helper')
+@patch('commands.setup.event_data_commands.permissions_helper')
+def test_set_participant_role_permission_denied(mock_permissions_helper, mock_db_helper, mock_discord_event, mock_aws_services):
+    """Tests failure when user lacks the designated 'organizer role' to modify event data."""
+    # Arrange
+    MOCK_SERVER_ID = mock_discord_event.get_server_id.return_value
+    expected_response = ResponseMessage(content="Permission Denied")
+
+    # 1. Config Retrieval Pass
+    mock_config = Mock()
+    mock_db_helper.get_server_config_or_fail.return_value = mock_config
+
+    # 2. Organizer Role Check Fail
+    mock_permissions_helper.require_organizer_role.return_value = expected_response
+
+    # Act
+    response = event_data_commands.set_participant_role(mock_discord_event, mock_aws_services)
+
+    # Assert
+    assert response is expected_response
+    mock_db_helper.get_server_config_or_fail.assert_called_once_with(MOCK_SERVER_ID, mock_aws_services.dynamodb_table)
+    mock_permissions_helper.require_organizer_role.assert_called_once_with(mock_config, mock_discord_event)
     mock_aws_services.dynamodb_table.update_item.assert_not_called()
 
 # --- Success Tests (Setting/Updating Role) ---
@@ -74,13 +89,16 @@ def test_set_participant_role_success_set(mock_permissions_helper, mock_db_helpe
     MOCK_SERVER_ID = mock_discord_event.get_server_id.return_value
 
     # Setup mocks
-    mock_permissions_helper.require_manage_server_permission.return_value = None # Permission success
+    mock_permissions_helper.require_organizer_role.return_value = None # Organizer success
     mock_db_helper.get_server_config_or_fail.return_value = Mock() # Config success (return value doesn't matter here)
     mock_db_helper.build_server_pk.return_value = f"SERVER#{MOCK_SERVER_ID}"
-    # Input is set by fixture: "Role456"
 
     # Execute
     response = event_data_commands.set_participant_role(mock_discord_event, mock_aws_services)
+
+    # Assertions for Pre-Checks
+    mock_db_helper.get_server_config_or_fail.assert_called_once_with(MOCK_SERVER_ID, mock_aws_services.dynamodb_table)
+    mock_permissions_helper.require_organizer_role.assert_called_once()
 
     # Assertions for DynamoDB update
     mock_aws_services.dynamodb_table.update_item.assert_called_once()
@@ -109,7 +127,7 @@ def test_set_participant_role_success_remove(mock_permissions_helper, mock_db_he
     MOCK_SERVER_ID = mock_discord_event.get_server_id.return_value
 
     # Setup mocks
-    mock_permissions_helper.require_manage_server_permission.return_value = None
+    mock_permissions_helper.require_organizer_role.return_value = None # Organizer success
     mock_db_helper.get_server_config_or_fail.return_value = Mock()
     mock_db_helper.build_server_pk.return_value = f"SERVER#{MOCK_SERVER_ID}"
 
@@ -120,6 +138,10 @@ def test_set_participant_role_success_remove(mock_permissions_helper, mock_db_he
 
     # Execute
     response = event_data_commands.set_participant_role(mock_discord_event, mock_aws_services)
+
+    # Assertions for Pre-Checks
+    mock_db_helper.get_server_config_or_fail.assert_called_once_with(MOCK_SERVER_ID, mock_aws_services.dynamodb_table)
+    mock_permissions_helper.require_organizer_role.assert_called_once()
 
     # Assertions for DynamoDB update
     mock_aws_services.dynamodb_table.update_item.assert_called_once()
@@ -139,7 +161,7 @@ def test_set_participant_role_success_remove(mock_permissions_helper, mock_db_he
 def test_set_participant_role_raises_on_client_error(mock_permissions_helper, mock_db_helper, mock_discord_event, mock_aws_services):
     """Tests that ClientError from DynamoDB is re-raised."""
     # Setup mocks
-    mock_permissions_helper.require_manage_server_permission.return_value = None
+    mock_permissions_helper.require_organizer_role.return_value = None # Organizer success
     mock_db_helper.get_server_config_or_fail.return_value = Mock()
 
     # Simulate DB error
