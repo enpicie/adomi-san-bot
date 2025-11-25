@@ -1,127 +1,134 @@
 from botocore.exceptions import ClientError
+from typing import Optional
 
-import constants
-import database.dynamodb_queries as db_helper
-import database.event_data_keys as event_data_keys
-import database.config_data_helper as config_helper
+import database.dynamodb_utils as db_helper
+from database.models.event_data import EventData
 import utils.discord_api_helper as discord_helper
 import utils.message_helper as msg_helper
+import utils.permissions_helper as permissions_helper
 import commands.check_in.queue_role_removal as role_removal_queue
 from aws_services import AWSServices
 from database.models.participant import Participant
 from commands.models.discord_event import DiscordEvent
 from commands.models.response_message import ResponseMessage
 
+def _verify_has_organizer_role(event: DiscordEvent, aws_services: AWSServices) -> Optional[ResponseMessage]:
+    """
+    Wrapper to check if the calling user has the Organizer role to run relevant commands.
+    Returns a ResponseMessage on failure (missing config or missing role), otherwise returns None.
+    """
+    config_result = db_helper.get_server_config_or_fail(event.get_server_id(), aws_services.dynamodb_table)
+    if isinstance(config_result, ResponseMessage):
+        return config_result
+    needs_role_msg = permissions_helper.require_organizer_role(config_result, event)
+    if needs_role_msg:
+        return needs_role_msg
+    # Implicit return None on success
 
 def check_in_user(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
     """
-    Adds a user to the checked_in map for a channel record in DynamoDB.
+    Adds the user who invoked the command to the 'checked_in' map for the server's event record in DynamoDB.
+    Assigns the participant role if configured.
     Returns a ResponseMessage indicating success or failure.
     """
-    table = aws_services.dynamotb_table
-    pk = db_helper.get_server_pk(event.get_server_id())
-    sk = constants.SK_SERVER
+    data_result = db_helper.get_server_event_data_or_fail(event.get_server_id(), aws_services.dynamodb_table)
+    if isinstance(data_result, ResponseMessage):
+        return data_result
 
-    event_data = db_helper.get_server_event_data(event.get_server_id(), table)
-    if not event_data:
-        return ResponseMessage(
-            content="🙀 Event data is not set up yet! Run `/setup-server` first to get started."
-        )
-    participant_role = event_data.get(event_data_keys.PARTICIPANT_ROLE, "")
-
-    display_name = event.get_username()
     user_id = event.get_user_id()
     checked_in_user = Participant(
-        display_name=display_name,
+        display_name=event.get_username(),
         user_id=user_id
     )
 
-    aws_services.dynamotb_table.update_item(
-        Key={"PK": pk, "SK": sk},
+    aws_services.dynamodb_table.update_item(
+        Key={"PK": db_helper.build_server_pk(event.get_server_id()), "SK": EventData.Keys.SK_SERVER},
         UpdateExpression="SET checked_in.#uid = :participant_info",
         ExpressionAttributeNames={"#uid": user_id},
         ExpressionAttributeValues={":participant_info": checked_in_user.to_dict()}
     )
-    if participant_role:
-        print(f"Assigning participant role {participant_role} to user {user_id}")
+    if data_result.participant_role:
+        print(f"Assigning participant role {data_result.participant_role} to user {user_id}")
         discord_helper.add_role_to_user(
             guild_id=event.get_server_id(),
             user_id=user_id,
-            role_id=participant_role
+            role_id=data_result.participant_role
         )
     return ResponseMessage(
         content=f"✅ Checked in {msg_helper.get_user_ping(user_id)}!"
     )
 
 def show_check_ins(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
-    table = aws_services.dynamotb_table
+    """
+    Retrieves and displays a list of all currently checked-in users for the server event.
+    Requires the calling user to have the organizer role.
+    Returns a ResponseMessage with the list or an error/empty message.
+    """
+    error_message = _verify_has_organizer_role(event, aws_services)
+    if error_message:
+        return error_message
+
     server_id = event.get_server_id()
 
-    event_data = db_helper.get_server_event_data(server_id, table)
-    if not event_data:
-        return ResponseMessage(
-            content="🙀 There is no check-in data! Run `/setup-server` first to get started."
-        )
+    event_data_result = db_helper.get_server_event_data_or_fail(server_id, aws_services.dynamodb_table)
+    if isinstance(event_data_result, ResponseMessage):
+        return event_data_result
 
-    checked_in = event_data.get(event_data_keys.CHECKED_IN, {})
-    if not checked_in:
+    if not event_data_result.checked_in:
         return ResponseMessage(
             content="ℹ️ There are currently no checked-in users."
         )
 
     content = (
         "✅ **Checked-in Users:**\n"
-        + "\n".join(f"- {p['display_name']}" for p in checked_in.values())
+        + "\n".join(f"- {p['display_name']}" for p in event_data_result.checked_in.values())
     )
 
     return ResponseMessage(content=content)
 
 def clear_check_ins(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
     """
-    Clears all checked-in users from the channel record in DynamoDB.
+    Clears all checked-in users from the server event record in DynamoDB.
+    Queues jobs to remove the participant role from all cleared users.
+    Requires the calling user to have the organizer role.
     Returns a ResponseMessage indicating success or failure.
     """
-    table = aws_services.dynamotb_table
+    error_message = _verify_has_organizer_role(event, aws_services)
+    if error_message:
+        return error_message
+
     server_id = event.get_server_id()
-    pk = db_helper.get_server_pk(server_id)
-    sk = constants.SK_SERVER
 
-    organizer_role = config_helper.try_get_organizer_role(server_id, table)
-    if isinstance(organizer_role, ResponseMessage):
-        return organizer_role # Directly return the error message
+    event_data_result = db_helper.get_server_event_data_or_fail(server_id, aws_services.dynamodb_table)
+    if isinstance(event_data_result, ResponseMessage):
+        return event_data_result
 
-    if organizer_role not in event.get_user_roles():
-        return ResponseMessage(
-            content="❌ You don't have permission to clear check-ins. "
-                    "Only users with the server's designated organizer role can do this."
-        )
-
-    event_data = db_helper.get_server_event_data(server_id, table)
-    if not event_data:
-        return ResponseMessage(
-            content="🙀 There is no check-in data to clear! Run `/setup-server` first to get started."
-        )
-    participant_role = event_data.get(event_data_keys.PARTICIPANT_ROLE, "")
-    checked_in = event_data.get(event_data_keys.CHECKED_IN, {})
-    if not checked_in:
+    if not event_data_result.checked_in:
         return ResponseMessage(
             content="ℹ️ There are no checked-in users to clear."
         )
-    checked_in_users = list(checked_in.keys())
+
+    checked_in_users = list(event_data_result.checked_in.keys())
 
     try:
         role_removal_queue.enqueue_remove_role_jobs(
             server_id=server_id,
             user_ids=checked_in_users,
-            role_id=participant_role,
+            role_id=event_data_result.participant_role,
             sqs_queue=aws_services.remove_role_sqs_queue
         )
-        table.update_item(
-            Key={"PK": pk, "SK": sk},
-            UpdateExpression="SET checked_in = :empty_map",
-            ExpressionAttributeValues={":empty_map": {}}
-        )
+
+        if event_data_result.participant_role:
+            aws_services.dynamodb_table.update_item(
+                Key={"PK": db_helper.build_server_pk(server_id), "SK": EventData.Keys.SK_SERVER},
+                UpdateExpression="SET checked_in = :empty_map",
+                ExpressionAttributeValues={":empty_map": {}}
+            )
+        else:
+            print("No participant_role set. No role to unsassign.")
+
     except ClientError:
+        # Re-raise exceptions from AWS SDK calls for general error handling
         raise
 
     return ResponseMessage(

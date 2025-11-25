@@ -25,11 +25,3 @@ DISCORD_CALLBACK_TYPES =  {
     "APPLICATION_COMMAND_AUTOCOMPLETE_RESULT": 8,
     "MODAL": 9
 }
-
-########################################
-# DynamoDB Constants                  #
-########################################
-PK_SERVER_PREFIX = "SERVER#"
-SK_CONFIG = "CONFIG"
-SK_SERVER = "SERVER"
-SK_CHANNEL_PREFIX = "CHANNEL#"

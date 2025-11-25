@@ -1,6 +1,6 @@
 import re
 from commands.models.response_message import ResponseMessage
-from get_participants.startgg.startgg_utils import get_event, get_tourney_name, get_participants, participants_to_string
+from commands.get_participants.startgg.startgg_api import get_event, get_tourney_name, get_participants, participants_to_string
 
 def validate_startgg_link(startgg_link: str) -> bool:
     startgg_pattern = re.compile(r"^https:\/\/www.start.gg\/tournament\/([^\/]+)\/event\/([^\/]+)$")
