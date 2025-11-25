@@ -1,22 +1,12 @@
-from botocore.exceptions import ClientError
-
-import constants
 import database.dynamodb_utils as db_helper
 from database.models.event_data import EventData
-import database.dynamodb_utils as config_helper
-import utils.discord_api_helper as discord_helper
-import utils.message_helper as msg_helper
 import utils.permissions_helper as permissions_helper
 import commands.get_participants.startgg.startgg_api as startgg_api
 from aws_services import AWSServices
-from database.models.participant import Participant
 from commands.models.discord_event import DiscordEvent
 from commands.models.response_message import ResponseMessage
 
 def get_participants_startgg(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
-    table = aws_services.dynamodb_table
-    server_id = event.get_server_id()
-
     error_message = permissions_helper.require_organizer_role(event)
     if isinstance(error_message, ResponseMessage):
           return error_message
@@ -43,14 +33,9 @@ def get_participants_startgg(event: DiscordEvent, aws_services: AWSServices) -> 
             for participant in startgg_event.participants
         }
         aws_services.dynamodb_table.update_item(
-            Key={
-                "PK": db_helper.build_server_pk(event.get_server_id()),
-                "SK": EventData.Keys.SK_SERVER
-            },
+            Key={"PK": db_helper.build_server_pk(event.get_server_id()), "SK": EventData.Keys.SK_SERVER},
             UpdateExpression=f"SET {EventData.Keys.REGISTERED} = :startgg_registered",
-            ExpressionAttributeValues={
-                ":startgg_registered": startgg_participants_data
-            }
+            ExpressionAttributeValues={":startgg_registered": startgg_participants_data}
         )
 
     if no_discord_names:
