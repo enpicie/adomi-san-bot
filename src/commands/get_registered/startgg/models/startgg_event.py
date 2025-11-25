@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from typing import List, Dict, Any, Optional
 
-import commands.get_participants.source_constants as source_constants
+import commands.get_registered.source_constants as source_constants
 from database.models.participant import Participant
 from database.models.registered_participant import RegisteredParticipant
 

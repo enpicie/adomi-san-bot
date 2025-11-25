@@ -2,8 +2,8 @@ import re
 import requests
 
 import constants
-import commands.get_participants.startgg.startgg_graphql as startgg_graphql
-from commands.get_participants.startgg.models.startgg_event import StartggEvent
+import commands.get_registered.startgg.startgg_graphql as startgg_graphql
+from commands.get_registered.startgg.models.startgg_event import StartggEvent
 
 STARTGG_API_URL = "https://api.start.gg/gql/alpha"
 

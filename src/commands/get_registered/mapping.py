@@ -1,12 +1,12 @@
 from discord import AppCommandOptionType
 
-import commands.get_participants.startgg.startgg_commands as startgg_commands
+import commands.get_registered.startgg.startgg_commands as startgg_commands
 from commands.models.command_mapping import CommandMapping
 from commands.models.command_param import CommandParam
 
-get_participants_commands: CommandMapping = {
-    "get-participants-startgg": {
-        "function": startgg_commands.get_participants_startgg,
+get_registered_commands: CommandMapping = {
+    "get-registered-startgg": {
+        "function": startgg_commands.get_registered_startgg,
         "description": "Gets registered participants from a start.gg Tournement Event, replacing existing registered list",
         "params": [
             CommandParam(

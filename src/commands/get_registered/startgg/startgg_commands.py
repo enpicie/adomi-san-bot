@@ -1,12 +1,12 @@
 import database.dynamodb_utils as db_helper
 from database.models.event_data import EventData
 import utils.permissions_helper as permissions_helper
-import commands.get_participants.startgg.startgg_api as startgg_api
+import commands.get_registered.startgg.startgg_api as startgg_api
 from aws_services import AWSServices
 from commands.models.discord_event import DiscordEvent
 from commands.models.response_message import ResponseMessage
 
-def get_participants_startgg(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
+def get_registered_startgg(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
     error_message = permissions_helper.require_organizer_role(event)
     if isinstance(error_message, ResponseMessage):
           return error_message

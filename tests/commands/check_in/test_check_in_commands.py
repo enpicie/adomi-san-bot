@@ -162,11 +162,11 @@ def test_check_in_user_data_fail(mock_db_helper, mock_discord_event, mock_aws_se
     assert result is expected_response
     mock_aws_services.dynamodb_table.update_item.assert_not_called()
 
-# --- Tests for show_check_ins ---
+# --- Tests for show_checked_in ---
 
 @patch('commands.check_in.check_in_commands._verify_has_organizer_role')
 @patch('commands.check_in.check_in_commands.db_helper')
-def test_show_check_ins_success(mock_db_helper, mock_verify_role, mock_discord_event, mock_aws_services):
+def test_show_checked_in_success(mock_db_helper, mock_verify_role, mock_discord_event, mock_aws_services):
     """Tests successful retrieval and display of check-ins."""
     # Setup mocks
     mock_verify_role.return_value = None # Permission success
@@ -191,7 +191,7 @@ def test_show_check_ins_success(mock_db_helper, mock_verify_role, mock_discord_e
 
 @patch('commands.check_in.check_in_commands._verify_has_organizer_role')
 @patch('commands.check_in.check_in_commands.db_helper')
-def test_show_check_ins_empty(mock_db_helper, mock_verify_role, mock_discord_event, mock_aws_services):
+def test_show_checked_in_empty(mock_db_helper, mock_verify_role, mock_discord_event, mock_aws_services):
     """Tests case where no users are checked in."""
     # Setup mocks
     mock_verify_role.return_value = None # Permission success
@@ -205,7 +205,7 @@ def test_show_check_ins_empty(mock_db_helper, mock_verify_role, mock_discord_eve
     assert response.content == "ℹ️ There are currently no checked-in users."
 
 @patch('commands.check_in.check_in_commands._verify_has_organizer_role')
-def test_show_check_ins_permission_fail(mock_verify_role, mock_discord_event, mock_aws_services):
+def test_show_checked_in_permission_fail(mock_verify_role, mock_discord_event, mock_aws_services):
     """Tests failure when permission check fails."""
     expected_response = target_module.ResponseMessage(content="No Permission")
     mock_verify_role.return_value = expected_response
@@ -214,12 +214,12 @@ def test_show_check_ins_permission_fail(mock_verify_role, mock_discord_event, mo
 
     assert result is expected_response
 
-# --- Tests for clear_check_ins ---
+# --- Tests for clear_checked_in ---
 
 @patch('commands.check_in.check_in_commands.role_removal_queue')
 @patch('commands.check_in.check_in_commands._verify_has_organizer_role')
 @patch('commands.check_in.check_in_commands.db_helper')
-def test_clear_check_ins_success_with_role(mock_db_helper, mock_verify_role, mock_role_removal_queue, mock_discord_event, mock_aws_services):
+def test_clear_checked_in_success_with_role(mock_db_helper, mock_verify_role, mock_role_removal_queue, mock_discord_event, mock_aws_services):
     """Tests successful clearing of check-ins and role removal queueing."""
     # Setup mocks
     mock_verify_role.return_value = None # Permission success
@@ -255,7 +255,7 @@ def test_clear_check_ins_success_with_role(mock_db_helper, mock_verify_role, moc
 @patch('commands.check_in.check_in_commands.role_removal_queue')
 @patch('commands.check_in.check_in_commands._verify_has_organizer_role')
 @patch('commands.check_in.check_in_commands.db_helper')
-def test_clear_check_ins_success_no_role(mock_db_helper, mock_verify_role, mock_role_removal_queue, mock_discord_event, mock_aws_services):
+def test_clear_checked_in_success_no_role(mock_db_helper, mock_verify_role, mock_role_removal_queue, mock_discord_event, mock_aws_services):
     """Tests successful clearing when no participant role is configured."""
     # Setup mocks
     mock_verify_role.return_value = None
@@ -274,7 +274,7 @@ def test_clear_check_ins_success_no_role(mock_db_helper, mock_verify_role, mock_
     mock_aws_services.dynamodb_table.update_item.assert_not_called()
 
 @patch('commands.check_in.check_in_commands._verify_has_organizer_role')
-def test_clear_check_ins_permission_fail(mock_verify_role, mock_discord_event, mock_aws_services):
+def test_clear_checked_in_permission_fail(mock_verify_role, mock_discord_event, mock_aws_services):
     """Tests failure when permission check fails."""
     expected_response = target_module.ResponseMessage(content="No Permission")
     mock_verify_role.return_value = expected_response
@@ -285,7 +285,7 @@ def test_clear_check_ins_permission_fail(mock_verify_role, mock_discord_event, m
 
 @patch('commands.check_in.check_in_commands._verify_has_organizer_role')
 @patch('commands.check_in.check_in_commands.db_helper')
-def test_clear_check_ins_empty(mock_db_helper, mock_verify_role, mock_discord_event, mock_aws_services):
+def test_clear_checked_in_empty(mock_db_helper, mock_verify_role, mock_discord_event, mock_aws_services):
     """Tests case where no users are checked in to clear."""
     # Setup mocks
     mock_verify_role.return_value = None
@@ -301,8 +301,8 @@ def test_clear_check_ins_empty(mock_db_helper, mock_verify_role, mock_discord_ev
 
 @patch('commands.check_in.check_in_commands._verify_has_organizer_role')
 @patch('commands.check_in.check_in_commands.db_helper')
-def test_clear_check_ins_dynamodb_error(mock_db_helper, mock_verify_role, mock_discord_event, mock_aws_services):
-    """Tests that ClientError is re-raised during clear_check_ins."""
+def test_clear_checked_in_dynamodb_error(mock_db_helper, mock_verify_role, mock_discord_event, mock_aws_services):
+    """Tests that ClientError is re-raised during clear_checked_in."""
     # Setup mocks
     mock_verify_role.return_value = None
     mock_event_data = Mock(checked_in={"U1": {"display_name": "Alice"}}, participant_role="R999")
