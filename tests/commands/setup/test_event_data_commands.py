@@ -37,13 +37,13 @@ def mock_discord_event():
 def test_set_participant_role_insufficient_permissions(mock_permissions_helper, mock_discord_event, mock_aws_services):
     """Tests failure when user lacks 'manage_server' permission."""
     expected_response = ResponseMessage(content="Permission Denied")
-    mock_permissions_helper.require_manage_server_permission.return_value = expected_response
+    mock_permissions_helper.require_organizer_role.return_value = expected_response
 
     response = event_data_commands.set_participant_role(mock_discord_event, mock_aws_services)
 
     # Assertions
     assert response is expected_response
-    mock_permissions_helper.require_manage_server_permission.assert_called_once_with(mock_discord_event)
+    mock_permissions_helper.require_organizer_role.assert_called_once_with(mock_discord_event)
     mock_aws_services.dynamodb_table.update_item.assert_not_called()
 
 # --- Config/Database Pre-Check Failure Tests ---
