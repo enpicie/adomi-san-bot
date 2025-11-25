@@ -1,5 +1,6 @@
 from mypy_boto3_dynamodb.service_resource import Table
 
+import utils.adomin_messages as adomin_messages
 from commands.models.response_message import ResponseMessage
 from database.models.event_data import EventData
 from database.models.server_config import ServerConfig
@@ -16,8 +17,7 @@ def get_server_config_or_fail(server_id: str, table: Table) -> ServerConfig | Re
     existing_data = response.get("Item")
     if not existing_data:
         return ResponseMessage(
-            content="This server is not set up! Run `/setup-server` first to get started. "
-                    "You can set the organizer role there 👍"
+            content=adomin_messages.SERVER_CONFIG_MISSING
         )
     return ServerConfig.from_dynamodb(existing_data)
 
@@ -28,6 +28,6 @@ def get_server_event_data_or_fail(server_id: str, table: Table) -> EventData | R
     existing_data = response.get("Item")
     if not existing_data:
         return ResponseMessage(
-            content="🙀 There is no server event data set up! Run `/setup-server` first to get started."
+            content=adomin_messages.SERVER_EVENT_DATA_MISSING
         )
     return EventData.from_dynamodb(existing_data)
