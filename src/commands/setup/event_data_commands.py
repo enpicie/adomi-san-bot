@@ -9,7 +9,7 @@ from database.models.event_data import EventData
 
 def set_participant_role(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
     """Sets the participant_role property of the existing SERVER/CHANNEL event data record."""
-    error_message = permissions_helper.require_manage_server_permission(event)
+    error_message = permissions_helper.require_organizer_role(event)
     if isinstance(error_message, ResponseMessage):
           return error_message
 
