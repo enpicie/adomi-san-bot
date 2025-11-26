@@ -35,6 +35,8 @@ class ResponseMessage:
 
         if self.allowed_mentions is not None:
             data["allowed_mentions"] = self.allowed_mentions
+        if self.flags is not None:
+            data["flags"] = self.flags
 
         return {
             "type": constants.DISCORD_CALLBACK_TYPES["MESSAGE_WITH_SOURCE"],
