@@ -4,10 +4,14 @@ from discord import Embed
 import constants
 import utils.adomin_messages as adomin_messages
 
+# https://discord.com/developers/docs/resources/message#message-object-message-flags
+SUPPRESS_EMBEDS_FLAG = 1 << 2
+
 class ResponseMessage:
     content: str
     embeds: Optional[List[Embed]]
     allowed_mentions: Optional[Dict] = None
+    flags: Optional[int] = None
 
     def __init__(self, content: str, embeds: List[Embed] = None):
         self.content = content
@@ -17,6 +21,10 @@ class ResponseMessage:
         self.allowed_mentions = {
             "parse": [] # Disable all automatic pings
         }
+        return self
+
+    def with_suppressed_embeds(self) -> "ResponseMessage":
+        self.flags = SUPPRESS_EMBEDS_FLAG
         return self
 
     def to_dict(self) -> dict:

@@ -11,4 +11,4 @@ def give_help(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage
             f"Use `/check-in` to check in for events!\n"
             f"If you're an organizer, check [my wiki]({WIKI_LINK}) to see what commands you can use to get set up 🙇‍♀️"
         )
-    )
+    ).with_suppressed_embeds()
