@@ -4,21 +4,31 @@ from botocore.exceptions import ClientError
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass, field
 
+# Reverting imports to the standard, non-prefixed package structure
 import database.dynamodb_utils as db_helper
 import utils.permissions_helper as permissions_helper
 import commands.get_registered.startgg.startgg_api as startgg_api
-import commands.get_registered.startgg.startgg_commands as startgg_commands
 
 # Imports for models and constants
-import commands.get_registered.source_constants as source_constants
 from commands.models.response_message import ResponseMessage
 from database.models.event_data import EventData
 from database.models.participant import Participant
 from database.models.registered_participant import RegisteredParticipant
+import commands.get_registered.source_constants as source_constants
 from aws_services import AWSServices # Needed for type hinting in fixture
 from commands.models.discord_event import DiscordEvent # Needed for type hinting in fixture
 
+# Import the function under test from its assumed package location
+from commands.get_registered.startgg.startgg_commands import get_registered_startgg
+target_function = get_registered_startgg # Alias the function for testing
 
+
+# --- Mock Classes ---
+
+class MockServerConfig:
+    """A minimal mock class that serves as a non-ResponseMessage return value for get_server_config_or_fail."""
+    def __init__(self, organizer_role="O_ROLE_ID"):
+        self.organizer_role = organizer_role
 
 # --- Mock StartggEvent Model (Copied from user's model file for internal testing) ---
 
@@ -88,46 +98,57 @@ def create_mock_startgg_event(
 
 # --- Test Cases ---
 
+@patch('database.dynamodb_utils.get_server_config_or_fail')
 @patch('utils.permissions_helper.require_organizer_role')
-def test_get_registered_startgg_permission_denied(mock_require_organizer_role, mock_discord_event, mock_aws_services):
+def test_get_registered_startgg_permission_denied(mock_require_organizer_role, mock_get_server_config, mock_discord_event, mock_aws_services):
     """Tests failure when user lacks the organizer role."""
     # Arrange
+    mock_config = MockServerConfig()
+    mock_get_server_config.return_value = mock_config # Mock the config retrieval
     expected_response = ResponseMessage(content="Permission Denied")
     mock_require_organizer_role.return_value = expected_response
 
     # Act
-    response = startgg_commands.get_registered_startgg(mock_discord_event, mock_aws_services)
+    response = target_function(mock_discord_event, mock_aws_services)
 
     # Assert
     assert response is expected_response
-    mock_require_organizer_role.assert_called_once_with(mock_discord_event)
+    mock_get_server_config.assert_called_once()
+    # Assert call includes the retrieved config object
+    mock_require_organizer_role.assert_called_once_with(mock_config, mock_discord_event)
     mock_aws_services.dynamodb_table.update_item.assert_not_called()
 
 @patch('utils.permissions_helper.require_organizer_role', return_value=None)
 @patch('commands.get_registered.startgg.startgg_api.is_valid_startgg_url', return_value=False)
-def test_get_registered_startgg_invalid_url(mock_is_valid_startgg_url, mock_require_organizer_role, mock_discord_event, mock_aws_services):
+@patch('database.dynamodb_utils.get_server_config_or_fail', return_value=MockServerConfig())
+def test_get_registered_startgg_invalid_url(mock_get_server_config, mock_is_valid_startgg_url, mock_require_organizer_role, mock_discord_event, mock_aws_services):
     """Tests failure when the provided start.gg URL is invalid."""
     # Act
-    response = startgg_commands.get_registered_startgg(mock_discord_event, mock_aws_services)
+    response = target_function(mock_discord_event, mock_aws_services)
 
     # Assert
     assert response.content.startswith("😖 Sorry! This start.gg event link is not valid.")
+    mock_get_server_config.assert_called_once()
+    mock_require_organizer_role.assert_called_once_with(mock_get_server_config.return_value, mock_discord_event)
     mock_is_valid_startgg_url.assert_called_once_with(mock_discord_event.get_command_input_value.return_value)
     mock_aws_services.dynamodb_table.update_item.assert_not_called()
 
 @patch('utils.permissions_helper.require_organizer_role', return_value=None)
 @patch('commands.get_registered.startgg.startgg_api.is_valid_startgg_url', return_value=True)
 @patch('commands.get_registered.startgg.startgg_api.query_startgg_event')
-def test_get_registered_startgg_no_participants_found(mock_query_startgg_event, mock_is_valid_startgg_url, mock_require_organizer_role, mock_discord_event, mock_aws_services):
+@patch('database.dynamodb_utils.get_server_config_or_fail', return_value=MockServerConfig())
+def test_get_registered_startgg_no_participants_found(mock_get_server_config, mock_query_startgg_event, mock_is_valid_startgg_url, mock_require_organizer_role, mock_discord_event, mock_aws_services):
     """Tests the response when no participants (registered or anonymous) are found."""
     # Arrange
     mock_query_startgg_event.return_value = create_mock_startgg_event(num_registered=0, num_no_discord=0)
 
     # Act
-    response = startgg_commands.get_registered_startgg(mock_discord_event, mock_aws_services)
+    response = target_function(mock_discord_event, mock_aws_services)
 
     # Assert
     assert "😔 No registered participants found for this start.gg event" == response.content
+    mock_get_server_config.assert_called_once()
+    mock_require_organizer_role.assert_called_once_with(mock_get_server_config.return_value, mock_discord_event)
     mock_query_startgg_event.assert_called_once()
     mock_aws_services.dynamodb_table.update_item.assert_not_called()
 
@@ -135,16 +156,19 @@ def test_get_registered_startgg_no_participants_found(mock_query_startgg_event, 
 @patch('commands.get_registered.startgg.startgg_api.is_valid_startgg_url', return_value=True)
 @patch('commands.get_registered.startgg.startgg_api.query_startgg_event')
 @patch('database.dynamodb_utils.build_server_pk', return_value="SERVER#S12345")
-def test_get_registered_startgg_success_registered_only(mock_build_server_pk, mock_query_startgg_event, mock_is_valid_startgg_url, mock_require_organizer_role, mock_discord_event, mock_aws_services):
+@patch('database.dynamodb_utils.get_server_config_or_fail', return_value=MockServerConfig())
+def test_get_registered_startgg_success_registered_only(mock_get_server_config, mock_build_server_pk, mock_query_startgg_event, mock_is_valid_startgg_url, mock_require_organizer_role, mock_discord_event, mock_aws_services):
     """Tests successful retrieval and update when only Discord-linked participants are found."""
     # Arrange
     mock_query_startgg_event.return_value = create_mock_startgg_event(num_registered=3, num_no_discord=0)
 
     # Act
-    response = startgg_commands.get_registered_startgg(mock_discord_event, mock_aws_services)
+    response = target_function(mock_discord_event, mock_aws_services)
 
     # Assert
     assert "👍 Found 3 participants registered in start.gg!" in response.content
+    mock_get_server_config.assert_called_once()
+    mock_require_organizer_role.assert_called_once_with(mock_get_server_config.return_value, mock_discord_event)
 
     # Assert DynamoDB update
     mock_aws_services.dynamodb_table.update_item.assert_called_once()
@@ -165,13 +189,14 @@ def test_get_registered_startgg_success_registered_only(mock_build_server_pk, mo
 @patch('utils.permissions_helper.require_organizer_role', return_value=None)
 @patch('commands.get_registered.startgg.startgg_api.is_valid_startgg_url', return_value=True)
 @patch('commands.get_registered.startgg.startgg_api.query_startgg_event')
-def test_get_registered_startgg_success_no_discord_only(mock_query_startgg_event, mock_is_valid_startgg_url, mock_require_organizer_role, mock_discord_event, mock_aws_services):
+@patch('database.dynamodb_utils.get_server_config_or_fail', return_value=MockServerConfig())
+def test_get_registered_startgg_success_no_discord_only(mock_get_server_config, mock_query_startgg_event, mock_is_valid_startgg_url, mock_require_organizer_role, mock_discord_event, mock_aws_services):
     """Tests successful retrieval when only participants without Discord links are found (no DB update)."""
     # Arrange
     mock_query_startgg_event.return_value = create_mock_startgg_event(num_registered=0, num_no_discord=2)
 
     # Act
-    response = startgg_commands.get_registered_startgg(mock_discord_event, mock_aws_services)
+    response = target_function(mock_discord_event, mock_aws_services)
 
     # Assert
     assert "👍 Found 0 participants registered in start.gg!" in response.content
@@ -179,6 +204,8 @@ def test_get_registered_startgg_success_no_discord_only(mock_query_startgg_event
     assert "* AnonUser0" in response.content
     assert "* AnonUser1" in response.content
 
+    mock_get_server_config.assert_called_once()
+    mock_require_organizer_role.assert_called_once_with(mock_get_server_config.return_value, mock_discord_event)
     # Assert DynamoDB update (should not be called because startgg_event.participants is empty)
     mock_aws_services.dynamodb_table.update_item.assert_not_called()
 
@@ -186,19 +213,22 @@ def test_get_registered_startgg_success_no_discord_only(mock_query_startgg_event
 @patch('commands.get_registered.startgg.startgg_api.is_valid_startgg_url', return_value=True)
 @patch('commands.get_registered.startgg.startgg_api.query_startgg_event')
 @patch('database.dynamodb_utils.build_server_pk', return_value="SERVER#S12345")
-def test_get_registered_startgg_success_mixed(mock_build_server_pk, mock_query_startgg_event, mock_is_valid_startgg_url, mock_require_organizer_role, mock_discord_event, mock_aws_services):
+@patch('database.dynamodb_utils.get_server_config_or_fail', return_value=MockServerConfig())
+def test_get_registered_startgg_success_mixed(mock_get_server_config, mock_build_server_pk, mock_query_startgg_event, mock_is_valid_startgg_url, mock_require_organizer_role, mock_discord_event, mock_aws_services):
     """Tests successful retrieval with a mix of registered (2) and no-discord (1) participants (DB update and report)."""
     # Arrange
     mock_query_startgg_event.return_value = create_mock_startgg_event(num_registered=2, num_no_discord=1)
 
     # Act
-    response = startgg_commands.get_registered_startgg(mock_discord_event, mock_aws_services)
+    response = target_function(mock_discord_event, mock_aws_services)
 
     # Assert
     assert "👍 Found 2 participants registered in start.gg!" in response.content
     assert "**I found these start.gg users do not have Discord linked**" in response.content
     assert "* AnonUser0" in response.content # Only one anon user
 
+    mock_get_server_config.assert_called_once()
+    mock_require_organizer_role.assert_called_once_with(mock_get_server_config.return_value, mock_discord_event)
     # Assert DynamoDB update (should be called for the 2 registered participants)
     mock_aws_services.dynamodb_table.update_item.assert_called_once()
     call_args = mock_aws_services.dynamodb_table.update_item.call_args[1]
@@ -210,7 +240,8 @@ def test_get_registered_startgg_success_mixed(mock_build_server_pk, mock_query_s
 @patch('commands.get_registered.startgg.startgg_api.is_valid_startgg_url', return_value=True)
 @patch('commands.get_registered.startgg.startgg_api.query_startgg_event')
 @patch('database.dynamodb_utils.build_server_pk', return_value="SERVER#S12345")
-def test_get_registered_startgg_dynamodb_error(mock_build_server_pk, mock_query_startgg_event, mock_is_valid_startgg_url, mock_require_organizer_role, mock_discord_event, mock_aws_services):
+@patch('database.dynamodb_utils.get_server_config_or_fail', return_value=MockServerConfig())
+def test_get_registered_startgg_dynamodb_error(mock_get_server_config, mock_build_server_pk, mock_query_startgg_event, mock_is_valid_startgg_url, mock_require_organizer_role, mock_discord_event, mock_aws_services):
     """Tests that a ClientError from DynamoDB is re-raised."""
     # Arrange
     mock_query_startgg_event.return_value = create_mock_startgg_event(num_registered=1)
@@ -223,4 +254,7 @@ def test_get_registered_startgg_dynamodb_error(mock_build_server_pk, mock_query_
 
     # Act / Assert
     with pytest.raises(ClientError):
-        startgg_commands.get_registered_startgg(mock_discord_event, mock_aws_services)
+        target_function(mock_discord_event, mock_aws_services)
+
+    mock_get_server_config.assert_called_once()
+    mock_require_organizer_role.assert_called_once_with(mock_get_server_config.return_value, mock_discord_event)
