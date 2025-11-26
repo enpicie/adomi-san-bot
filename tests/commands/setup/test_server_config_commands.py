@@ -71,7 +71,10 @@ def test_setup_server_insufficient_permissions(mock_db_and_perms, mock_discord_e
     mock_aws_services.dynamodb_table.put_item.assert_not_called()
 
 def test_setup_server_already_set_up(mock_db_and_perms, mock_discord_event_setup, mock_aws_services):
-    """Tests that setup_server returns a message if server configuration already exists."""
+    """
+    Tests that setup_server returns a message if server configuration already exists.
+    This is checked via db_helper.get_server_config_or_fail returning a non-ResponseMessage object.
+    """
     mock_db, _ = mock_db_and_perms
 
     # Mock db_helper to return a ServerConfig instance (already exists)
@@ -84,12 +87,15 @@ def test_setup_server_already_set_up(mock_db_and_perms, mock_discord_event_setup
     mock_aws_services.dynamodb_table.put_item.assert_not_called()
 
 def test_setup_server_success_server_wide_mode(mock_db_and_perms, mock_discord_event_setup, mock_aws_services):
-    """Tests successful setup, ensuring both CONFIG and SERVER records are created."""
+    """
+    Tests successful setup, ensuring both CONFIG and SERVER records are created without
+    ConditionExpression, as per the updated command implementation.
+    """
     mock_db, _ = mock_db_and_perms
     table = mock_aws_services.dynamodb_table
     PK = mock_db.build_server_pk.return_value
 
-    # Mock db_helper to return ResponseMessage (config not found/fail)
+    # Mock db_helper to return ResponseMessage (config not found/fail), allowing setup to proceed
     mock_db.get_server_config_or_fail.return_value = ResponseMessage(content="Config Not Found")
 
     response = server_config_commands.setup_server(mock_discord_event_setup, mock_aws_services)
@@ -109,7 +115,8 @@ def test_setup_server_success_server_wide_mode(mock_db_and_perms, mock_discord_e
         ServerConfig.Keys.EVENT_MODE: EventMode.SERVER_WIDE.value,
         ServerConfig.Keys.ORGANIZER_ROLE: "OrganizerRoleID"
     }
-    assert "ConditionExpression" in config_call.kwargs
+    # IMPORTANT FIX: ConditionExpression should NOT be present now
+    assert "ConditionExpression" not in config_call.kwargs
 
     # 2. Check Event Data record creation (Call 2)
     event_data_call = table.put_item.call_args_list[1]
@@ -120,27 +127,8 @@ def test_setup_server_success_server_wide_mode(mock_db_and_perms, mock_discord_e
         EventData.Keys.REGISTERED: {},
         EventData.Keys.QUEUE: {}
     }
-    assert "ConditionExpression" in event_data_call.kwargs
-
-def test_setup_server_conditional_check_failed_exception(mock_db_and_perms, mock_discord_event_setup, mock_aws_services):
-    """Tests handling the specific ConditionalCheckFailedException during put_item."""
-    mock_db, _ = mock_db_and_perms
-    table = mock_aws_services.dynamodb_table
-
-    # Mock db_helper to indicate not found on the check step
-    mock_db.get_server_config_or_fail.return_value = ResponseMessage(content="Config Not Found")
-
-    # Simulate ConditionalCheckFailedException on the first put_item
-    table.put_item.side_effect = ClientError(
-        {"Error": {"Code": "ConditionalCheckFailedException", "Message": "already exists"}},
-        "PutItem"
-    )
-
-    response = server_config_commands.setup_server(mock_discord_event_setup, mock_aws_services)
-
-    assert isinstance(response, ResponseMessage)
-    assert "already has `CONFIG` record" in response.content
-    assert table.put_item.call_count == 1 # Only the first call fails
+    # IMPORTANT FIX: ConditionExpression should NOT be present now
+    assert "ConditionExpression" not in event_data_call.kwargs
 
 def test_setup_server_raises_on_generic_client_error(mock_db_and_perms, mock_discord_event_setup, mock_aws_services):
     """Tests that any other ClientError is re-raised."""
@@ -227,6 +215,17 @@ def test_set_organizer_role_raises_on_client_error(mock_db_and_perms, mock_disco
 #  Tests for set_participant_role (Updated from previous request)
 # ----------------------------------------------------
 
+def test_set_participant_role_insufficient_permissions(mock_db_and_perms, mock_discord_event_setup, mock_aws_services):
+    """Tests failure when user lacks 'manage_server' permission."""
+    _, mock_perms = mock_db_and_perms
+    expected_response = ResponseMessage(content="Permission Denied")
+    mock_perms.require_manage_server_permission.return_value = expected_response
+
+    response = server_config_commands.set_participant_role(mock_discord_event_setup, mock_aws_services)
+
+    assert response is expected_response
+    mock_aws_services.dynamodb_table.update_item.assert_not_called()
+
 def test_set_participant_role_success_set(mock_db_and_perms, mock_discord_event_setup, mock_aws_services):
     """Tests successfully setting a new participant role ID."""
     mock_db, _ = mock_db_and_perms
@@ -238,7 +237,9 @@ def test_set_participant_role_success_set(mock_db_and_perms, mock_discord_event_
 
     # Ensure no removal flag is set
     mock_discord_event_setup.get_command_input_value.side_effect = lambda key: (
-        MOCK_ROLE_ID if key == "participant_role" else False
+        MOCK_ROLE_ID if key == "participant_role" else
+        False if key == "remove_role" else
+        None
     )
 
     response = server_config_commands.set_participant_role(mock_discord_event_setup, mock_aws_services)
@@ -267,7 +268,8 @@ def test_set_participant_role_success_remove(mock_db_and_perms, mock_discord_eve
 
     # Simulate user input: remove_role=True
     mock_discord_event_setup.get_command_input_value.side_effect = lambda key: (
-        True if key == "remove_role" else "OldRoleID" # The 'participant_role' value is overwritten to ""
+        True if key == "remove_role" else
+        "OldRoleID" # The 'participant_role' value is irrelevant when remove_role is True
     )
 
     response = server_config_commands.set_participant_role(mock_discord_event_setup, mock_aws_services)

@@ -40,8 +40,7 @@ def setup_server(event: DiscordEvent, aws_services: AWSServices) -> ResponseMess
             "SK": ServerConfig.Keys.SK_CONFIG,
             ServerConfig.Keys.EVENT_MODE: EventMode.SERVER_WIDE.value,
             ServerConfig.Keys.ORGANIZER_ROLE: organizer_role
-        },
-        ConditionExpression="attribute_not_exists(PK) AND attribute_not_exists(SK)"
+        }
     )
 
     if event_mode == EventMode.SERVER_WIDE.value:
@@ -52,8 +51,7 @@ def setup_server(event: DiscordEvent, aws_services: AWSServices) -> ResponseMess
                 EventData.Keys.CHECKED_IN: {}, # Initialize empty checked_in map
                 EventData.Keys.REGISTERED: {}, # Initialize empty registered map
                 EventData.Keys.QUEUE: {}     # Initialize empty queue map
-            },
-            ConditionExpression="attribute_not_exists(PK) AND attribute_not_exists(SK)"
+            }
         )
     # TODO: implement case for Per-Channel when modes are implemented
 

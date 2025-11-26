@@ -3,7 +3,7 @@ from typing import Optional
 import database.dynamodb_utils as db_helper
 from database.models.event_data import EventData
 import utils.discord_api_helper as discord_helper
-import utils.message_helper as msg_helper
+import utils.message_helper as message_helper
 import utils.permissions_helper as permissions_helper
 import commands.check_in.queue_role_removal as role_removal_queue
 from aws_services import AWSServices
@@ -54,7 +54,7 @@ def check_in_user(event: DiscordEvent, aws_services: AWSServices) -> ResponseMes
             role_id=data_result.participant_role
         )
     return ResponseMessage(
-        content=f"✅ Checked in {msg_helper.get_user_ping(user_id)}!"
+        content=f"✅ Checked in {message_helper.get_user_ping(user_id)}!"
     )
 
 def show_checked_in(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
@@ -80,10 +80,13 @@ def show_checked_in(event: DiscordEvent, aws_services: AWSServices) -> ResponseM
 
     content = (
         "✅ **Checked-in Users:**\n"
-        + "\n".join(f"- {p['display_name']}" for p in event_data_result.checked_in.values())
+        + "\n".join(
+            f"- {message_helper.get_user_ping(p[Participant.Keys.USER_ID])}"
+            for p in event_data_result.checked_in.values()
+        )
     )
 
-    return ResponseMessage(content=content)
+    return ResponseMessage(content=content).with_silent_pings()
 
 def clear_checked_in(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
     """

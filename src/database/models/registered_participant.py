@@ -5,6 +5,12 @@ from database.models.participant import Participant
 
 @dataclass
 class RegisteredParticipant(Participant):
+    NO_DISCORD_ID_IDENTIFIER = "no_id"
+
+    class Keys(Participant.Keys):
+        SOURCE = "source"
+        EXTERNAL_ID = "external_id"
+
     source: str
     external_id: Optional[str] = None # Make external_id optional with a default of None
 

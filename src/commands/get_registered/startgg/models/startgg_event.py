@@ -54,7 +54,7 @@ class StartggEvent:
             else:
                 no_discord_participants.append(Participant(
                     display_name=startgg_name,
-                    user_id="no_id"
+                    user_id=RegisteredParticipant.NO_DISCORD_ID_IDENTIFIER
                 ))
 
         return registered_participants, no_discord_participants

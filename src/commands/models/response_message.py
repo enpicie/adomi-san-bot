@@ -13,7 +13,7 @@ class ResponseMessage:
         self.content = content
         self.embeds = embeds or []
 
-    def silent(self) -> "ResponseMessage":
+    def with_silent_pings(self) -> "ResponseMessage":
         self.allowed_mentions = {
             "parse": [] # Disable all automatic pings
         }

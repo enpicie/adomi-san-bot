@@ -1,15 +1,14 @@
 from typing import Optional
 
 import database.dynamodb_utils as db_helper
-from database.models.event_data import EventData
-import utils.discord_api_helper as discord_helper
-import utils.message_helper as msg_helper
+import utils.message_helper as message_helper
 import utils.permissions_helper as permissions_helper
 import commands.check_in.queue_role_removal as role_removal_queue
 from aws_services import AWSServices
-from database.models.participant import Participant
 from commands.models.discord_event import DiscordEvent
 from commands.models.response_message import ResponseMessage
+from database.models.event_data import EventData
+from database.models.registered_participant import RegisteredParticipant
 
 def _verify_has_organizer_role(event: DiscordEvent, aws_services: AWSServices) -> Optional[ResponseMessage]:
     """
@@ -46,11 +45,16 @@ def show_registered(event: DiscordEvent, aws_services: AWSServices) -> ResponseM
         )
 
     content = (
-        "✅ **Checked-in Users:**\n"
-        + "\n".join(f"- {p['display_name']}" for p in event_data_result.checked_in.values())
+        "✅ **Registered Users:**\n"
+        + "\n".join(
+            f"- {message_helper.get_user_ping(p[RegisteredParticipant.Keys.USER_ID])}"
+            if p[RegisteredParticipant.Keys.USER_ID] != RegisteredParticipant.NO_DISCORD_ID_IDENTIFIER
+            else f"- {p[RegisteredParticipant.Keys.DISPLAY_NAME]}" # Default to display_name when discord is not linked
+            for p in event_data_result.registered.values()
+        )
     )
 
-    return ResponseMessage(content=content)
+    return ResponseMessage(content=content).with_silent_pings()
 
 def clear_registered(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
     """
