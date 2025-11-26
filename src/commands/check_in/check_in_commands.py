@@ -78,12 +78,9 @@ def show_checked_in(event: DiscordEvent, aws_services: AWSServices) -> ResponseM
             content="ℹ️ There are currently no checked-in users."
         )
 
-    content = (
-        "✅ **Checked-in Users:**\n"
-        + "\n".join(
-            f"- {message_helper.get_user_ping(p[Participant.Keys.USER_ID])}"
-            for p in event_data_result.checked_in.values()
-        )
+    content = message_helper.build_participants_list(
+        list_header= "✅ **Checked-in Users:**",
+        participants=event_data_result.checked_in.values()
     )
 
     return ResponseMessage(content=content).with_silent_pings()
@@ -131,3 +128,27 @@ def clear_checked_in(event: DiscordEvent, aws_services: AWSServices) -> Response
     return ResponseMessage(
         content="✅ All check-ins have been cleared, and I've queued up participant role removals 🫡"
     )
+
+def show_not_checked_in(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
+    error_message = _verify_has_organizer_role(event, aws_services)
+    if error_message:
+        return error_message
+
+    data_result = db_helper.get_server_event_data_or_fail(event.get_server_id(), aws_services.dynamodb_table)
+    if isinstance(data_result, ResponseMessage):
+        return data_result
+
+    should_ping_users = event.get_command_input_value("ping_users") or False # Default to No ping
+
+    not_checked_in_ids = set(data_result.registered.keys()) - set(data_result.checked_in.keys())
+    non_checked_in_participants = [
+        data_result.registered[user_id]
+        for user_id in not_checked_in_ids
+    ]
+    content = message_helper.build_participants_list(
+        list_header= "🔍 **Participants not yet checked-in:**",
+        participants=non_checked_in_participants
+    )
+    response = ResponseMessage(content)
+
+    return response if should_ping_users else response.with_silent_pings()
