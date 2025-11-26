@@ -19,6 +19,8 @@ def get_server_config_or_fail(server_id: str, table: Table) -> ServerConfig | Re
         return ResponseMessage(
             content=adomin_messages.SERVER_CONFIG_MISSING
         )
+    print(f"Found {ServerConfig.Keys.SK_CONFIG} Record: {existing_data}")
+
     return ServerConfig.from_dynamodb(existing_data)
 
 def get_server_event_data_or_fail(server_id: str, table: Table) -> EventData | ResponseMessage:
@@ -30,4 +32,6 @@ def get_server_event_data_or_fail(server_id: str, table: Table) -> EventData | R
         return ResponseMessage(
             content=adomin_messages.SERVER_EVENT_DATA_MISSING
         )
+    print(f"Found {EventData.Keys.SK_SERVER} Record: {existing_data}")
+
     return EventData.from_dynamodb(existing_data)

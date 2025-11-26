@@ -7,7 +7,10 @@ from commands.models.discord_event import DiscordEvent
 from commands.models.response_message import ResponseMessage
 
 def get_registered_startgg(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
-    error_message = permissions_helper.require_organizer_role(event)
+    config_result = db_helper.get_server_config_or_fail(event.get_server_id(), aws_services.dynamodb_table)
+    if isinstance(config_result, ResponseMessage):
+        return config_result
+    error_message = permissions_helper.require_organizer_role(config_result, event)
     if isinstance(error_message, ResponseMessage):
           return error_message
 

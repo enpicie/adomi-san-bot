@@ -42,7 +42,6 @@ def show_registered(event: DiscordEvent, aws_services: AWSServices) -> ResponseM
         return ResponseMessage(
             content="ℹ️ There are currently no registered users."
         )
-
     content = (
         "✅ **Registered Users:**\n"
         + "\n".join(
