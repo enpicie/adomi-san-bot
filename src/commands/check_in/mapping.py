@@ -26,12 +26,12 @@ checkin_commands: CommandMapping = {
         "params": [
             CommandParam(
                 name = "ping_users",
-                description = "Set to 'Yes' to ping registered users who have not yet checked in (default: 'No')",
+                description = "Set to 'True' to ping registered users who have not yet checked in (default: 'False')",
                 param_type=AppCommandOptionType.boolean,
                 required=False,
                 choices=[
-                    ParamChoice(name="Yes", value=True),
-                    ParamChoice(name="No", value=False)
+                    ParamChoice(name="True", value=True),
+                    ParamChoice(name="False", value=False)
                 ]
             )
         ]

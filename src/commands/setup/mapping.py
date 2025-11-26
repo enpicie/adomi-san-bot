@@ -45,12 +45,12 @@ setup_commands: CommandMapping = {
             ),
             CommandParam(
                 name="remove_role",
-                description="Set to 'Yes' to remove the participant role instead of setting it (default: No)",
+                description="Set to 'True' to remove the participant role instead of setting it (default: False)",
                 param_type=AppCommandOptionType.boolean,
                 required=False,
                 choices=[
-                    ParamChoice(name="Yes", value=True),
-                    ParamChoice(name="No", value=False)
+                    ParamChoice(name="True", value=True),
+                    ParamChoice(name="False", value=False)
                 ]
             )
         ]
