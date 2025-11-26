@@ -12,7 +12,7 @@ def build_participants_list(list_header: str, participants: List[Participant]) -
     list_lines = (
         f"- {p[Participant.Keys.DISPLAY_NAME]}"
         if p[Participant.Keys.USER_ID] == Participant.DEFAULT_ID_PLACEHOLDER
-        else f"- {get_user_ping(p[Participant.Keys.USER_ID])}"
+        else f"- {get_user_ping(p[Participant.Keys.USER_ID])}: {p[Participant.Keys.DISPLAY_NAME]}"
         for p in participants
     )
 
