@@ -42,14 +42,9 @@ def show_registered(event: DiscordEvent, aws_services: AWSServices) -> ResponseM
         return ResponseMessage(
             content="ℹ️ There are currently no registered users."
         )
-    content = (
-        "✅ **Registered Users:**\n"
-        + "\n".join(
-            f"- {message_helper.get_user_ping(p[RegisteredParticipant.Keys.USER_ID])}"
-            if p[RegisteredParticipant.Keys.USER_ID] != RegisteredParticipant.NO_DISCORD_ID_IDENTIFIER
-            else f"- {p[RegisteredParticipant.Keys.DISPLAY_NAME]}" # Default to display_name when discord is not linked
-            for p in event_data_result.registered.values()
-        )
+    content = message_helper.build_participants_list(
+        list_header="✅ **Registered Users:**",
+        participants=list(event_data_result.registered.values())
     )
 
     return ResponseMessage(content=content).with_silent_pings()

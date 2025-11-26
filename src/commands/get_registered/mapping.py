@@ -1,9 +1,9 @@
 from discord import AppCommandOptionType
 
-import commands.get_registered.registered_commands as registered_commands
-import commands.get_registered.startgg.startgg_commands as startgg_commands
 from commands.models.command_mapping import CommandMapping
 from commands.models.command_param import CommandParam
+import commands.get_registered.registered_commands as registered_commands
+import commands.get_registered.startgg.startgg_commands as startgg_commands
 
 get_registered_commands: CommandMapping = {
     "show-registered": {
