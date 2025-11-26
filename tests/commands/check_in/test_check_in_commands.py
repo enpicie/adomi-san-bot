@@ -28,7 +28,7 @@ def mock_discord_event():
     event.get_server_id.return_value = "S12345"
     event.get_user_id.return_value = "U67890"
     event.get_username.return_value = "test_user"
-    event.get_command_input_value.return_value = None # Default command input is None
+    event.get_command_input_value.side_effect = lambda key: False if key == "ping_users" else None # Default to No ping
     return event
 
 # --- Tests for _verify_has_organizer_role (Helper Function) ---
@@ -256,6 +256,7 @@ def test_clear_checked_in_success_no_role(mock_db_helper, mock_verify_role, mock
     mock_role_removal_queue.enqueue_remove_role_jobs.assert_called_once()
 
     # Assertions for DB update (should NOT clear the map if participant_role is None)
+    # The logic in clear_checked_in is: if event_data_result.participant_role: update_item. Since role is None, update_item is skipped.
     mock_aws_services.dynamodb_table.update_item.assert_not_called()
 
 @patch('commands.check_in.check_in_commands._verify_has_organizer_role')
@@ -302,21 +303,7 @@ def test_clear_checked_in_dynamodb_error(mock_db_helper, mock_verify_role, mock_
         target_module.clear_checked_in(mock_discord_event, mock_aws_services)
 
 
-# --- Tests for show_not_checked_in ---
-
-MOCK_REGISTERED_DATA = {
-    "U1": {"user_id": "U1", "display_name": "Alice (Checked)"},
-    "U2": {"user_id": "U2", "display_name": "Bob (Missing)"},
-    "U3": {"user_id": "U3", "display_name": "Charlie (Missing)"},
-}
-
-MOCK_CHECKED_IN_DATA = {
-    "U1": {"user_id": "U1", "display_name": "Alice"}, # Registered & Checked
-    "U4": {"user_id": "U4", "display_name": "Dave"},  # Checked In Only (Ignored by this function)
-}
-
-MOCK_LIST_CONTENT = "🔍 **Participants not yet checked-in:**\n- Bob (Missing)\n- Charlie (Missing)"
-
+# --- Tests for show_not_checked_in (Updated for combined output) ---
 
 @patch('commands.check_in.check_in_commands.message_helper')
 @patch('commands.check_in.check_in_commands._verify_has_organizer_role')
@@ -345,85 +332,215 @@ def test_show_not_checked_in_data_fail(mock_db_helper, mock_discord_event, mock_
 @patch('commands.check_in.check_in_commands.message_helper')
 @patch('commands.check_in.check_in_commands._verify_has_organizer_role', return_value=None)
 @patch('commands.check_in.check_in_commands.db_helper')
-def test_show_not_checked_in_success_silent_ping(mock_db_helper, mock_verify_role, mock_message_helper, mock_discord_event, mock_aws_services):
-    """Tests successful retrieval and display (default silent ping)."""
-    # Arrange
+def test_show_not_checked_in_success_combined_output(mock_db_helper, mock_verify_role, mock_message_helper, mock_discord_event, mock_aws_services):
+    """
+    Tests the combined output of 'Registered but not Checked-In' and 'Checked-In but not Registered'
+    with silent pings (default command behavior).
+    """
+    # Arrange Test Data
+    MOCK_REGISTERED_DATA = {
+        "U1": {"user_id": "U1", "display_name": "Alice (Registered & Checked)"},
+        "U2": {"user_id": "U2", "display_name": "Bob (Missing Check-in)"},
+        "U3": {"user_id": "U3", "display_name": "Charlie (Missing Check-in)"},
+    }
+    MOCK_CHECKED_IN_DATA = {
+        "U1": {"user_id": "U1", "display_name": "Alice"},
+        "U4": {"user_id": "U4", "display_name": "Dave (Unregistered Check-in)"},
+        "U5": {"user_id": "U5", "display_name": "Eve (Unregistered Check-in)"},
+    }
+
+    # Expected differences
+    # Registered - Checked In (Not Checked In) = {U2, U3}
+    NOT_CHECKED_IN_EXPECTED_PARTICIPANTS = [MOCK_REGISTERED_DATA["U2"], MOCK_REGISTERED_DATA["U3"]]
+    MOCK_NOT_CHECKED_IN_CONTENT = "🔍 **Participants not yet checked-in:**\n- Bob\n- Charlie"
+
+    # Checked In - Registered (Not Registered) = {U4, U5}
+    NOT_REGISTERED_EXPECTED_PARTICIPANTS = [MOCK_CHECKED_IN_DATA["U4"], MOCK_CHECKED_IN_DATA["U5"]]
+    MOCK_NOT_REGISTERED_CONTENT = "‼️ **Participants checked-in but not registered:**\n- Dave\n- Eve"
+
+    EXPECTED_FINAL_CONTENT = f"{MOCK_NOT_CHECKED_IN_CONTENT}\n{MOCK_NOT_REGISTERED_CONTENT}"
+
     mock_event_data = Mock(registered=MOCK_REGISTERED_DATA, checked_in=MOCK_CHECKED_IN_DATA)
     mock_db_helper.get_server_event_data_or_fail.return_value = mock_event_data
-    mock_discord_event.get_command_input_value.return_value = False # Default or explicit False (no ping)
-    mock_message_helper.build_participants_list.return_value = MOCK_LIST_CONTENT
+
+    # Set side effect for two sequential calls to build_participants_list
+    mock_message_helper.build_participants_list.side_effect = [
+        MOCK_NOT_CHECKED_IN_CONTENT,  # First call: Not Checked In
+        MOCK_NOT_REGISTERED_CONTENT   # Second call: Not Registered
+    ]
 
     # Act
     response = target_module.show_not_checked_in(mock_discord_event, mock_aws_services)
 
-    # Assert
-    assert response.content == MOCK_LIST_CONTENT
-    # Expect silent pings because should_ping_users is False
-    assert response.allowed_mentions is not None
+    # Assert Final Response
+    assert response.content == EXPECTED_FINAL_CONTENT
+    assert response.allowed_mentions is not None # Silent pings (default False input)
 
-    # Check arguments passed to the helper
-    mock_message_helper.build_participants_list.assert_called_once()
-    call_args = mock_message_helper.build_participants_list.call_args[1]
-    assert call_args["list_header"] == "🔍 **Participants not yet checked-in:**"
+    # Assert Call 1 (Not Checked In)
+    # Since order is not guaranteed for sets, we convert the lists of dicts to hashable sets for comparison
+    assert mock_message_helper.build_participants_list.call_args_list[0][1]["list_header"] == "🔍 **Participants not yet checked-in:**"
+    call1_participants = mock_message_helper.build_participants_list.call_args_list[0][1]["participants"]
+    hashable_call1 = {tuple(sorted(p.items())) for p in call1_participants}
+    hashable_expected1 = {tuple(sorted(p.items())) for p in NOT_CHECKED_IN_EXPECTED_PARTICIPANTS}
+    assert hashable_call1 == hashable_expected1
 
-    # Check that only U2 and U3 data (the values) were passed to the list builder, regardless of order
-    expected_participants = [MOCK_REGISTERED_DATA["U2"], MOCK_REGISTERED_DATA["U3"]]
+    # Assert Call 2 (Not Registered)
+    assert mock_message_helper.build_participants_list.call_args_list[1][1]["list_header"] == "‼️ **Participants checked-in but not registered:**"
+    call2_participants = mock_message_helper.build_participants_list.call_args_list[1][1]["participants"]
+    hashable_call2 = {tuple(sorted(p.items())) for p in call2_participants}
+    hashable_expected2 = {tuple(sorted(p.items())) for p in NOT_REGISTERED_EXPECTED_PARTICIPANTS}
+    assert hashable_call2 == hashable_expected2
 
-    # --- FIX: Convert list of dictionaries to a set of hashable tuples for order-independent comparison
-    hashable_participants = {tuple(sorted(p.items())) for p in call_args["participants"]}
-    hashable_expected = {tuple(sorted(p.items())) for p in expected_participants}
-    assert hashable_participants == hashable_expected
 
 @patch('commands.check_in.check_in_commands.message_helper')
 @patch('commands.check_in.check_in_commands._verify_has_organizer_role', return_value=None)
 @patch('commands.check_in.check_in_commands.db_helper')
-def test_show_not_checked_in_success_explicit_ping(mock_db_helper, mock_verify_role, mock_message_helper, mock_discord_event, mock_aws_services):
-    """Tests successful retrieval and display (explicit ping enabled, so allowed_mentions should be None)."""
-    # Arrange
+def test_show_not_checked_in_success_ping_enabled(mock_db_helper, mock_verify_role, mock_message_helper, mock_discord_event, mock_aws_services):
+    """
+    Tests the combined output with explicit ping enabled (allowed_mentions should be None).
+    Also ensures the message is correctly generated (using the same content as the combined test).
+    """
+    # Arrange Test Data
+    MOCK_REGISTERED_DATA = {
+        "U1": {"user_id": "U1", "display_name": "Alice (Registered & Checked)"},
+        "U2": {"user_id": "U2", "display_name": "Bob (Missing Check-in)"},
+    }
+    MOCK_CHECKED_IN_DATA = {
+        "U1": {"user_id": "U1", "display_name": "Alice"},
+        "U4": {"user_id": "U4", "display_name": "Dave (Unregistered Check-in)"},
+    }
+
+    MOCK_NOT_CHECKED_IN_CONTENT = "🔍 **Participants not yet checked-in:**\n- Bob"
+    MOCK_NOT_REGISTERED_CONTENT = "‼️ **Participants checked-in but not registered:**\n- Dave"
+    EXPECTED_FINAL_CONTENT = f"{MOCK_NOT_CHECKED_IN_CONTENT}\n{MOCK_NOT_REGISTERED_CONTENT}"
+
     mock_event_data = Mock(registered=MOCK_REGISTERED_DATA, checked_in=MOCK_CHECKED_IN_DATA)
     mock_db_helper.get_server_event_data_or_fail.return_value = mock_event_data
-    mock_discord_event.get_command_input_value.return_value = True # Explicitly request ping
-    mock_message_helper.build_participants_list.return_value = MOCK_LIST_CONTENT
+
+    # Set command input to True (requesting pings)
+    mock_discord_event.get_command_input_value.side_effect = lambda key: True if key == "ping_users" else None
+
+    # Set side effect for two sequential calls to build_participants_list
+    mock_message_helper.build_participants_list.side_effect = [
+        MOCK_NOT_CHECKED_IN_CONTENT,
+        MOCK_NOT_REGISTERED_CONTENT
+    ]
 
     # Act
     response = target_module.show_not_checked_in(mock_discord_event, mock_aws_services)
 
-    # Assert
-    assert response.content == MOCK_LIST_CONTENT
-    # Expect non-silent pings (default behavior of ResponseMessage)
-    assert response.allowed_mentions is None
-    mock_message_helper.build_participants_list.assert_called_once()
+    # Assert Final Response
+    assert response.content == EXPECTED_FINAL_CONTENT
+    assert response.allowed_mentions is None # Pings enabled
+
+@patch('commands.check_in.check_in_commands.message_helper')
+@patch('commands.check_in.check_in_commands._verify_has_organizer_role', return_value=None)
+@patch('commands.check_in.check_in_commands.db_helper')
+def test_show_not_checked_in_only_registered_missing(mock_db_helper, mock_verify_role, mock_message_helper, mock_discord_event, mock_aws_services):
+    """
+    Tests the case where only 'Registered but not Checked-In' users exist, and the final message
+    is correctly composed without the separator.
+    """
+    # Arrange Test Data
+    MOCK_REGISTERED_DATA = {
+        "U1": {"user_id": "U1", "display_name": "Alice (Missing Check-in)"},
+    }
+    MOCK_CHECKED_IN_DATA = {} # No checked-in users at all
+
+    MOCK_NOT_CHECKED_IN_CONTENT = "🔍 **Participants not yet checked-in:**\n- Alice"
+    MOCK_NOT_REGISTERED_CONTENT = "‼️ **Participants checked-in but not registered:**\n" # Empty second list, will be truthy but contain only the header and a newline.
+
+    # When not_registered_message is generated, it will be the header + newline (which is truthy).
+    # The command logic is: content = f"{not_checked_in_message}\n{not_registered_message}" if not_registered_message else not_checked_in_message
+    # Since MOCK_NOT_REGISTERED_CONTENT is truthy, it concatenates.
+    EXPECTED_FINAL_CONTENT = f"{MOCK_NOT_CHECKED_IN_CONTENT}\n{MOCK_NOT_REGISTERED_CONTENT}"
+
+    mock_event_data = Mock(registered=MOCK_REGISTERED_DATA, checked_in=MOCK_CHECKED_IN_DATA)
+    mock_db_helper.get_server_event_data_or_fail.return_value = mock_event_data
+
+    # Set side effect for two sequential calls to build_participants_list
+    mock_message_helper.build_participants_list.side_effect = [
+        MOCK_NOT_CHECKED_IN_CONTENT,
+        MOCK_NOT_REGISTERED_CONTENT
+    ]
+
+    # Act
+    response = target_module.show_not_checked_in(mock_discord_event, mock_aws_services)
+
+    # Assert Final Response
+    assert response.content == EXPECTED_FINAL_CONTENT
+    assert response.allowed_mentions is not None
 
 
 @patch('commands.check_in.check_in_commands.message_helper')
 @patch('commands.check_in.check_in_commands._verify_has_organizer_role', return_value=None)
 @patch('commands.check_in.check_in_commands.db_helper')
-def test_show_not_checked_in_all_checked_in(mock_db_helper, mock_verify_role, mock_message_helper, mock_discord_event, mock_aws_services):
-    """Tests case where all registered users are also checked in (empty difference)."""
-    # Arrange
-    mock_event_data = Mock(
-        registered={
-            "U1": {"user_id": "U1", "display_name": "A"},
-            "U2": {"user_id": "U2", "display_name": "B"},
-        },
-        checked_in={
-            "U1": {"user_id": "U1", "display_name": "A"},
-            "U2": {"user_id": "U2", "display_name": "B"},
-        }
-    )
+def test_show_not_checked_in_only_unregistered_check_ins(mock_db_helper, mock_verify_role, mock_message_helper, mock_discord_event, mock_aws_services):
+    """
+    Tests the case where only 'Checked-In but not Registered' users exist.
+    """
+    # Arrange Test Data
+    MOCK_REGISTERED_DATA = {} # No registered users
+    MOCK_CHECKED_IN_DATA = {
+        "U1": {"user_id": "U1", "display_name": "Bob (Unregistered Check-in)"},
+    }
+
+    MOCK_NOT_CHECKED_IN_CONTENT = "🔍 **Participants not yet checked-in:**\n" # Empty first list
+    MOCK_NOT_REGISTERED_CONTENT = "‼️ **Participants checked-in but not registered:**\n- Bob"
+    EXPECTED_FINAL_CONTENT = f"{MOCK_NOT_CHECKED_IN_CONTENT}\n{MOCK_NOT_REGISTERED_CONTENT}"
+
+    mock_event_data = Mock(registered=MOCK_REGISTERED_DATA, checked_in=MOCK_CHECKED_IN_DATA)
     mock_db_helper.get_server_event_data_or_fail.return_value = mock_event_data
-    MOCK_EMPTY_LIST_CONTENT = "🔍 **Participants not yet checked-in:**\n(None)"
-    mock_message_helper.build_participants_list.return_value = MOCK_EMPTY_LIST_CONTENT
+
+    # Set side effect for two sequential calls to build_participants_list
+    mock_message_helper.build_participants_list.side_effect = [
+        MOCK_NOT_CHECKED_IN_CONTENT,
+        MOCK_NOT_REGISTERED_CONTENT
+    ]
 
     # Act
     response = target_module.show_not_checked_in(mock_discord_event, mock_aws_services)
 
-    # Assert
-    # The message_helper should be called with an empty list
-    mock_message_helper.build_participants_list.assert_called_once()
-    participants_arg = mock_message_helper.build_participants_list.call_args[1]['participants']
-    assert isinstance(participants_arg, list)
-    assert len(participants_arg) == 0
-    assert response.content == MOCK_EMPTY_LIST_CONTENT
-    # Default is silent ping for this command
+    # Assert Final Response
+    assert response.content == EXPECTED_FINAL_CONTENT
     assert response.allowed_mentions is not None
+
+@patch('commands.check_in.check_in_commands.message_helper')
+@patch('commands.check_in.check_in_commands._verify_has_organizer_role', return_value=None)
+@patch('commands.check_in.check_in_commands.db_helper')
+def test_show_not_checked_in_all_users_aligned(mock_db_helper, mock_verify_role, mock_message_helper, mock_discord_event, mock_aws_services):
+    """Tests the case where registered and checked_in sets are identical (no differences)."""
+    # Arrange Test Data
+    MOCK_REGISTERED_DATA = {
+        "U1": {"user_id": "U1", "display_name": "Alice"},
+    }
+    MOCK_CHECKED_IN_DATA = {
+        "U1": {"user_id": "U1", "display_name": "Alice"},
+    }
+
+    MOCK_NOT_CHECKED_IN_CONTENT = "🔍 **Participants not yet checked-in:**\n" # Empty first list
+    MOCK_NOT_REGISTERED_CONTENT = "‼️ **Participants checked-in but not registered:**\n" # Empty second list
+
+    # The command logic is: content = f"{not_checked_in_message}\n{not_registered_message}" if not_registered_message else not_checked_in_message
+    # Since not_registered_message is truthy (header + newline), it concatenates.
+    EXPECTED_FINAL_CONTENT = f"{MOCK_NOT_CHECKED_IN_CONTENT}\n{MOCK_NOT_REGISTERED_CONTENT}"
+
+    mock_event_data = Mock(registered=MOCK_REGISTERED_DATA, checked_in=MOCK_CHECKED_IN_DATA)
+    mock_db_helper.get_server_event_data_or_fail.return_value = mock_event_data
+
+    # Set side effect for two sequential calls to build_participants_list
+    mock_message_helper.build_participants_list.side_effect = [
+        MOCK_NOT_CHECKED_IN_CONTENT,
+        MOCK_NOT_REGISTERED_CONTENT
+    ]
+
+    # Act
+    response = target_module.show_not_checked_in(mock_discord_event, mock_aws_services)
+
+    # Assert Final Response
+    assert response.content == EXPECTED_FINAL_CONTENT
+    assert response.allowed_mentions is not None
+
+    # Assert call arguments are empty lists for both calls
+    assert len(mock_message_helper.build_participants_list.call_args_list[0][1]["participants"]) == 0
+    assert len(mock_message_helper.build_participants_list.call_args_list[1][1]["participants"]) == 0

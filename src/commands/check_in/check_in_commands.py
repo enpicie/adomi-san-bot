@@ -140,15 +140,32 @@ def show_not_checked_in(event: DiscordEvent, aws_services: AWSServices) -> Respo
 
     should_ping_users = event.get_command_input_value("ping_users") or False # Default to No ping
 
-    not_checked_in_ids = set(data_result.registered.keys()) - set(data_result.checked_in.keys())
+    registered_ids = data_result.registered.keys()
+    checked_in_ids = data_result.checked_in.keys()
+
+    # Get list of users registered but not checked-in
+    not_checked_in_ids = set(registered_ids) - set(checked_in_ids)
     non_checked_in_participants = [
         data_result.registered[user_id]
         for user_id in not_checked_in_ids
     ]
-    content = message_helper.build_participants_list(
+    not_checked_in_message = message_helper.build_participants_list(
         list_header= "🔍 **Participants not yet checked-in:**",
         participants=list(non_checked_in_participants)
     )
+
+    # Get list of users checked-in but not registered
+    not_registered_ids = set(checked_in_ids) - set(registered_ids)
+    non_registered_participants = [
+        data_result.checked_in[user_id]
+        for user_id in not_registered_ids
+    ]
+    not_registered_message = message_helper.build_participants_list(
+        list_header= "‼️ **Participants checked-in but not registered:**",
+        participants=list(non_registered_participants)
+    )
+
+    content = f"{not_checked_in_message}\n{not_registered_message}" if not_registered_message else not_checked_in_message
     response = ResponseMessage(content)
 
     return response if should_ping_users else response.with_silent_pings()
