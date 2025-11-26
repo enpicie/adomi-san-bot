@@ -5,8 +5,6 @@ from database.models.participant import Participant
 
 @dataclass
 class RegisteredParticipant(Participant):
-    NO_DISCORD_ID_IDENTIFIER = "no_id"
-
     class Keys(Participant.Keys):
         SOURCE = "source"
         EXTERNAL_ID = "external_id"

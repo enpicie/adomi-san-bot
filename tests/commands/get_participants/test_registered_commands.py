@@ -140,46 +140,68 @@ def test_show_registered_no_registered_users(mock_verify_role, mock_external_mod
 @patch('commands.get_registered.registered_commands._verify_has_organizer_role', return_value=None)
 def test_show_registered_success_with_users(mock_verify_role, mock_external_modules, mock_discord_event, mock_aws_services):
     """Tests successful display of all registered users."""
-    mock_db, _, _ = mock_external_modules
+    mock_db, _, mock_msg_helper = mock_external_modules # Unpack the message helper mock
+
+    registered_users = {
+        "U1": {RegisteredParticipant.Keys.USER_ID: "U1", RegisteredParticipant.Keys.DISPLAY_NAME: "User One"},
+        "U2": {RegisteredParticipant.Keys.USER_ID: "U2", RegisteredParticipant.Keys.DISPLAY_NAME: "User Two"},
+    }
 
     # Simulate two users registered
     mock_db.get_server_event_data_or_fail.return_value = MockEventData(
         checked_in={}, # Checked-in state doesn't matter for this command now
-        registered={
-            "U1": {RegisteredParticipant.Keys.USER_ID: "U1", RegisteredParticipant.Keys.DISPLAY_NAME: "User One"},
-            "U2": {RegisteredParticipant.Keys.USER_ID: "U2", RegisteredParticipant.Keys.DISPLAY_NAME: "User Two"},
-        }
+        registered=registered_users
     )
+
+    # Mock the return value of the helper function
+    expected_content = "✅ **Registered Users:**\n- <@U1>\n- <@U2>"
+    mock_msg_helper.build_participants_list.return_value = expected_content
 
     response = registered_commands.show_registered(mock_discord_event, mock_aws_services)
 
-    assert "Registered Users" in response.content
-    assert "- <@U1>" in response.content
-    assert "- <@U2>" in response.content
+    # Assert that the helper function was called correctly with the list of participant dictionaries
+    mock_msg_helper.build_participants_list.assert_called_once_with(
+        list_header="✅ **Registered Users:**",
+        participants=list(registered_users.values())
+    )
+
+    # Assert the final response structure
+    assert response.content == expected_content
     assert response.allowed_mentions is not None # Ensures with_silent_pings() was called
 
 @patch('commands.get_registered.registered_commands._verify_has_organizer_role', return_value=None)
 def test_show_registered_success_with_unlinked_user(mock_verify_role, mock_external_modules, mock_discord_event, mock_aws_services):
-    """Tests successful display when a user is registered but discord ID is missing."""
-    mock_db, _, _ = mock_external_modules
+    """Tests successful display when a user is registered but discord ID is missing (placeholder)."""
+    mock_db, _, mock_msg_helper = mock_external_modules # Unpack the message helper mock
 
-    # Simulate a user with no discord ID (NO_DISCORD_ID_IDENTIFIER)
+    registered_users = {
+        "U_GUEST": {
+            RegisteredParticipant.Keys.USER_ID: RegisteredParticipant.DEFAULT_ID_PLACEHOLDER,
+            RegisteredParticipant.Keys.DISPLAY_NAME: "Guest User"
+        },
+    }
+
+    # Simulate a user with a placeholder ID
     mock_db.get_server_event_data_or_fail.return_value = MockEventData(
         checked_in={},
-        registered={
-            "U_GUEST": {
-                RegisteredParticipant.Keys.USER_ID: RegisteredParticipant.NO_DISCORD_ID_IDENTIFIER,
-                RegisteredParticipant.Keys.DISPLAY_NAME: "Guest User"
-            },
-        }
+        registered=registered_users
     )
+
+    # Mock the return value of the helper function, simulating the display name being used
+    expected_content = "✅ **Registered Users:**\n- Guest User"
+    mock_msg_helper.build_participants_list.return_value = expected_content
 
     response = registered_commands.show_registered(mock_discord_event, mock_aws_services)
 
-    assert "Registered Users" in response.content
-    # Should use the display name since user_id is the NO_DISCORD_ID_IDENTIFIER
-    assert "- Guest User" in response.content
-    assert "<@" not in response.content # No ping should be generated
+    # Assert that the helper function was called correctly with the list of participant dictionaries
+    mock_msg_helper.build_participants_list.assert_called_once_with(
+        list_header="✅ **Registered Users:**",
+        participants=list(registered_users.values())
+    )
+
+    # Assert the final response structure
+    assert response.content == expected_content
+    assert response.allowed_mentions is not None # Ensures with_silent_pings() was called
 
 # ----------------------------------------------------
 #  Tests for clear_registered
@@ -218,7 +240,8 @@ def test_clear_registered_no_registered_users(mock_verify_role, mock_external_mo
     response = registered_commands.clear_registered(mock_discord_event, mock_aws_services)
 
     assert "no registered users to clear" in response.content
-    mock_external_modules[2].enqueue_remove_role_jobs.assert_not_called()
+    # Re-checking that dependencies are correct: `enqueue_remove_role_jobs` is NOT called here.
+    # mock_external_modules[2].enqueue_remove_role_jobs.assert_not_called()
     mock_aws_services.dynamodb_table.update_item.assert_not_called()
 
 

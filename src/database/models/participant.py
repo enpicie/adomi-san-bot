@@ -3,6 +3,8 @@ from datetime import datetime, timezone
 
 @dataclass
 class Participant:
+    DEFAULT_ID_PLACEHOLDER = "no_id"
+
     class Keys:
         DISPLAY_NAME = "display_name"
         USER_ID = "user_id"
