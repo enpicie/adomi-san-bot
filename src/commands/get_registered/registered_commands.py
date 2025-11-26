@@ -3,7 +3,6 @@ from typing import Optional
 import database.dynamodb_utils as db_helper
 import utils.message_helper as message_helper
 import utils.permissions_helper as permissions_helper
-import commands.check_in.queue_role_removal as role_removal_queue
 from aws_services import AWSServices
 from commands.models.discord_event import DiscordEvent
 from commands.models.response_message import ResponseMessage
@@ -25,7 +24,7 @@ def _verify_has_organizer_role(event: DiscordEvent, aws_services: AWSServices) -
 
 def show_registered(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
     """
-    Retrieves and displays a list of all currently checked-in users for the server event.
+    Retrieves and displays a list of all currently registered users for the server event.
     Requires the calling user to have the organizer role.
     Returns a ResponseMessage with the list or an error/empty message.
     """
@@ -39,9 +38,9 @@ def show_registered(event: DiscordEvent, aws_services: AWSServices) -> ResponseM
     if isinstance(event_data_result, ResponseMessage):
         return event_data_result
 
-    if not event_data_result.checked_in:
+    if not event_data_result.registered:
         return ResponseMessage(
-            content="ℹ️ There are currently no checked-in users."
+            content="ℹ️ There are currently no registered users."
         )
 
     content = (
@@ -58,7 +57,7 @@ def show_registered(event: DiscordEvent, aws_services: AWSServices) -> ResponseM
 
 def clear_registered(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
     """
-    Clears all checked-in users from the server event record in DynamoDB.
+    Clears all registered users from the server event record in DynamoDB.
     Queues jobs to remove the participant role from all cleared users.
     Requires the calling user to have the organizer role.
     Returns a ResponseMessage indicating success or failure.
@@ -73,29 +72,17 @@ def clear_registered(event: DiscordEvent, aws_services: AWSServices) -> Response
     if isinstance(event_data_result, ResponseMessage):
         return event_data_result
 
-    if not event_data_result.checked_in:
+    if not event_data_result.registered:
         return ResponseMessage(
-            content="ℹ️ There are no checked-in users to clear."
+            content="ℹ️ There are no registered users to clear."
         )
 
-    checked_in_users = list(event_data_result.checked_in.keys())
-
-    role_removal_queue.enqueue_remove_role_jobs(
-        server_id=server_id,
-        user_ids=checked_in_users,
-        role_id=event_data_result.participant_role,
-        sqs_queue=aws_services.remove_role_sqs_queue
+    aws_services.dynamodb_table.update_item(
+        Key={"PK": db_helper.build_server_pk(server_id), "SK": EventData.Keys.SK_SERVER},
+        UpdateExpression=f"SET {EventData.Keys.REGISTERED} = :empty_map",
+        ExpressionAttributeValues={":empty_map": {}}
     )
 
-    if event_data_result.participant_role:
-        aws_services.dynamodb_table.update_item(
-            Key={"PK": db_helper.build_server_pk(server_id), "SK": EventData.Keys.SK_SERVER},
-            UpdateExpression="SET checked_in = :empty_map",
-            ExpressionAttributeValues={":empty_map": {}}
-        )
-    else:
-        print("No participant_role set. No role to unsassign.")
-
     return ResponseMessage(
-        content="✅ All check-ins have been cleared, and I've queued up participant role removals 🫡"
+        content="😼 All registered users have been cleared!"
     )

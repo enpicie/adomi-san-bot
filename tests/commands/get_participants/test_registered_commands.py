@@ -18,6 +18,7 @@ class MockServerConfig:
 class MockEventData:
     """Mock for EventData instance returned by db_helper.get_server_event_data_or_fail."""
     def __init__(self, checked_in: dict, registered: dict, participant_role: str = "P_ROLE_ID"):
+        # The new command implementation only checks 'registered'
         self.checked_in = checked_in
         self.registered = registered
         self.participant_role = participant_role
@@ -45,16 +46,16 @@ def mock_discord_event():
 
 @pytest.fixture(autouse=True)
 def mock_external_modules():
-    """Patch database.dynamodb_utils, permissions_helper, role_removal_queue, and message_helper."""
+    """Patch database.dynamodb_utils, permissions_helper, and message_helper.
+       Module path updated to commands.get_registered.registered_commands."""
     with patch('commands.get_registered.registered_commands.db_helper') as mock_db, \
          patch('commands.get_registered.registered_commands.permissions_helper') as mock_perms, \
-         patch('commands.get_registered.registered_commands.role_removal_queue') as mock_removal_queue, \
          patch('commands.get_registered.registered_commands.message_helper') as mock_msg_helper:
 
         mock_db.build_server_pk.return_value = "SERVER#S12345"
         mock_msg_helper.get_user_ping.side_effect = lambda user_id: f"<@{user_id}>"
 
-        yield mock_db, mock_perms, mock_removal_queue, mock_msg_helper
+        yield mock_db, mock_perms, mock_msg_helper
 
 # ----------------------------------------------------
 #  Tests for _verify_has_organizer_role
@@ -62,7 +63,7 @@ def mock_external_modules():
 
 def test_verify_organizer_role_config_missing(mock_external_modules, mock_discord_event, mock_aws_services):
     """Tests failure when the server config is not found."""
-    mock_db, _, _, _ = mock_external_modules
+    mock_db, _, _ = mock_external_modules
     expected_response = ResponseMessage(content="Config Missing")
     mock_db.get_server_config_or_fail.return_value = expected_response
 
@@ -75,7 +76,7 @@ def test_verify_organizer_role_config_missing(mock_external_modules, mock_discor
 
 def test_verify_organizer_role_permission_missing(mock_external_modules, mock_discord_event, mock_aws_services):
     """Tests failure when the user lacks the organizer role."""
-    mock_db, mock_perms, _, _ = mock_external_modules
+    mock_db, mock_perms, _ = mock_external_modules
     expected_response = ResponseMessage(content="Role Required")
     mock_db.get_server_config_or_fail.return_value = MockServerConfig()
     mock_perms.require_organizer_role.return_value = expected_response
@@ -87,7 +88,7 @@ def test_verify_organizer_role_permission_missing(mock_external_modules, mock_di
 
 def test_verify_organizer_role_success(mock_external_modules, mock_discord_event, mock_aws_services):
     """Tests success when config exists and user has the role."""
-    mock_db, mock_perms, _, _ = mock_external_modules
+    mock_db, mock_perms, _ = mock_external_modules
     mock_db.get_server_config_or_fail.return_value = MockServerConfig()
     mock_perms.require_organizer_role.return_value = None # None means success
 
@@ -115,7 +116,7 @@ def test_show_registered_permission_failure(mock_verify_role, mock_external_modu
 @patch('commands.get_registered.registered_commands._verify_has_organizer_role', return_value=None)
 def test_show_registered_event_data_missing(mock_verify_role, mock_external_modules, mock_discord_event, mock_aws_services):
     """Tests failure when server event data record is not found."""
-    mock_db, _, _, _ = mock_external_modules
+    mock_db, _, _ = mock_external_modules
     expected_response = ResponseMessage(content="Event Data Missing")
     mock_db.get_server_event_data_or_fail.return_value = expected_response
 
@@ -124,25 +125,26 @@ def test_show_registered_event_data_missing(mock_verify_role, mock_external_modu
     assert response is expected_response
 
 @patch('commands.get_registered.registered_commands._verify_has_organizer_role', return_value=None)
-def test_show_registered_no_checked_in_users(mock_verify_role, mock_external_modules, mock_discord_event, mock_aws_services):
-    """Tests correct message when event data exists but checked_in is empty."""
-    mock_db, _, _, _ = mock_external_modules
+def test_show_registered_no_registered_users(mock_verify_role, mock_external_modules, mock_discord_event, mock_aws_services):
+    """Tests correct message when event data exists but 'registered' is empty."""
+    mock_db, _, _ = mock_external_modules
+    # Now explicitly checking for registered={}, not checked_in
     mock_db.get_server_event_data_or_fail.return_value = MockEventData(
-        checked_in={}, registered={}
+        checked_in={"U1": True}, registered={}
     )
 
     response = registered_commands.show_registered(mock_discord_event, mock_aws_services)
 
-    assert "no checked-in users" in response.content
+    assert "no registered users" in response.content
 
 @patch('commands.get_registered.registered_commands._verify_has_organizer_role', return_value=None)
 def test_show_registered_success_with_users(mock_verify_role, mock_external_modules, mock_discord_event, mock_aws_services):
-    """Tests successful display of checked-in users."""
-    mock_db, _, _, _ = mock_external_modules
+    """Tests successful display of all registered users."""
+    mock_db, _, _ = mock_external_modules
 
-    # Simulate two users checked in
+    # Simulate two users registered
     mock_db.get_server_event_data_or_fail.return_value = MockEventData(
-        checked_in={"U1": True, "U2": True},
+        checked_in={}, # Checked-in state doesn't matter for this command now
         registered={
             "U1": {RegisteredParticipant.Keys.USER_ID: "U1", RegisteredParticipant.Keys.DISPLAY_NAME: "User One"},
             "U2": {RegisteredParticipant.Keys.USER_ID: "U2", RegisteredParticipant.Keys.DISPLAY_NAME: "User Two"},
@@ -154,16 +156,16 @@ def test_show_registered_success_with_users(mock_verify_role, mock_external_modu
     assert "Registered Users" in response.content
     assert "- <@U1>" in response.content
     assert "- <@U2>" in response.content
-    assert response.allowed_mentions is not None
+    assert response.allowed_mentions is not None # Ensures with_silent_pings() was called
 
 @patch('commands.get_registered.registered_commands._verify_has_organizer_role', return_value=None)
 def test_show_registered_success_with_unlinked_user(mock_verify_role, mock_external_modules, mock_discord_event, mock_aws_services):
     """Tests successful display when a user is registered but discord ID is missing."""
-    mock_db, _, _, _ = mock_external_modules
+    mock_db, _, _ = mock_external_modules
 
     # Simulate a user with no discord ID (NO_DISCORD_ID_IDENTIFIER)
     mock_db.get_server_event_data_or_fail.return_value = MockEventData(
-        checked_in={"U_GUEST": True},
+        checked_in={},
         registered={
             "U_GUEST": {
                 RegisteredParticipant.Keys.USER_ID: RegisteredParticipant.NO_DISCORD_ID_IDENTIFIER,
@@ -197,7 +199,7 @@ def test_clear_registered_permission_failure(mock_verify_role, mock_external_mod
 @patch('commands.get_registered.registered_commands._verify_has_organizer_role', return_value=None)
 def test_clear_registered_event_data_missing(mock_verify_role, mock_external_modules, mock_discord_event, mock_aws_services):
     """Tests failure when server event data record is not found."""
-    mock_db, _, _, _ = mock_external_modules
+    mock_db, _, _ = mock_external_modules
     expected_response = ResponseMessage(content="Event Data Missing")
     mock_db.get_server_event_data_or_fail.return_value = expected_response
 
@@ -206,100 +208,59 @@ def test_clear_registered_event_data_missing(mock_verify_role, mock_external_mod
     assert response is expected_response
 
 @patch('commands.get_registered.registered_commands._verify_has_organizer_role', return_value=None)
-def test_clear_registered_no_checked_in_users(mock_verify_role, mock_external_modules, mock_discord_event, mock_aws_services):
-    """Tests correct message when no users are checked in."""
-    mock_db, _, _, _ = mock_external_modules
+def test_clear_registered_no_registered_users(mock_verify_role, mock_external_modules, mock_discord_event, mock_aws_services):
+    """Tests correct message when no users are registered."""
+    mock_db, _, _ = mock_external_modules
     mock_db.get_server_event_data_or_fail.return_value = MockEventData(
-        checked_in={}, registered={}
+        checked_in={"U1": True}, registered={}
     )
 
     response = registered_commands.clear_registered(mock_discord_event, mock_aws_services)
 
-    assert "no checked-in users to clear" in response.content
+    assert "no registered users to clear" in response.content
     mock_external_modules[2].enqueue_remove_role_jobs.assert_not_called()
+    mock_aws_services.dynamodb_table.update_item.assert_not_called()
 
 
 @patch('commands.get_registered.registered_commands._verify_has_organizer_role', return_value=None)
-def test_clear_registered_success_with_participant_role(mock_verify_role, mock_external_modules, mock_discord_event, mock_aws_services):
-    """Tests successful clearing when a participant role is configured."""
-    mock_db, _, mock_removal_queue, _ = mock_external_modules
+def test_clear_registered_success(mock_verify_role, mock_external_modules, mock_discord_event, mock_aws_services):
+    """Tests successful clearing of the registered map in DynamoDB."""
+    mock_db, _, _ = mock_external_modules
     table = mock_aws_services.dynamodb_table
-    sqs_queue = mock_aws_services.remove_role_sqs_queue
     PK = mock_db.build_server_pk.return_value
 
-    CHECKED_IN_USERS = ["U1", "U2"]
-    PARTICIPANT_ROLE_ID = "P_ROLE_ID"
-
-    # Event Data has checked in users and a participant role ID
+    # Event Data has registered users
     mock_db.get_server_event_data_or_fail.return_value = MockEventData(
-        checked_in={"U1": True, "U2": True},
-        registered={},
-        participant_role=PARTICIPANT_ROLE_ID
+        checked_in={"U1": True, "U2": True}, # checked_in state doesn't matter
+        registered={
+            "U1": {RegisteredParticipant.Keys.USER_ID: "U1"},
+            "U2": {RegisteredParticipant.Keys.USER_ID: "U2"}
+        },
+        participant_role="P_ROLE_ID" # role_id state doesn't matter
     )
 
     response = registered_commands.clear_registered(mock_discord_event, mock_aws_services)
 
-    # 1. Assert role removal jobs are queued
-    mock_removal_queue.enqueue_remove_role_jobs.assert_called_once_with(
-        server_id=mock_discord_event.get_server_id.return_value,
-        user_ids=CHECKED_IN_USERS,
-        role_id=PARTICIPANT_ROLE_ID,
-        sqs_queue=sqs_queue
-    )
-
-    # 2. Assert DynamoDB is updated to clear the checked_in map
+    # 1. Assert DynamoDB is updated to clear the 'registered' map
     table.update_item.assert_called_once()
     call_args = table.update_item.call_args[1]
 
     assert call_args["Key"] == {"PK": PK, "SK": EventData.Keys.SK_SERVER}
-    assert call_args["UpdateExpression"] == "SET checked_in = :empty_map"
+    assert call_args["UpdateExpression"] == f"SET {EventData.Keys.REGISTERED} = :empty_map"
     assert call_args["ExpressionAttributeValues"] == {":empty_map": {}}
 
-    # 3. Assert success response
-    assert "check-ins have been cleared" in response.content
+    # 2. Assert success response matches the new command's output
+    assert "All registered users have been cleared!" in response.content
 
-
-@patch('commands.get_registered.registered_commands._verify_has_organizer_role', return_value=None)
-def test_clear_registered_success_no_participant_role(mock_verify_role, mock_external_modules, mock_discord_event, mock_aws_services):
-    """Tests successful clearing when NO participant role is configured (DB update is skipped)."""
-    mock_db, _, mock_removal_queue, _ = mock_external_modules
-    table = mock_aws_services.dynamodb_table
-    sqs_queue = mock_aws_services.remove_role_sqs_queue
-
-    CHECKED_IN_USERS = ["U1"]
-    PARTICIPANT_ROLE_ID = "" # Empty role ID (falsy)
-
-    # Event Data has checked in users but no participant role
-    mock_db.get_server_event_data_or_fail.return_value = MockEventData(
-        checked_in={"U1": True},
-        registered={},
-        participant_role=PARTICIPANT_ROLE_ID
-    )
-
-    response = registered_commands.clear_registered(mock_discord_event, mock_aws_services)
-
-    # 1. Assert role removal jobs are still queued (it is up to the queue worker to handle the empty role_id)
-    mock_removal_queue.enqueue_remove_role_jobs.assert_called_once_with(
-        server_id=mock_discord_event.get_server_id.return_value,
-        user_ids=CHECKED_IN_USERS,
-        role_id=PARTICIPANT_ROLE_ID,
-        sqs_queue=sqs_queue
-    )
-
-    # 2. Assert DynamoDB update is NOT called because participant_role is falsy ("")
-    table.update_item.assert_not_called()
-
-    # 3. Assert success response
-    assert "check-ins have been cleared" in response.content
 
 @patch('commands.get_registered.registered_commands._verify_has_organizer_role', return_value=None)
 def test_clear_registered_raises_on_client_error(mock_verify_role, mock_external_modules, mock_discord_event, mock_aws_services):
     """Tests that ClientError from DynamoDB is re-raised."""
-    mock_db, _, _, _ = mock_external_modules
+    mock_db, _, _ = mock_external_modules
     table = mock_aws_services.dynamodb_table
 
     mock_db.get_server_event_data_or_fail.return_value = MockEventData(
-        checked_in={"U1": True}, registered={}, participant_role="P_ROLE"
+        checked_in={}, registered={"U1": {RegisteredParticipant.Keys.USER_ID: "U1"}}, participant_role="P_ROLE"
     )
 
     table.update_item.side_effect = ClientError(
