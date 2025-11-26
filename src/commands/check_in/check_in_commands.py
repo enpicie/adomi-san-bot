@@ -80,7 +80,7 @@ def show_checked_in(event: DiscordEvent, aws_services: AWSServices) -> ResponseM
 
     content = message_helper.build_participants_list(
         list_header= "✅ **Checked-in Users:**",
-        participants=event_data_result.checked_in.values()
+        participants=list(event_data_result.checked_in.values())
     )
 
     return ResponseMessage(content=content).with_silent_pings()
@@ -147,7 +147,7 @@ def show_not_checked_in(event: DiscordEvent, aws_services: AWSServices) -> Respo
     ]
     content = message_helper.build_participants_list(
         list_header= "🔍 **Participants not yet checked-in:**",
-        participants=non_checked_in_participants
+        participants=list(non_checked_in_participants)
     )
     response = ResponseMessage(content)
 
