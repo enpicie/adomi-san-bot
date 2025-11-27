@@ -15,9 +15,24 @@ announce_commands: CommandMapping = {
                 description="Determines whether start or end announcement is sent to chat",
                 param_type=AppCommandOptionType.string,
                 required=True,
-                choices=[ParamChoice(name="start", value="start"), ParamChoice(
-                    name="end", value="end")]
-            )
+                choices=[
+                    ParamChoice(
+                        name="start",
+                        value="start"
+                    ), 
+                    ParamChoice(
+                        name="end", 
+                        value="end"
+                    )
+                ]
+            ),
+            CommandParam(
+                name="ping_participants",
+                description="Determines whether or not to ping event participants in the announcement",
+                param_type=AppCommandOptionType.boolean,
+                required=True,
+                choices=None
+            ),
         ]
     },
     "set-event-message": {
