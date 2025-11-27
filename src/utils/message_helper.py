@@ -8,6 +8,9 @@ def get_user_ping(user_id: str) -> str:
 def get_channel_mention(channel_id: str) -> str:
     return f"<#{channel_id}>"
 
+def get_role_ping(role_id: str) -> str:
+    return f"<@&{role_id}>"
+
 def build_participants_list(list_header: str, participants: List[Participant]) -> str:
     list_lines = (
         f"- {p[Participant.Keys.DISPLAY_NAME]}"
