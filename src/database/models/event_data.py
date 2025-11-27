@@ -22,6 +22,8 @@ class EventData:
     registered: dict = field(metadata={'db_key': Keys.REGISTERED})
     queue: dict = field(metadata={'db_key': Keys.QUEUE})
     participant_role: str = field(metadata={'db_key': Keys.PARTICIPANT_ROLE})
+    start_message: str = field(metadata={'db_key': Keys.START_MESSAGE})
+    end_message: str = field(metadata={'db_key': Keys.END_MESSAGE})
 
     @classmethod
     def from_dynamodb(cls, record: Dict[str, Any]) -> 'EventData':
@@ -29,5 +31,7 @@ class EventData:
             checked_in=record.get(cls.Keys.CHECKED_IN),
             registered=record.get(cls.Keys.REGISTERED),
             queue=record.get(cls.Keys.QUEUE),
-            participant_role=record.get(cls.Keys.PARTICIPANT_ROLE)
+            participant_role=record.get(cls.Keys.PARTICIPANT_ROLE),
+            start_message=record.get(cls.Keys.START_MESSAGE),
+            end_message=record.get(cls.Keys.END_MESSAGE)
         )

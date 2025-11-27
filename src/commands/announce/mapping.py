@@ -8,11 +8,11 @@ from discord import AppCommandOptionType
 announce_commands: CommandMapping = {
     "announce-event": {
         "function": announce_commands.announce_event,
-        "description": "Sends the event start OR end announcement for the current event.",
+        "description": "Sends the announcement message to signal start or end of the current event",
         "params": [
             CommandParam(
                 name="announce_type",
-                description="Which announcement to send to chat",
+                description="Determines whether start or end announcement is sent to chat",
                 param_type=AppCommandOptionType.string,
                 required=True,
                 choices=[ParamChoice(name="start", value="start"), ParamChoice(
@@ -22,22 +22,30 @@ announce_commands: CommandMapping = {
     },
     "set-event-message": {
         "function": announce_commands.set_event_message,
-        "description": "Set announce message. Choose between start or end.",
+        "description": "Set event announcement message",
         "params": [
             CommandParam(
-                name="announcement",
-                description="Announcement text",
+                name="message_text",
+                description="Text sent in announcement message",
                 param_type=AppCommandOptionType.string,
                 required=False,
                 choices=None
             ),
             CommandParam(
                 name="announce_type",
-                description="Choose which announcement to set; start or end.",
+                description="Choose which announcement to set: start or end.",
                 param_type=AppCommandOptionType.string,
                 required=True,
-                choices=[ParamChoice(name="start", value="start"), ParamChoice(
-                    name="end", value="end")]
+                choices=[
+                    ParamChoice(
+                        name="start",
+                        value="start"
+                    ), 
+                    ParamChoice(
+                        name="end", 
+                        value="end"
+                    )
+                ]
             ),
         ]
     }
