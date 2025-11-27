@@ -2,12 +2,12 @@ from discord import AppCommandOptionType
 
 from commands.models.command_mapping import CommandMapping
 from commands.models.command_param import CommandParam, ParamChoice
-import commands.setup.server_commands as server_commands
-import commands.setup.data_config_commands as data_config_commands
+import commands.setup.server_config_commands as server_config_commands
+import commands.setup.event_data_commands as event_data_commands
 
 setup_commands: CommandMapping = {
     "setup-server": {
-        "function": server_commands.setup_server,
+        "function": server_config_commands.setup_server,
         "description": "Set up this server for use with the bot.",
         "params": [
             CommandParam(
@@ -20,7 +20,7 @@ setup_commands: CommandMapping = {
         ]
     },
     "set-organizer-role": {
-        "function": server_commands.set_organizer_role,
+        "function": server_config_commands.set_organizer_role,
         "description": "Set the role for event organizers who can use privileged commands",
         "params": [
             CommandParam(
@@ -33,7 +33,7 @@ setup_commands: CommandMapping = {
         ]
     },
     "set-participant-role": {
-        "function": data_config_commands.set_participant_role,
+        "function": event_data_commands.set_participant_role,
         "description": "Set the role for event participants to be pinged during events",
         "params": [
             CommandParam(
@@ -45,12 +45,12 @@ setup_commands: CommandMapping = {
             ),
             CommandParam(
                 name="remove_role",
-                description="Set to 'Yes' to remove the participant role instead of setting it (default: No)",
+                description="Set to 'True' to remove the participant role instead of setting it (default: False)",
                 param_type=AppCommandOptionType.boolean,
                 required=False,
                 choices=[
-                    ParamChoice(name="Yes", value=True),
-                    ParamChoice(name="No", value=False)
+                    ParamChoice(name="True", value=True),
+                    ParamChoice(name="False", value=False)
                 ]
             )
         ]

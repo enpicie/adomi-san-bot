@@ -3,6 +3,13 @@ from datetime import datetime, timezone
 
 @dataclass
 class Participant:
+    DEFAULT_ID_PLACEHOLDER = "no_id"
+
+    class Keys:
+        DISPLAY_NAME = "display_name"
+        USER_ID = "user_id"
+        TIME_ADDED = "time_added"
+
     display_name: str
     user_id: str
     time_added: str # ISO format UTC timestamp

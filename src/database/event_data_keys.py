@@ -1,6 +1,0 @@
-CHECKED_IN = "checked_in"
-REGISTERED = "registered"
-QUEUE = "queue"
-PARTICIPANT_ROLE = "participant_role"
-START_MESSAGE = "start_message"
-END_MESSAGE = "end_message"
