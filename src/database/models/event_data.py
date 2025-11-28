@@ -37,7 +37,7 @@ class EventData:
             queue=record.get(cls.Keys.QUEUE),
             participant_role=record.get(cls.Keys.PARTICIPANT_ROLE),
             check_in_enabled=record.get(cls.Keys.CHECK_IN_ENABLED),
-            register_enabled=record.get(cls.Keys.REGISTER_ENABLED)
+            register_enabled=record.get(cls.Keys.REGISTER_ENABLED),
             start_message=record.get(cls.Keys.START_MESSAGE),
             end_message=record.get(cls.Keys.END_MESSAGE)
         )
