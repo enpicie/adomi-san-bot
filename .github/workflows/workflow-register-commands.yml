@@ -10,11 +10,19 @@ on:
         options:
           - dev
           - prod
+      command_name:
+        description: Name of command to register/update
+        required: true
+        type: string
 
   workflow_call:
     inputs:
       environment:
         description: Deployment environment (dev or prod)
+        required: true
+        type: string
+      command_name:
+        description: Name of command to register/update
         required: true
         type: string
     secrets:
@@ -50,3 +58,4 @@ jobs:
         env:
           DISCORD_APP_ID: ${{ env.DISCORD_APP_ID }}
           DISCORD_BOT_TOKEN: ${{ env.DISCORD_BOT_TOKEN }}
+          COMMAND_NAME: ${{ inputs.command_name }}

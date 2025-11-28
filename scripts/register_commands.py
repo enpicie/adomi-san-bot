@@ -1,6 +1,8 @@
 import sys
-from pathlib import Path
 import os
+import time
+from pathlib import Path
+
 import requests
 
 # --- Add src/ to sys.path so we can import command_map ---
@@ -12,6 +14,7 @@ from commands.command_map import command_map
 
 APP_ID = os.environ.get("DISCORD_APP_ID") # Repo Var
 TOKEN = os.environ.get("DISCORD_BOT_TOKEN") # Repo Secret
+COMMAND_NAME = os.environ.get("COMMAND_NAME") # Workflow Input
 
 if not TOKEN or not APP_ID:
     raise RuntimeError("DISCORD_BOT_TOKEN and DISCORD_APP_ID must be set as environment variables")
@@ -31,6 +34,7 @@ def build_command_payload(name: str, entry: dict) -> dict:
 
 
 def main():
+    should_register_all = COMMAND_NAME.lower() == "all"
     headers = {
         "Authorization": f"Bot {TOKEN}",
         "Content-Type": "application/json",
@@ -39,20 +43,30 @@ def main():
     failed_commands = []
 
     for name, entry in command_map.items():
-        payload = build_command_payload(name, entry)
-        response = requests.post(API_URL, headers=headers, json=payload)
+        # Make API req when registering all or when found specific command to register
+        if should_register_all or name == COMMAND_NAME:
+            payload = build_command_payload(name, entry)
+            response = requests.post(API_URL, headers=headers, json=payload)
 
-        if response.status_code in (200, 201):
-            print(f"✅ Registered command: {name}")
-        else:
-            print(f"❌ Failed to register command: {name} ({response.status_code})")
-            print(f"PAYLOAD: {payload}")
-            print(f"RESPONSE: {response.text}")
-            failed_commands.append(name)
+            if response.status_code in (200, 201):
+                print(f"✅ Registered command: {name}")
+            else:
+                print(f"❌ Failed to register command: {name} ({response.status_code})")
+                print(f"PAYLOAD: {payload}")
+                print(f"RESPONSE: {response.text}")
+                failed_commands.append(name)
+
+            if should_register_all:
+                # Waits for 10 seconds to help avoid rate limits if need to continue
+                time.sleep(10)
+            else:
+                break # Stop iterating if we do not nee do to others
 
     if failed_commands:
         failed_list = ', '.join(failed_commands)
-        raise RuntimeError(f"Failed to register commands: {failed_list}")
+        fail_message = f"Failed to register commands: {failed_list}"
+        print(fail_message)
+        raise RuntimeError(fail_message)
 
 
 if __name__ == "__main__":
