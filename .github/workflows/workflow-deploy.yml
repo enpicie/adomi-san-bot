@@ -64,31 +64,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # This action checks the commit history to see if any files matching the filters have changed.
-      - name: Check for relevant file changes (src or terraform)
-        id: filter
-        uses: dorny/paths-filter@v3
-        with:
-          # Compare to parent commit (denoted by ^)
-          base: ${{ github.ref }}
-          # Define a single filter 'run_deployment' that is true if a change occurs in either path
-          filters: |
-            run_deployment:
-              - 'src/**'
-              - 'terraform/**'
-
-      - name: Log Deployment Decision
-        run: |
-          echo Checked against ${{ github.ref }}:
-          if [ "${{ steps.filter.outputs.run_deployment }}" == "true" ]; then
-            echo "::notice title=Deployment Decision::Changes detected in 'src' or 'terraform'. Full deployment proceeding."
-          else
-            echo "::warning title=Deployment Decision::No changes detected in 'src' or 'terraform'. Skipping deployment steps."
-          fi
-
-      # The rest of the workflow steps are now conditionally executed based on the filter output.
       - name: Setup HCP Terraform Workspace
-        if: steps.filter.outputs.run_deployment == 'true'
         id: setup_workspace
         uses: enpicie/action-workflow-hcp-terraform-workspace-setup@v1.1.0
         with:
@@ -98,7 +74,6 @@ jobs:
           tfc_token: ${{ secrets.TF_API_TOKEN }}
 
       - name: Attach IAM Permissions Variable Set to this Workspace
-        if: steps.filter.outputs.run_deployment == 'true'
         uses: enpicie/action-workflow-hcp-terraform-var-set-attach@v1.0.1
         with:
           tfc_organization: ${{ inputs.hcp_terraform_org }}
@@ -107,7 +82,6 @@ jobs:
           var_set_name: ${{ vars.AWS_TF_ROLE_VARSET_LAMB_APIGW_DDB_SQS }}
 
       - name: Build and Upload Lambda Layer Artifact to S3 - Main Lambda
-        if: steps.filter.outputs.run_deployment == 'true'
         id: build_layer
         uses: enpicie/action-workflow-build-python-lambda-layer-zip@v2.0.4
         with:
@@ -118,7 +92,6 @@ jobs:
           aws_role_arn: ${{ secrets.AWS_S3_ARTIFACT_UPLOAD_ROLE_ARN }}
 
       - name: Build and Upload Lambda Layer Artifact to S3 - SQS Worker Lambda
-        if: steps.filter.outputs.run_deployment == 'true'
         id: build_layer_worker
         uses: enpicie/action-workflow-build-python-lambda-layer-zip@v2.0.4
         with:
@@ -129,7 +102,6 @@ jobs:
           aws_role_arn: ${{ secrets.AWS_S3_ARTIFACT_UPLOAD_ROLE_ARN }}
 
       - name: Upload Latest Lambda Zip to S3 - Main Lambda
-        if: steps.filter.outputs.run_deployment == 'true'
         uses: enpicie/action-workflow-upload-lambda-zip@v0.3.0
         with:
           source_directory: ./src
@@ -139,7 +111,7 @@ jobs:
           aws_role_arn: ${{ secrets.AWS_S3_ARTIFACT_UPLOAD_ROLE_ARN }}
 
       - name: Upload Version Lambda Zip to S3 - Main Lambda
-        if: ${{ inputs.app_version != '' && steps.filter.outputs.run_deployment == 'true' }}
+        if: ${{ inputs.app_version != '' }}
         uses: enpicie/action-workflow-upload-lambda-zip@v0.3.0
         with:
           source_directory: ./src
@@ -149,7 +121,6 @@ jobs:
           aws_role_arn: ${{ secrets.AWS_S3_ARTIFACT_UPLOAD_ROLE_ARN }}
 
       - name: Upload Latest Lambda Zip to S3 - SWS Worker Lambda
-        if: steps.filter.outputs.run_deployment == 'true'
         uses: enpicie/action-workflow-upload-lambda-zip@v0.3.0
         with:
           source_directory: ./jobs/remove_role
@@ -159,7 +130,6 @@ jobs:
           aws_role_arn: ${{ secrets.AWS_S3_ARTIFACT_UPLOAD_ROLE_ARN }}
 
       - name: Log Terraform input variables
-        if: steps.filter.outputs.run_deployment == 'true'
         shell: bash
         run: |
           echo "Logging Terraform variables:"
@@ -187,7 +157,6 @@ jobs:
           TF_VAR_discord_public_key: '${{ inputs.discord_public_key }}'
 
       - name: Deploy Application Config via HCP Terraform
-        if: steps.filter.outputs.run_deployment == 'true'
         uses: enpicie/action-workflow-hcp-terraform-run@v1.1.1
         with:
           terraform_directory: ./terraform
