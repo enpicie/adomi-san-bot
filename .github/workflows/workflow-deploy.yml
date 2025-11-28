@@ -70,7 +70,7 @@ jobs:
         uses: dorny/paths-filter@v3
         with:
           # Compare to parent commit (denoted by ^)
-          base: ${{ github.sha }}^
+          base: ${{ github.ref }}
           # Define a single filter 'run_deployment' that is true if a change occurs in either path
           filters: |
             run_deployment:
