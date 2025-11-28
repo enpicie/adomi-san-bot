@@ -42,6 +42,12 @@ def check_in_user(event: DiscordEvent, aws_services: AWSServices) -> ResponseMes
         )
 
     user_id = event.get_user_id()
+    if user_id in data_result.checked_in:
+        existing_check_in = Participant.from_dynamodb(data_result.checked_in[user_id])
+        return ResponseMessage(
+            content=f"✅ You already checked in at {existing_check_in.get_relative_time_added().lower()}."
+        )
+
     checked_in_user = Participant(
         display_name=event.get_username(),
         user_id=user_id

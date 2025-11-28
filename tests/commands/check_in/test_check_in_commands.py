@@ -84,6 +84,8 @@ def test_check_in_user_success_with_role(mock_db_helper, mock_message_helper, mo
     MOCK_USER_ID = mock_discord_event.get_user_id.return_value
     # Ensure check_in_enabled is True for success
     mock_event_data = Mock(participant_role=MOCK_ROLE_ID, check_in_enabled=True)
+    # Ensure the checked_in map is empty for a successful check-in
+    mock_event_data.checked_in = {}
     mock_db_helper.get_server_event_data_or_fail.return_value = mock_event_data
     # Mock the output of get_user_ping
     mock_message_helper.get_user_ping.return_value = f"<@{MOCK_USER_ID}>"
@@ -115,6 +117,37 @@ def test_check_in_user_success_with_role(mock_db_helper, mock_message_helper, mo
         role_id=MOCK_ROLE_ID
     )
 
+@patch('commands.check_in.check_in_commands.Participant')
+@patch('commands.check_in.check_in_commands.db_helper')
+def test_check_in_user_already_checked_in(mock_db_helper, mock_participant_class, mock_discord_event, mock_aws_services):
+    """Tests that a user already checked in receives the correct informative message with relative time."""
+    # Setup mocks
+    MOCK_USER_ID = mock_discord_event.get_user_id.return_value
+
+    # 1. Mock the existing Participant instance and its relative time method
+    mock_existing_participant = Mock()
+    mock_existing_participant.get_relative_time_added.return_value = "5 minutes ago"
+
+    # 2. Mock Participant.from_dynamodb to return the existing participant instance
+    mock_participant_class.from_dynamodb.return_value = mock_existing_participant
+
+    # 3. Mock EventData with the user already checked in
+    mock_event_data = Mock(participant_role="R99999", check_in_enabled=True)
+    # Provide a placeholder dict for the user's check-in data
+    mock_event_data.checked_in = {MOCK_USER_ID: {"user_id": MOCK_USER_ID}}
+    mock_db_helper.get_server_event_data_or_fail.return_value = mock_event_data
+
+    # Execute
+    response = check_in_commands.check_in_user(mock_discord_event, mock_aws_services)
+
+    # Assertions for response
+    # Expected message uses the return value of get_relative_time_added().lower()
+    expected_content = f"✅ You already checked in at {mock_existing_participant.get_relative_time_added.return_value.lower()}."
+    assert response.content == expected_content
+
+    # Assert no DB update call was made
+    mock_aws_services.dynamodb_table.update_item.assert_not_called()
+
 @patch('commands.check_in.check_in_commands.db_helper')
 def test_check_in_user_fail_when_disabled(mock_db_helper, mock_discord_event, mock_aws_services):
     """Tests that check_in_user fails when check_in_enabled is False."""
@@ -139,6 +172,7 @@ def test_check_in_user_success_no_role(mock_db_helper, mock_discord_helper, mock
     """Tests successful check-in without role assignment (participant_role is None)."""
     # Setup mocks
     mock_event_data = Mock(participant_role=None, check_in_enabled=True) # No role set, but enabled
+    mock_event_data.checked_in = {} # Ensure it's a new check-in
     mock_db_helper.get_server_event_data_or_fail.return_value = mock_event_data
 
     # Execute
