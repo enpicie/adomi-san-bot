@@ -120,11 +120,14 @@ def clear_checked_in(event: DiscordEvent, aws_services: AWSServices) -> Response
             content="ℹ️ There are no checked-in users to clear."
         )
 
+    empty_map_value = {"M": {}} # Explicitly tell DynamoDB this is a map (M) that is empty
     aws_services.dynamodb_table.update_item(
         Key={"PK": db_helper.build_server_pk(server_id), "SK": EventData.Keys.SK_SERVER},
         UpdateExpression=f"SET {EventData.Keys.CHECKED_IN} = :empty_map",
-        ExpressionAttributeValues={":empty_map": {}}
+        ExpressionAttributeValues={":empty_map": empty_map_value}
     )
+    content = "✅ All check-ins have been cleared"
+
     if event_data_result.participant_role:
         checked_in_users = list(event_data_result.checked_in.keys())
         role_removal_queue.enqueue_remove_role_jobs(
@@ -133,12 +136,13 @@ def clear_checked_in(event: DiscordEvent, aws_services: AWSServices) -> Response
             role_id=event_data_result.participant_role,
             sqs_queue=aws_services.remove_role_sqs_queue
         )
+        content += ", and I've queued up participant role removals 🫡"
     else:
         print("No participant_role set. No role to unsassign.")
+        content += "!" # Distinctly end the content of message to return
 
-    return ResponseMessage(
-        content="✅ All check-ins have been cleared, and I've queued up participant role removals 🫡"
-    )
+
+    return ResponseMessage(content=content)
 
 def show_not_checked_in(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
     error_message = _verify_has_organizer_role(event, aws_services)
