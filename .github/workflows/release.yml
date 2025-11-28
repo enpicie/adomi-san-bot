@@ -88,6 +88,7 @@ jobs:
     uses: ./.github/workflows/workflow-register-commands.yml
     with:
       environment: 'prod'
+      command_name: 'all'
     secrets:
       DISCORD_BOT_TOKEN_DEV: ${{ secrets.DISCORD_BOT_TOKEN_DEV }}
       DISCORD_BOT_TOKEN_PROD: ${{ secrets.DISCORD_BOT_TOKEN_PROD }}
