@@ -117,7 +117,7 @@ def clear_checked_in(event: DiscordEvent, aws_services: AWSServices) -> Response
 
     if not event_data_result.checked_in:
         return ResponseMessage(
-            content="ℹ️ There are no checked-in users to clear."
+            content="🧐 There are no checked-in users to clear."
         )
 
     empty_map_value = {"M": {}} # Explicitly tell DynamoDB this is a map (M) that is empty
