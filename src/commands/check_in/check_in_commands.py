@@ -88,7 +88,7 @@ def show_checked_in(event: DiscordEvent, aws_services: AWSServices) -> ResponseM
 
     if not event_data_result.checked_in:
         return ResponseMessage(
-            content="ℹ️ There are currently no checked-in users."
+            content="🧐 There are currently no checked-in users."
         )
 
     content = message_helper.build_participants_list(
