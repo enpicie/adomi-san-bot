@@ -43,8 +43,10 @@ def main():
     failed_commands = []
 
     for name, entry in command_map.items():
+        print(f"Found command: {name}")
         # Make API req when registering all or when found specific command to register
         if should_register_all or name == COMMAND_NAME:
+            print(f"Registering command `{name}`")
             payload = build_command_payload(name, entry)
             response = requests.post(API_URL, headers=headers, json=payload)
 
@@ -61,6 +63,8 @@ def main():
                 time.sleep(10)
             else:
                 break # Stop iterating if we do not nee do to others
+        else:
+            print("Skipping...")
 
     if failed_commands:
         failed_list = ', '.join(failed_commands)
