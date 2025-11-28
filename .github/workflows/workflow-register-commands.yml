@@ -44,7 +44,7 @@ jobs:
         run: |
           ENV_NAME="${{ inputs.environment }}"
 
-          # Use explicit shell if/else to set variables directly into the $GITHUB_ENV for all subsequent steps
+          # Set variables directly into the $GITHUB_ENV for all subsequent steps
           if [ "$ENV_NAME" == "prod" ]; then
             echo "DISCORD_APP_ID=${{ vars.DISCORD_APP_ID_PROD }}" >> $GITHUB_ENV
             echo "DISCORD_BOT_TOKEN=${{ secrets.DISCORD_BOT_TOKEN_PROD }}" >> $GITHUB_ENV
@@ -52,7 +52,7 @@ jobs:
             echo "DISCORD_APP_ID=${{ vars.DISCORD_APP_ID_DEV }}" >> $GITHUB_ENV
             echo "DISCORD_BOT_TOKEN=${{ secrets.DISCORD_BOT_TOKEN_DEV }}" >> $GITHUB_ENV
           fi
-          # Add the command name to the environment as well
+
           echo "COMMAND_NAME=${{ inputs.command_name }}" >> $GITHUB_ENV
 
       - name: Set up Python
@@ -65,7 +65,8 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Register commands
+      - name:
+          Register commands
+          # env vars read thru $GITHUB_ENV
         run: |
-          # The script can now access the variables as standard environment variables
           python scripts/register_commands.py
