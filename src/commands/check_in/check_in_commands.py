@@ -120,20 +120,18 @@ def clear_checked_in(event: DiscordEvent, aws_services: AWSServices) -> Response
             content="ℹ️ There are no checked-in users to clear."
         )
 
-    checked_in_users = list(event_data_result.checked_in.keys())
-
-    role_removal_queue.enqueue_remove_role_jobs(
-        server_id=server_id,
-        user_ids=checked_in_users,
-        role_id=event_data_result.participant_role,
-        sqs_queue=aws_services.remove_role_sqs_queue
+    aws_services.dynamodb_table.update_item(
+        Key={"PK": db_helper.build_server_pk(server_id), "SK": EventData.Keys.SK_SERVER},
+        UpdateExpression=f"SET {EventData.Keys.CHECKED_IN} = :empty_map",
+        ExpressionAttributeValues={":empty_map": {}}
     )
-
     if event_data_result.participant_role:
-        aws_services.dynamodb_table.update_item(
-            Key={"PK": db_helper.build_server_pk(server_id), "SK": EventData.Keys.SK_SERVER},
-            UpdateExpression="SET checked_in = :empty_map",
-            ExpressionAttributeValues={":empty_map": {}}
+        checked_in_users = list(event_data_result.checked_in.keys())
+        role_removal_queue.enqueue_remove_role_jobs(
+            server_id=server_id,
+            user_ids=checked_in_users,
+            role_id=event_data_result.participant_role,
+            sqs_queue=aws_services.remove_role_sqs_queue
         )
     else:
         print("No participant_role set. No role to unsassign.")

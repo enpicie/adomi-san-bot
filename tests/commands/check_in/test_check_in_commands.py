@@ -305,12 +305,11 @@ def test_clear_checked_in_success_no_role(mock_db_helper, mock_verify_role, mock
     # Execute
     check_in_commands.clear_checked_in(mock_discord_event, mock_aws_services)
 
-    # Assertions for role removal queue (called even if role is None)
-    mock_role_removal_queue.enqueue_remove_role_jobs.assert_called_once()
+    # Assertions for DB update (should clear the map even if participant_role is None)
+    mock_aws_services.dynamodb_table.update_item.assert_called_once()
 
-    # Assertions for DB update (should NOT clear the map if participant_role is None)
-    # The logic in clear_checked_in is: if event_data_result.participant_role: update_item. Since role is None, update_item is skipped.
-    mock_aws_services.dynamodb_table.update_item.assert_not_called()
+    # Assertions for role removal queue (not called when no role to unassign)
+    mock_role_removal_queue.enqueue_remove_role_jobs.assert_not_called()
 
 @patch('commands.check_in.check_in_commands._verify_has_organizer_role')
 def test_clear_checked_in_permission_fail(mock_verify_role, mock_discord_event, mock_aws_services):
