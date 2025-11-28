@@ -141,7 +141,6 @@ def clear_checked_in(event: DiscordEvent, aws_services: AWSServices) -> Response
         print("No participant_role set. No role to unsassign.")
         content += "!" # Distinctly end the content of message to return
 
-
     return ResponseMessage(content=content)
 
 def show_not_checked_in(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
