@@ -1,5 +1,6 @@
 from discord import AppCommandOptionType
 
+import commands.check_in.check_in_constants as check_in_constants
 from commands.models.command_mapping import CommandMapping
 from commands.models.command_param import CommandParam, ParamChoice
 import commands.check_in.check_in_commands as check_in_commands
@@ -32,6 +33,22 @@ checkin_commands: CommandMapping = {
                 choices=[
                     ParamChoice(name="True", value=True),
                     ParamChoice(name="False", value=False)
+                ]
+            )
+        ]
+    },
+    "toggle-check-in": {
+        "function": check_in_commands.toggle_check_in,
+        "description": "Toggle check-in start/end to set if check-ins are accepted or rejected",
+        "params": [
+            CommandParam(
+                name = "state",
+                description = "Set to 'Start' to begin accepting check-ins, and set ot 'End' to reject further check-ins",
+                param_type=AppCommandOptionType.boolean,
+                required=False,
+                choices=[
+                    ParamChoice(name="Start", value=check_in_constants.START_PARAM),
+                    ParamChoice(name="End", value=check_in_constants.END_PARAM)
                 ]
             )
         ]

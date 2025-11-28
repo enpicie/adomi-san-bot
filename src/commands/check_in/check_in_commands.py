@@ -1,12 +1,13 @@
 from typing import Optional
 
+import commands.check_in.check_in_constants as check_in_constants
 import database.dynamodb_utils as db_helper
-from database.models.event_data import EventData
 import utils.discord_api_helper as discord_helper
 import utils.message_helper as message_helper
 import utils.permissions_helper as permissions_helper
 import commands.check_in.queue_role_removal as role_removal_queue
 from aws_services import AWSServices
+from database.models.event_data import EventData
 from database.models.participant import Participant
 from commands.models.discord_event import DiscordEvent
 from commands.models.response_message import ResponseMessage
@@ -33,6 +34,12 @@ def check_in_user(event: DiscordEvent, aws_services: AWSServices) -> ResponseMes
     data_result = db_helper.get_server_event_data_or_fail(event.get_server_id(), aws_services.dynamodb_table)
     if isinstance(data_result, ResponseMessage):
         return data_result
+
+    if not data_result.check_in_enabled:
+        return ResponseMessage(
+            content="😵‍💫 Check-ins are not being accepted right now."
+                    "An Organizer must start check-ins before I can accept any new ones."
+        )
 
     user_id = event.get_user_id()
     checked_in_user = Participant(
@@ -169,3 +176,31 @@ def show_not_checked_in(event: DiscordEvent, aws_services: AWSServices) -> Respo
     response = ResponseMessage(content)
 
     return response if should_ping_users else response.with_silent_pings()
+
+def toggle_check_in(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
+    error_message = _verify_has_organizer_role(event, aws_services)
+    if error_message:
+        return error_message
+
+    server_id = event.get_server_id()
+
+    event_data_result = db_helper.get_server_event_data_or_fail(server_id, aws_services.dynamodb_table)
+    if isinstance(event_data_result, ResponseMessage):
+        return event_data_result
+
+    check_in_state = event.get_command_input_value("state")
+    should_enable = True if check_in_state == check_in_constants.START_PARAM else False
+    print(f"{EventData.Keys.CHECK_IN_ENABLED}: {should_enable} via input {check_in_state}")
+
+    aws_services.dynamodb_table.update_item(
+        Key={"PK": db_helper.build_server_pk(event.get_server_id()), "SK": EventData.Keys.SK_SERVER},
+        UpdateExpression=f"SET {EventData.Keys.CHECK_IN_ENABLED} = :enable",
+        ExpressionAttributeValues={":enable": should_enable}
+    )
+    content = (
+        "🟢 Check-ins started! Participants can begin checking in with `/check-in`"
+        if should_enable
+        else "🔴 Check-ins closed! Check-ins will no longer be accepted."
+    )
+
+    return ResponseMessage(content=content)

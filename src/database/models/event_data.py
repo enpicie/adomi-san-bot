@@ -13,11 +13,13 @@ class EventData:
         REGISTERED = "registered"
         QUEUE = "queue"
         PARTICIPANT_ROLE = "participant_role"
+        CHECK_IN_ENABLED = "check_in_enabled"
 
     checked_in: dict = field(metadata={'db_key': Keys.CHECKED_IN})
     registered: dict = field(metadata={'db_key': Keys.REGISTERED})
     queue: dict = field(metadata={'db_key': Keys.QUEUE})
     participant_role: str = field(metadata={'db_key': Keys.PARTICIPANT_ROLE})
+    check_in_enabled: bool = field(metadata={'db_key': Keys.CHECK_IN_ENABLED})
 
     @classmethod
     def from_dynamodb(cls, record: Dict[str, Any]) -> 'EventData':
@@ -25,5 +27,6 @@ class EventData:
             checked_in=record.get(cls.Keys.CHECKED_IN),
             registered=record.get(cls.Keys.REGISTERED),
             queue=record.get(cls.Keys.QUEUE),
-            participant_role=record.get(cls.Keys.PARTICIPANT_ROLE)
+            participant_role=record.get(cls.Keys.PARTICIPANT_ROLE),
+            check_in_enabled=False # Turn off check-ins by default to prevent unexpected data
         )
