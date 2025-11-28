@@ -241,7 +241,7 @@ def test_show_checked_in_empty(mock_db_helper, mock_verify_role, mock_discord_ev
     response = check_in_commands.show_checked_in(mock_discord_event, mock_aws_services)
 
     # Assertions
-    assert response.content == "ℹ️ There are currently no checked-in users."
+    assert response.content == "🧐 There are currently no checked-in users."
 
 @patch('commands.check_in.check_in_commands._verify_has_organizer_role')
 def test_show_checked_in_permission_fail(mock_verify_role, mock_discord_event, mock_aws_services):
@@ -289,7 +289,7 @@ def test_clear_checked_in_success_with_role(mock_db_helper, mock_verify_role, mo
     mock_aws_services.dynamodb_table.update_item.assert_called_once()
     call_args = mock_aws_services.dynamodb_table.update_item.call_args[1]
     assert call_args["UpdateExpression"] == "SET checked_in = :empty_map"
-    assert call_args["ExpressionAttributeValues"] == {":empty_map": {}}
+    assert call_args["ExpressionAttributeValues"] == {":empty_map": {"M": {}}}
 
 @patch('commands.check_in.check_in_commands.role_removal_queue')
 @patch('commands.check_in.check_in_commands._verify_has_organizer_role')
@@ -334,7 +334,7 @@ def test_clear_checked_in_empty(mock_db_helper, mock_verify_role, mock_discord_e
     response = check_in_commands.clear_checked_in(mock_discord_event, mock_aws_services)
 
     # Assertions
-    assert response.content == "ℹ️ There are no checked-in users to clear."
+    assert response.content == "🧐 There are no checked-in users to clear."
     mock_aws_services.dynamodb_table.update_item.assert_not_called()
 
 @patch('commands.check_in.check_in_commands.role_removal_queue')

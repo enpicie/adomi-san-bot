@@ -69,6 +69,8 @@ jobs:
         id: filter
         uses: dorny/paths-filter@v3
         with:
+          # Compare to parent commit (denoted by ^)
+          base: ${{ github.ref }}
           # Define a single filter 'run_deployment' that is true if a change occurs in either path
           filters: |
             run_deployment:
@@ -77,6 +79,7 @@ jobs:
 
       - name: Log Deployment Decision
         run: |
+          echo Checked against ${{ github.ref }}:
           if [ "${{ steps.filter.outputs.run_deployment }}" == "true" ]; then
             echo "::notice title=Deployment Decision::Changes detected in 'src' or 'terraform'. Full deployment proceeding."
           else
