@@ -34,13 +34,26 @@ on:
 jobs:
   register-commands:
     runs-on: ubuntu-latest
-    env:
-      DISCORD_APP_ID: ${{ (inputs.environment == 'prod') && vars.DISCORD_APP_ID_PROD || vars.DISCORD_APP_ID_DEV }}
-      DISCORD_BOT_TOKEN: ${{ (inputs.environment == 'prod') && secrets.DISCORD_BOT_TOKEN_PROD || secrets.DISCORD_BOT_TOKEN_DEV }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Set Environment Variables
+        shell: bash
+        run: |
+          ENV_NAME="${{ inputs.environment }}"
+
+          # Set variables directly into the $GITHUB_ENV for all subsequent steps
+          if [ "$ENV_NAME" == "prod" ]; then
+            echo "DISCORD_APP_ID=${{ vars.DISCORD_APP_ID_PROD }}" >> $GITHUB_ENV
+            echo "DISCORD_BOT_TOKEN=${{ secrets.DISCORD_BOT_TOKEN_PROD }}" >> $GITHUB_ENV
+          else
+            echo "DISCORD_APP_ID=${{ vars.DISCORD_APP_ID_DEV }}" >> $GITHUB_ENV
+            echo "DISCORD_BOT_TOKEN=${{ secrets.DISCORD_BOT_TOKEN_DEV }}" >> $GITHUB_ENV
+          fi
+
+          echo "COMMAND_NAME=${{ inputs.command_name }}" >> $GITHUB_ENV
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -52,10 +65,8 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Register commands
+      - name:
+          Register commands
+          # env vars read thru $GITHUB_ENV
         run: |
           python scripts/register_commands.py
-        env:
-          DISCORD_APP_ID: ${{ env.DISCORD_APP_ID }}
-          DISCORD_BOT_TOKEN: ${{ env.DISCORD_BOT_TOKEN }}
-          COMMAND_NAME: ${{ inputs.command_name }}
