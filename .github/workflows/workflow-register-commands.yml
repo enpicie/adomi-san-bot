@@ -11,6 +11,22 @@ on:
           - dev
           - prod
 
+  workflow_call:
+    inputs:
+      environment:
+        description: Deployment environment (dev or prod)
+        required: true
+        type: string
+    secrets:
+      DISCORD_BOT_TOKEN_DEV:
+        required: true
+      DISCORD_BOT_TOKEN_PROD:
+        required: true
+        type: choice
+        options:
+          - dev
+          - prod
+
 jobs:
   register-commands:
     runs-on: ubuntu-latest

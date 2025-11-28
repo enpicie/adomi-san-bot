@@ -1,5 +1,6 @@
 boto3
 mypy-boto3-dynamodb
+mypy-boto3-sqs
 pynacl
 discord.py>=2.3.0
 requests

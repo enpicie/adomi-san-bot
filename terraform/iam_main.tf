@@ -16,6 +16,11 @@ resource "aws_iam_role" "lambda_exec_role" {
   })
 }
 
+resource "aws_iam_role_policy_attachment" "lambda_basic_execution" {
+  role       = aws_iam_role.lambda_exec_role.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
 resource "aws_iam_role_policy" "lambda_dynamodb_policy" {
   name = "LambdaDynamoDBPolicy-${var.app_name}-${var.deployment_env}"
   role = aws_iam_role.lambda_exec_role.id
@@ -38,6 +43,12 @@ resource "aws_iam_role_policy" "lambda_dynamodb_policy" {
           "dynamodb:DescribeTable"
         ],
         Resource = aws_dynamodb_table.adomi_discord_server_table.arn
+      },
+      {
+        Sid      = "SQSAccess",
+        Effect   = "Allow"
+        Action   = ["sqs:SendMessage", "sqs:SendMessageBatch"]
+        Resource = aws_sqs_queue.remove_role.arn
       }
     ]
   })

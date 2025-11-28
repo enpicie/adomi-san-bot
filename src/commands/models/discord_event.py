@@ -59,3 +59,6 @@ class DiscordEvent:
 
     def get_user_permission_int(self) -> int:
         return int(self._get_event_field("member", "permissions"))
+
+    def get_user_roles(self) -> List[str]:
+        return self._get_event_field("member", "roles")
