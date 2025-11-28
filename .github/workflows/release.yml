@@ -36,10 +36,15 @@ jobs:
           source ./config.env
           set +a
 
-          # Extract tag name if triggered by push
-          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
-            APP_VERSION="${GITHUB_REF#refs/tags/}"
+          # Check if the ref name matches the tag pattern [0-9]+.[0-9]+.[0-9]+
+          # github.ref_name contains the branch or tag name without the 'refs/heads/' or 'refs/tags/' prefix.
+          APP_VERSION_PATTERN='^[0-9]+\.[0-9]+\.[0-9]+$'
+
+          if [[ "${{ github.ref_name }}" =~ $APP_VERSION_PATTERN ]]; then
+            APP_VERSION="${{ github.ref_name }}"
           else
+            # Fallback or error handling if the ref_name doesn't match the tag pattern,
+            # or if it's triggered manually without a version input.
             APP_VERSION="${{ github.event.inputs.version }}"
           fi
 
