@@ -15,11 +15,16 @@ class Participant:
     user_id: str
     time_added: str # ISO format UTC timestamp
 
-    def __init__(self, display_name: str, user_id: str):
+    def __init__(self, display_name: str, user_id: str, time_added: str = None):
         self.display_name = display_name
         self.user_id = user_id
-        # e.g. '2025-11-16T14:23:45Z'
-        self.time_added = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+        self.time_added = (
+            # e.g. '2025-11-16T14:23:45Z'
+            datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+            if time_added is None
+            else time_added
+        )
+
 
     def to_dict(self) -> dict:
         return {
