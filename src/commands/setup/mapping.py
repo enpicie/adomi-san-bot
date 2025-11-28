@@ -4,6 +4,7 @@ from commands.models.command_mapping import CommandMapping
 from commands.models.command_param import CommandParam, ParamChoice
 import commands.setup.server_config_commands as server_config_commands
 import commands.setup.event_data_commands as event_data_commands
+import commands.setup.show_config_commands as show_config_commands
 
 setup_commands: CommandMapping = {
     "setup-server": {
@@ -54,5 +55,10 @@ setup_commands: CommandMapping = {
                 ]
             )
         ]
+    },
+    "show-event-roles": {
+        "function": show_config_commands.show_event_roles,
+        "description": "Show list of what the event roles in this server are",
+        "params": []
     }
 }
