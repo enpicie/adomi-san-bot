@@ -142,7 +142,7 @@ def test_check_in_user_already_checked_in(mock_db_helper, mock_participant_class
 
     # Assertions for response
     # Expected message uses the return value of get_relative_time_added().lower()
-    expected_content = f"✅ You already checked in at {mock_existing_participant.get_relative_time_added.return_value.lower()}."
+    expected_content = f"✅ You already checked in {mock_existing_participant.get_relative_time_added.return_value.lower()}."
     assert response.content == expected_content
 
     # Assert no DB update call was made
