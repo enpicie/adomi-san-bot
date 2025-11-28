@@ -64,52 +64,28 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      ## 🔍 Check for Code/Infra Changes
-      # Calculate the hash for `src` and `terraform` directories to decide if a deployment is needed.
-      - name: Determine if Deployment is Required 🚀
-        id: change_check
-        run: |
-          # The key for caching is a hash of the content of both directories
-          CACHE_KEY_SRC="src-v1-${{ hashFiles('src/**') }}"
-          CACHE_KEY_TF="tf-v1-${{ hashFiles('terraform/**') }}"
-
-          # A combined key to check for *any* change in a single step (optional, but helpful for logs)
-          DEPLOY_KEY="deploy-v1-${{ hashFiles('src/**') }}-${{ hashFiles('terraform/**') }}"
-
-          # Check if the combined key exists in the cache
-          if ${{ github.event.pull_request.head.sha == '' }}; then
-            echo "::notice title=Deployment Check::Running on a branch or tag, proceeding with change detection."
-            echo "cache-key=$DEPLOY_KEY" >> $GITHUB_OUTPUT
-          else
-            echo "::notice title=Deployment Check::Running on a pull request. Deployment will run to ensure validation."
-            echo "cache-key=force-run-on-pr" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Check Cache and Set Deployment Flag
-        id: check_cache
-        uses: actions/cache/restore@v3
+      # This action checks the commit history to see if any files matching the filters have changed.
+      - name: Check for relevant file changes (src or terraform)
+        id: filter
+        uses: dorny/paths-filter@v3
         with:
-          path: /tmp/deploy_status # Dummy path as we only care about the cache hit
-          key: ${{ steps.change_check.outputs.cache-key }}
+          # Define a single filter 'run_deployment' that is true if a change occurs in either path
+          filters: |
+            run_deployment:
+              - 'src/**'
+              - 'terraform/**'
 
-      - name: Finalize Deployment Decision
-        id: deployment_decision
+      - name: Log Deployment Decision
         run: |
-          if [[ "${{ steps.check_cache.outputs.cache-hit }}" == "true" ]]; then
-            echo "Deployment Skipped: No changes detected in src or terraform directories."
-            echo "deploy_required=false" >> $GITHUB_OUTPUT
-          elif [[ "${{ steps.change_check.outputs.cache-key }}" == "force-run-on-pr" ]]; then
-            echo "Deployment will run: Workflow triggered by a Pull Request."
-            echo "deploy_required=true" >> $GITHUB_OUTPUT
+          if [ "${{ steps.filter.outputs.run_deployment }}" == "true" ]; then
+            echo "::notice title=Deployment Decision::Changes detected in 'src' or 'terraform'. Full deployment proceeding."
           else
-            echo "Deployment Required: Changes detected in src or terraform directories."
-            echo "deploy_required=true" >> $GITHUB_OUTPUT
+            echo "::warning title=Deployment Decision::No changes detected in 'src' or 'terraform'. Skipping deployment steps."
           fi
 
-      # The rest of the workflow steps are conditionally executed based on the flag.
-
+      # The rest of the workflow steps are now conditionally executed based on the filter output.
       - name: Setup HCP Terraform Workspace
-        if: steps.deployment_decision.outputs.deploy_required == 'true'
+        if: steps.filter.outputs.run_deployment == 'true'
         id: setup_workspace
         uses: enpicie/action-workflow-hcp-terraform-workspace-setup@v1.1.0
         with:
@@ -119,7 +95,7 @@ jobs:
           tfc_token: ${{ secrets.TF_API_TOKEN }}
 
       - name: Attach IAM Permissions Variable Set to this Workspace
-        if: steps.deployment_decision.outputs.deploy_required == 'true'
+        if: steps.filter.outputs.run_deployment == 'true'
         uses: enpicie/action-workflow-hcp-terraform-var-set-attach@v1.0.1
         with:
           tfc_organization: ${{ inputs.hcp_terraform_org }}
@@ -127,12 +103,8 @@ jobs:
           tfc_token: ${{ secrets.TF_API_TOKEN }}
           var_set_name: ${{ vars.AWS_TF_ROLE_VARSET_LAMB_APIGW_DDB_SQS }}
 
-      # The following Build/Upload steps only need to run if code in 'src' or 'terraform' changed.
-      # If only 'src' changed, it's needed for the new zip. If only 'terraform' changed, the build steps run to generate the layer S3 keys again for Terraform,
-      # but the layer zip might already exist. Running them conditionally is safe and cleaner.
-
       - name: Build and Upload Lambda Layer Artifact to S3 - Main Lambda
-        if: steps.deployment_decision.outputs.deploy_required == 'true'
+        if: steps.filter.outputs.run_deployment == 'true'
         id: build_layer
         uses: enpicie/action-workflow-build-python-lambda-layer-zip@v2.0.4
         with:
@@ -143,7 +115,7 @@ jobs:
           aws_role_arn: ${{ secrets.AWS_S3_ARTIFACT_UPLOAD_ROLE_ARN }}
 
       - name: Build and Upload Lambda Layer Artifact to S3 - SQS Worker Lambda
-        if: steps.deployment_decision.outputs.deploy_required == 'true'
+        if: steps.filter.outputs.run_deployment == 'true'
         id: build_layer_worker
         uses: enpicie/action-workflow-build-python-lambda-layer-zip@v2.0.4
         with:
@@ -154,7 +126,7 @@ jobs:
           aws_role_arn: ${{ secrets.AWS_S3_ARTIFACT_UPLOAD_ROLE_ARN }}
 
       - name: Upload Latest Lambda Zip to S3 - Main Lambda
-        if: steps.deployment_decision.outputs.deploy_required == 'true'
+        if: steps.filter.outputs.run_deployment == 'true'
         uses: enpicie/action-workflow-upload-lambda-zip@v0.3.0
         with:
           source_directory: ./src
@@ -164,7 +136,7 @@ jobs:
           aws_role_arn: ${{ secrets.AWS_S3_ARTIFACT_UPLOAD_ROLE_ARN }}
 
       - name: Upload Version Lambda Zip to S3 - Main Lambda
-        if: ${{ inputs.app_version != '' && steps.deployment_decision.outputs.deploy_required == 'true' }}
+        if: ${{ inputs.app_version != '' && steps.filter.outputs.run_deployment == 'true' }}
         uses: enpicie/action-workflow-upload-lambda-zip@v0.3.0
         with:
           source_directory: ./src
@@ -174,7 +146,7 @@ jobs:
           aws_role_arn: ${{ secrets.AWS_S3_ARTIFACT_UPLOAD_ROLE_ARN }}
 
       - name: Upload Latest Lambda Zip to S3 - SWS Worker Lambda
-        if: steps.deployment_decision.outputs.deploy_required == 'true'
+        if: steps.filter.outputs.run_deployment == 'true'
         uses: enpicie/action-workflow-upload-lambda-zip@v0.3.0
         with:
           source_directory: ./jobs/remove_role
@@ -184,7 +156,7 @@ jobs:
           aws_role_arn: ${{ secrets.AWS_S3_ARTIFACT_UPLOAD_ROLE_ARN }}
 
       - name: Log Terraform input variables
-        if: steps.deployment_decision.outputs.deploy_required == 'true'
+        if: steps.filter.outputs.run_deployment == 'true'
         shell: bash
         run: |
           echo "Logging Terraform variables:"
@@ -204,7 +176,7 @@ jobs:
           TF_VAR_python_runtime: '${{ inputs.python_runtime }}'
           TF_VAR_deployment_env: '${{ inputs.deployment_env }}'
           TF_VAR_bucket_name: '${{ inputs.artifact_s3_bucket }}'
-          # Note: The 'build_layer' and 'build_layer_worker' steps must run before this for these outputs to exist.
+          # These outputs are guaranteed to be set if the conditional Build steps run.
           TF_VAR_app_lambda_layer_s3_key: '${{ steps.build_layer.outputs.s3_artifact_key }}'
           TF_VAR_app_lambda_layer_hash_s3_key: '${{ steps.build_layer.outputs.s3_artifact_hash_key }}'
           TF_VAR_worker_lambda_layer_s3_key: '${{ steps.build_layer_worker.outputs.s3_artifact_key }}'
@@ -212,7 +184,7 @@ jobs:
           TF_VAR_discord_public_key: '${{ inputs.discord_public_key }}'
 
       - name: Deploy Application Config via HCP Terraform
-        if: steps.deployment_decision.outputs.deploy_required == 'true'
+        if: steps.filter.outputs.run_deployment == 'true'
         uses: enpicie/action-workflow-hcp-terraform-run@v1.1.1
         with:
           terraform_directory: ./terraform
@@ -234,12 +206,3 @@ jobs:
           TF_VAR_discord_public_key: '"${{ inputs.discord_public_key }}"'
           TF_VAR_startgg_api_token: '"${{ secrets.STARTGG_API_TOKEN }}"'
           TF_VAR_discord_bot_token: '"${{ secrets.DISCORD_BOT_TOKEN }}"'
-
-      ## 💾 Cache Success for Future Skips
-      # Save the cache only if the deployment was successful (i.e., `deploy_required` was true and the steps passed)
-      - name: Save Deployment Cache Key
-        uses: actions/cache/save@v3
-        if: ${{ always() && steps.deployment_decision.outputs.deploy_required == 'true' && success() }}
-        with:
-          path: /tmp/deploy_status
-          key: ${{ steps.change_check.outputs.cache-key }}
