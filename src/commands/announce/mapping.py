@@ -1,3 +1,4 @@
+import commands.announce.announce_constants as announce_constants
 from commands.models.command_mapping import CommandMapping
 from commands.models.command_mapping import CommandMapping
 from commands.models.command_param import CommandParam
@@ -17,12 +18,12 @@ announce_commands: CommandMapping = {
                 required=True,
                 choices=[
                     ParamChoice(
-                        name="start",
-                        value="start"
+                        name=announce_constants.START_PARAM,
+                        value=announce_constants.START_PARAM
                     ), 
                     ParamChoice(
-                        name="end", 
-                        value="end"
+                        name=announce_constants.END_PARAM,
+                        value=announce_constants.END_PARAM
                     )
                 ]
             ),
@@ -31,7 +32,10 @@ announce_commands: CommandMapping = {
                 description="Determines whether or not to ping event participants in the announcement",
                 param_type=AppCommandOptionType.boolean,
                 required=True,
-                choices=None
+                choices=[
+                    ParamChoice(name=announce_constants.YES, value=True),
+                    ParamChoice(name=announce_constants.NO, value=False)
+                ]
             ),
         ]
     },
@@ -53,12 +57,12 @@ announce_commands: CommandMapping = {
                 required=True,
                 choices=[
                     ParamChoice(
-                        name="start",
-                        value="start"
+                        name=announce_constants.START_PARAM,
+                        value=announce_constants.START_PARAM
                     ), 
                     ParamChoice(
-                        name="end", 
-                        value="end"
+                        name=announce_constants.END_PARAM, 
+                        value=announce_constants.END_PARAM
                     )
                 ]
             ),
