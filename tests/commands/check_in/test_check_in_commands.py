@@ -3,8 +3,8 @@ from unittest.mock import Mock, patch, call
 from botocore.exceptions import ClientError
 from typing import Optional
 
-# The module under test is assumed to be imported from your project root (src)
-from commands.check_in import check_in_commands as target_module
+import commands.check_in.check_in_constants as check_in_constants
+from commands.check_in import check_in_commands
 from database.models.event_data import EventData
 from database.models.participant import Participant
 from commands.models.response_message import ResponseMessage
@@ -42,7 +42,7 @@ def test_verify_has_organizer_role_success(mock_db_helper, mock_permissions_help
     mock_db_helper.get_server_config_or_fail.return_value = mock_config
     mock_permissions_helper.require_organizer_role.return_value = None # Success case
 
-    result = target_module._verify_has_organizer_role(mock_discord_event, mock_aws_services)
+    result = check_in_commands._verify_has_organizer_role(mock_discord_event, mock_aws_services)
 
     assert result is None
     mock_db_helper.get_server_config_or_fail.assert_called_once()
@@ -54,7 +54,7 @@ def test_verify_has_organizer_role_config_fail(mock_db_helper, mock_discord_even
     expected_response = ResponseMessage(content="Config Error")
     mock_db_helper.get_server_config_or_fail.return_value = expected_response
 
-    result = target_module._verify_has_organizer_role(mock_discord_event, mock_aws_services)
+    result = check_in_commands._verify_has_organizer_role(mock_discord_event, mock_aws_services)
 
     assert result is expected_response
     mock_db_helper.get_server_config_or_fail.assert_called_once()
@@ -67,7 +67,7 @@ def test_verify_has_organizer_role_permission_fail(mock_db_helper, mock_permissi
     expected_response = ResponseMessage(content="Permission Error")
     mock_permissions_helper.require_organizer_role.return_value = expected_response
 
-    result = target_module._verify_has_organizer_role(mock_discord_event, mock_aws_services)
+    result = check_in_commands._verify_has_organizer_role(mock_discord_event, mock_aws_services)
 
     assert result is expected_response
     mock_permissions_helper.require_organizer_role.assert_called_once()
@@ -82,13 +82,16 @@ def test_check_in_user_success_with_role(mock_db_helper, mock_message_helper, mo
     # Setup mocks
     MOCK_ROLE_ID = "R99999"
     MOCK_USER_ID = mock_discord_event.get_user_id.return_value
-    mock_event_data = Mock(participant_role=MOCK_ROLE_ID)
+    # Ensure check_in_enabled is True for success
+    mock_event_data = Mock(participant_role=MOCK_ROLE_ID, check_in_enabled=True)
+    # Ensure the checked_in map is empty for a successful check-in
+    mock_event_data.checked_in = {}
     mock_db_helper.get_server_event_data_or_fail.return_value = mock_event_data
     # Mock the output of get_user_ping
     mock_message_helper.get_user_ping.return_value = f"<@{MOCK_USER_ID}>"
 
     # Execute
-    response = target_module.check_in_user(mock_discord_event, mock_aws_services)
+    response = check_in_commands.check_in_user(mock_discord_event, mock_aws_services)
 
     # Assertions for success response
     assert response.content == f"✅ Checked in <@{MOCK_USER_ID}>!"
@@ -114,16 +117,66 @@ def test_check_in_user_success_with_role(mock_db_helper, mock_message_helper, mo
         role_id=MOCK_ROLE_ID
     )
 
+@patch('commands.check_in.check_in_commands.Participant')
+@patch('commands.check_in.check_in_commands.db_helper')
+def test_check_in_user_already_checked_in(mock_db_helper, mock_participant_class, mock_discord_event, mock_aws_services):
+    """Tests that a user already checked in receives the correct informative message with relative time."""
+    # Setup mocks
+    MOCK_USER_ID = mock_discord_event.get_user_id.return_value
+
+    # 1. Mock the existing Participant instance and its relative time method
+    mock_existing_participant = Mock()
+    mock_existing_participant.get_relative_time_added.return_value = "5 minutes ago"
+
+    # 2. Mock Participant.from_dynamodb to return the existing participant instance
+    mock_participant_class.from_dynamodb.return_value = mock_existing_participant
+
+    # 3. Mock EventData with the user already checked in
+    mock_event_data = Mock(participant_role="R99999", check_in_enabled=True)
+    # Provide a placeholder dict for the user's check-in data
+    mock_event_data.checked_in = {MOCK_USER_ID: {"user_id": MOCK_USER_ID}}
+    mock_db_helper.get_server_event_data_or_fail.return_value = mock_event_data
+
+    # Execute
+    response = check_in_commands.check_in_user(mock_discord_event, mock_aws_services)
+
+    # Assertions for response
+    # Expected message uses the return value of get_relative_time_added().lower()
+    expected_content = f"✅ You already checked in {mock_existing_participant.get_relative_time_added.return_value.lower()}."
+    assert response.content == expected_content
+
+    # Assert no DB update call was made
+    mock_aws_services.dynamodb_table.update_item.assert_not_called()
+
+@patch('commands.check_in.check_in_commands.db_helper')
+def test_check_in_user_fail_when_disabled(mock_db_helper, mock_discord_event, mock_aws_services):
+    """Tests that check_in_user fails when check_in_enabled is False."""
+    # Setup mocks
+    # Mock EventData with check_in_enabled set to False
+    mock_event_data = Mock(participant_role="R99999", check_in_enabled=False)
+    mock_db_helper.get_server_event_data_or_fail.return_value = mock_event_data
+
+    # Execute
+    response = check_in_commands.check_in_user(mock_discord_event, mock_aws_services)
+
+    # Assertions for failure response
+    assert response.content == "😵‍💫 Check-ins are not being accepted right now."\
+                    "An Organizer must start check-ins before I can accept any new ones."
+
+    # Assertions that no database update or role assignment occurred
+    mock_aws_services.dynamodb_table.update_item.assert_not_called()
+
 @patch('commands.check_in.check_in_commands.discord_helper')
 @patch('commands.check_in.check_in_commands.db_helper')
 def test_check_in_user_success_no_role(mock_db_helper, mock_discord_helper, mock_discord_event, mock_aws_services):
     """Tests successful check-in without role assignment (participant_role is None)."""
     # Setup mocks
-    mock_event_data = Mock(participant_role=None) # No role set
+    mock_event_data = Mock(participant_role=None, check_in_enabled=True) # No role set, but enabled
+    mock_event_data.checked_in = {} # Ensure it's a new check-in
     mock_db_helper.get_server_event_data_or_fail.return_value = mock_event_data
 
     # Execute
-    target_module.check_in_user(mock_discord_event, mock_aws_services)
+    check_in_commands.check_in_user(mock_discord_event, mock_aws_services)
 
     # Assertions for role assignment (should NOT be called)
     mock_discord_helper.add_role_to_user.assert_not_called()
@@ -134,7 +187,7 @@ def test_check_in_user_data_fail(mock_db_helper, mock_discord_event, mock_aws_se
     expected_response = ResponseMessage(content="Data Error")
     mock_db_helper.get_server_event_data_or_fail.return_value = expected_response
 
-    result = target_module.check_in_user(mock_discord_event, mock_aws_services)
+    result = check_in_commands.check_in_user(mock_discord_event, mock_aws_services)
 
     assert result is expected_response
     mock_aws_services.dynamodb_table.update_item.assert_not_called()
@@ -160,7 +213,7 @@ def test_show_checked_in_success(mock_db_helper, mock_verify_role, mock_message_
     mock_db_helper.get_server_event_data_or_fail.return_value = mock_event_data
 
     # Execute
-    response = target_module.show_checked_in(mock_discord_event, mock_aws_services)
+    response = check_in_commands.show_checked_in(mock_discord_event, mock_aws_services)
 
     # Assertions
     assert response.content == MOCK_CONTENT
@@ -185,10 +238,10 @@ def test_show_checked_in_empty(mock_db_helper, mock_verify_role, mock_discord_ev
     mock_db_helper.get_server_event_data_or_fail.return_value = mock_event_data
 
     # Execute
-    response = target_module.show_checked_in(mock_discord_event, mock_aws_services)
+    response = check_in_commands.show_checked_in(mock_discord_event, mock_aws_services)
 
     # Assertions
-    assert response.content == "ℹ️ There are currently no checked-in users."
+    assert response.content == "🧐 There are currently no checked-in users."
 
 @patch('commands.check_in.check_in_commands._verify_has_organizer_role')
 def test_show_checked_in_permission_fail(mock_verify_role, mock_discord_event, mock_aws_services):
@@ -196,7 +249,7 @@ def test_show_checked_in_permission_fail(mock_verify_role, mock_discord_event, m
     expected_response = ResponseMessage(content="No Permission")
     mock_verify_role.return_value = expected_response
 
-    result = target_module.show_checked_in(mock_discord_event, mock_aws_services)
+    result = check_in_commands.show_checked_in(mock_discord_event, mock_aws_services)
 
     assert result is expected_response
 
@@ -219,7 +272,7 @@ def test_clear_checked_in_success_with_role(mock_db_helper, mock_verify_role, mo
     mock_db_helper.get_server_event_data_or_fail.return_value = mock_event_data
 
     # Execute
-    response = target_module.clear_checked_in(mock_discord_event, mock_aws_services)
+    response = check_in_commands.clear_checked_in(mock_discord_event, mock_aws_services)
 
     # Assertions for success response
     assert response.content == "✅ All check-ins have been cleared, and I've queued up participant role removals 🫡"
@@ -250,14 +303,13 @@ def test_clear_checked_in_success_no_role(mock_db_helper, mock_verify_role, mock
     mock_db_helper.get_server_event_data_or_fail.return_value = mock_event_data
 
     # Execute
-    target_module.clear_checked_in(mock_discord_event, mock_aws_services)
+    check_in_commands.clear_checked_in(mock_discord_event, mock_aws_services)
 
-    # Assertions for role removal queue (called even if role is None)
-    mock_role_removal_queue.enqueue_remove_role_jobs.assert_called_once()
+    # Assertions for DB update (should clear the map even if participant_role is None)
+    mock_aws_services.dynamodb_table.update_item.assert_called_once()
 
-    # Assertions for DB update (should NOT clear the map if participant_role is None)
-    # The logic in clear_checked_in is: if event_data_result.participant_role: update_item. Since role is None, update_item is skipped.
-    mock_aws_services.dynamodb_table.update_item.assert_not_called()
+    # Assertions for role removal queue (not called when no role to unassign)
+    mock_role_removal_queue.enqueue_remove_role_jobs.assert_not_called()
 
 @patch('commands.check_in.check_in_commands._verify_has_organizer_role')
 def test_clear_checked_in_permission_fail(mock_verify_role, mock_discord_event, mock_aws_services):
@@ -265,7 +317,7 @@ def test_clear_checked_in_permission_fail(mock_verify_role, mock_discord_event, 
     expected_response = ResponseMessage(content="No Permission")
     mock_verify_role.return_value = expected_response
 
-    result = target_module.clear_checked_in(mock_discord_event, mock_aws_services)
+    result = check_in_commands.clear_checked_in(mock_discord_event, mock_aws_services)
 
     assert result is expected_response
 
@@ -279,10 +331,10 @@ def test_clear_checked_in_empty(mock_db_helper, mock_verify_role, mock_discord_e
     mock_db_helper.get_server_event_data_or_fail.return_value = mock_event_data
 
     # Execute
-    response = target_module.clear_checked_in(mock_discord_event, mock_aws_services)
+    response = check_in_commands.clear_checked_in(mock_discord_event, mock_aws_services)
 
     # Assertions
-    assert response.content == "ℹ️ There are no checked-in users to clear."
+    assert response.content == "🧐 There are no checked-in users to clear."
     mock_aws_services.dynamodb_table.update_item.assert_not_called()
 
 @patch('commands.check_in.check_in_commands.role_removal_queue')
@@ -300,7 +352,7 @@ def test_clear_checked_in_dynamodb_error(mock_db_helper, mock_verify_role, mock_
 
     # Execute and Assert
     with pytest.raises(ClientError):
-        target_module.clear_checked_in(mock_discord_event, mock_aws_services)
+        check_in_commands.clear_checked_in(mock_discord_event, mock_aws_services)
 
 
 # --- Tests for show_not_checked_in (Updated for combined output) ---
@@ -313,7 +365,7 @@ def test_show_not_checked_in_permission_fail(mock_db_helper, mock_verify_role, m
     expected_response = ResponseMessage(content="No Permission")
     mock_verify_role.return_value = expected_response
 
-    result = target_module.show_not_checked_in(mock_discord_event, mock_aws_services)
+    result = check_in_commands.show_not_checked_in(mock_discord_event, mock_aws_services)
 
     assert result is expected_response
     mock_db_helper.get_server_event_data_or_fail.assert_not_called()
@@ -325,7 +377,7 @@ def test_show_not_checked_in_data_fail(mock_db_helper, mock_discord_event, mock_
     expected_response = ResponseMessage(content="Data Error")
     mock_db_helper.get_server_event_data_or_fail.return_value = expected_response
 
-    result = target_module.show_not_checked_in(mock_discord_event, mock_aws_services)
+    result = check_in_commands.show_not_checked_in(mock_discord_event, mock_aws_services)
 
     assert result is expected_response
 
@@ -370,7 +422,7 @@ def test_show_not_checked_in_success_combined_output(mock_db_helper, mock_verify
     ]
 
     # Act
-    response = target_module.show_not_checked_in(mock_discord_event, mock_aws_services)
+    response = check_in_commands.show_not_checked_in(mock_discord_event, mock_aws_services)
 
     # Assert Final Response
     assert response.content == EXPECTED_FINAL_CONTENT
@@ -427,7 +479,7 @@ def test_show_not_checked_in_success_ping_enabled(mock_db_helper, mock_verify_ro
     ]
 
     # Act
-    response = target_module.show_not_checked_in(mock_discord_event, mock_aws_services)
+    response = check_in_commands.show_not_checked_in(mock_discord_event, mock_aws_services)
 
     # Assert Final Response
     assert response.content == EXPECTED_FINAL_CONTENT
@@ -465,7 +517,7 @@ def test_show_not_checked_in_only_registered_missing(mock_db_helper, mock_verify
     ]
 
     # Act
-    response = target_module.show_not_checked_in(mock_discord_event, mock_aws_services)
+    response = check_in_commands.show_not_checked_in(mock_discord_event, mock_aws_services)
 
     # Assert Final Response
     assert response.content == EXPECTED_FINAL_CONTENT
@@ -499,7 +551,7 @@ def test_show_not_checked_in_only_unregistered_check_ins(mock_db_helper, mock_ve
     ]
 
     # Act
-    response = target_module.show_not_checked_in(mock_discord_event, mock_aws_services)
+    response = check_in_commands.show_not_checked_in(mock_discord_event, mock_aws_services)
 
     # Assert Final Response
     assert response.content == EXPECTED_FINAL_CONTENT
@@ -535,7 +587,7 @@ def test_show_not_checked_in_all_users_aligned(mock_db_helper, mock_verify_role,
     ]
 
     # Act
-    response = target_module.show_not_checked_in(mock_discord_event, mock_aws_services)
+    response = check_in_commands.show_not_checked_in(mock_discord_event, mock_aws_services)
 
     # Assert Final Response
     assert response.content == EXPECTED_FINAL_CONTENT
@@ -544,3 +596,71 @@ def test_show_not_checked_in_all_users_aligned(mock_db_helper, mock_verify_role,
     # Assert call arguments are empty lists for both calls
     assert len(mock_message_helper.build_participants_list.call_args_list[0][1]["participants"]) == 0
     assert len(mock_message_helper.build_participants_list.call_args_list[1][1]["participants"]) == 0
+
+# --- New Tests for toggle_check_in ---
+
+@patch('commands.check_in.check_in_commands._verify_has_organizer_role', return_value=None)
+@patch('commands.check_in.check_in_commands.db_helper')
+def test_toggle_check_in_start_success(mock_db_helper, mock_verify_role, mock_discord_event, mock_aws_services):
+    """Tests successful enabling of check-ins."""
+    mock_event_data = Mock(checked_in_enabled=False)
+    mock_db_helper.get_server_event_data_or_fail.return_value = mock_event_data
+    mock_discord_event.get_command_input_value.side_effect = lambda key: check_in_constants.START_PARAM if key == "state" else None
+    server_id = mock_discord_event.get_server_id.return_value
+
+    # Define the expected success message clearly
+    EXPECTED_START_MESSAGE = "🟢 Check-ins started! Participants can begin checking in with `/check-in`"
+
+    # Execute
+    response = check_in_commands.toggle_check_in(mock_discord_event, mock_aws_services)
+
+    # Assertions
+    assert response.content == EXPECTED_START_MESSAGE
+
+    # Assert DB update
+    mock_aws_services.dynamodb_table.update_item.assert_called_once()
+    call_args = mock_aws_services.dynamodb_table.update_item.call_args[1]
+
+    # FIX: Use mock_db_helper instead of the undefined global db_helper
+    assert call_args["Key"]["PK"] == mock_db_helper.build_server_pk(server_id)
+    assert call_args["UpdateExpression"] == f"SET {EventData.Keys.CHECK_IN_ENABLED} = :enable"
+    assert call_args["ExpressionAttributeValues"] == {":enable": True}
+
+
+@patch('commands.check_in.check_in_commands._verify_has_organizer_role', return_value=None)
+@patch('commands.check_in.check_in_commands.db_helper')
+def test_toggle_check_in_end_success(mock_db_helper, mock_verify_role, mock_discord_event, mock_aws_services):
+    """Tests successful disabling of check-ins."""
+    mock_event_data = Mock(checked_in_enabled=True)
+    mock_db_helper.get_server_event_data_or_fail.return_value = mock_event_data
+    mock_discord_event.get_command_input_value.side_effect = lambda key: check_in_constants.END_PARAM if key == "state" else None
+    server_id = mock_discord_event.get_server_id.return_value
+
+    # Define the expected failure message clearly
+    EXPECTED_END_MESSAGE = "🔴 Check-ins closed! Check-ins will no longer be accepted."
+
+    # Execute
+    response = check_in_commands.toggle_check_in(mock_discord_event, mock_aws_services)
+
+    # Assertions
+    assert response.content == EXPECTED_END_MESSAGE
+
+    # Assert DB update
+    mock_aws_services.dynamodb_table.update_item.assert_called_once()
+    call_args = mock_aws_services.dynamodb_table.update_item.call_args[1]
+
+    # FIX: Use mock_db_helper instead of the undefined global db_helper
+    assert call_args["Key"]["PK"] == mock_db_helper.build_server_pk(server_id)
+    assert call_args["UpdateExpression"] == f"SET {EventData.Keys.CHECK_IN_ENABLED} = :enable"
+    assert call_args["ExpressionAttributeValues"] == {":enable": False}
+
+
+@patch('commands.check_in.check_in_commands._verify_has_organizer_role')
+def test_toggle_check_in_permission_fail(mock_verify_role, mock_discord_event, mock_aws_services):
+    """Tests failure when permission check fails for toggle_check_in."""
+    expected_response = ResponseMessage(content="No Permission")
+    mock_verify_role.return_value = expected_response
+
+    result = check_in_commands.toggle_check_in(mock_discord_event, mock_aws_services)
+
+    assert result is expected_response

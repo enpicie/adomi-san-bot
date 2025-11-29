@@ -1,12 +1,13 @@
 from typing import Optional
 
+import commands.check_in.check_in_constants as check_in_constants
 import database.dynamodb_utils as db_helper
-from database.models.event_data import EventData
 import utils.discord_api_helper as discord_helper
 import utils.message_helper as message_helper
 import utils.permissions_helper as permissions_helper
 import commands.check_in.queue_role_removal as role_removal_queue
 from aws_services import AWSServices
+from database.models.event_data import EventData
 from database.models.participant import Participant
 from commands.models.discord_event import DiscordEvent
 from commands.models.response_message import ResponseMessage
@@ -30,11 +31,23 @@ def check_in_user(event: DiscordEvent, aws_services: AWSServices) -> ResponseMes
     Assigns the participant role if configured.
     Returns a ResponseMessage indicating success or failure.
     """
-    data_result = db_helper.get_server_event_data_or_fail(event.get_server_id(), aws_services.dynamodb_table)
-    if isinstance(data_result, ResponseMessage):
-        return data_result
+    event_data_result = db_helper.get_server_event_data_or_fail(event.get_server_id(), aws_services.dynamodb_table)
+    if isinstance(event_data_result, ResponseMessage):
+        return event_data_result
+
+    if not event_data_result.check_in_enabled:
+        return ResponseMessage(
+            content="😵‍💫 Check-ins are not being accepted right now."
+                    "An Organizer must start check-ins before I can accept any new ones."
+        )
 
     user_id = event.get_user_id()
+    if user_id in event_data_result.checked_in:
+        existing_check_in = Participant.from_dynamodb(event_data_result.checked_in[user_id])
+        return ResponseMessage(
+            content=f"✅ You already checked in {existing_check_in.get_relative_time_added().lower()}."
+        )
+
     checked_in_user = Participant(
         display_name=event.get_username(),
         user_id=user_id
@@ -46,12 +59,12 @@ def check_in_user(event: DiscordEvent, aws_services: AWSServices) -> ResponseMes
         ExpressionAttributeNames={"#uid": user_id},
         ExpressionAttributeValues={":participant_info": checked_in_user.to_dict()}
     )
-    if data_result.participant_role:
-        print(f"Assigning participant role {data_result.participant_role} to user {user_id}")
+    if event_data_result.participant_role:
+        print(f"Assigning participant role {event_data_result.participant_role} to user {user_id}")
         discord_helper.add_role_to_user(
             guild_id=event.get_server_id(),
             user_id=user_id,
-            role_id=data_result.participant_role
+            role_id=event_data_result.participant_role
         )
     return ResponseMessage(
         content=f"✅ Checked in {message_helper.get_user_ping(user_id)}!"
@@ -75,7 +88,7 @@ def show_checked_in(event: DiscordEvent, aws_services: AWSServices) -> ResponseM
 
     if not event_data_result.checked_in:
         return ResponseMessage(
-            content="ℹ️ There are currently no checked-in users."
+            content="🧐 There are currently no checked-in users."
         )
 
     content = message_helper.build_participants_list(
@@ -104,49 +117,49 @@ def clear_checked_in(event: DiscordEvent, aws_services: AWSServices) -> Response
 
     if not event_data_result.checked_in:
         return ResponseMessage(
-            content="ℹ️ There are no checked-in users to clear."
+            content="🧐 There are no checked-in users to clear."
         )
 
-    checked_in_users = list(event_data_result.checked_in.keys())
-
-    role_removal_queue.enqueue_remove_role_jobs(
-        server_id=server_id,
-        user_ids=checked_in_users,
-        role_id=event_data_result.participant_role,
-        sqs_queue=aws_services.remove_role_sqs_queue
+    aws_services.dynamodb_table.update_item(
+        Key={"PK": db_helper.build_server_pk(server_id), "SK": EventData.Keys.SK_SERVER},
+        UpdateExpression=f"SET {EventData.Keys.CHECKED_IN} = :empty_map",
+        ExpressionAttributeValues={":empty_map": {}}
     )
+    content = "✅ All check-ins have been cleared"
 
     if event_data_result.participant_role:
-        aws_services.dynamodb_table.update_item(
-            Key={"PK": db_helper.build_server_pk(server_id), "SK": EventData.Keys.SK_SERVER},
-            UpdateExpression="SET checked_in = :empty_map",
-            ExpressionAttributeValues={":empty_map": {}}
+        checked_in_users = list(event_data_result.checked_in.keys())
+        role_removal_queue.enqueue_remove_role_jobs(
+            server_id=server_id,
+            user_ids=checked_in_users,
+            role_id=event_data_result.participant_role,
+            sqs_queue=aws_services.remove_role_sqs_queue
         )
+        content += ", and I've queued up participant role removals 🫡"
     else:
         print("No participant_role set. No role to unsassign.")
+        content += "!" # Distinctly end the content of message to return
 
-    return ResponseMessage(
-        content="✅ All check-ins have been cleared, and I've queued up participant role removals 🫡"
-    )
+    return ResponseMessage(content=content)
 
 def show_not_checked_in(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
     error_message = _verify_has_organizer_role(event, aws_services)
     if error_message:
         return error_message
 
-    data_result = db_helper.get_server_event_data_or_fail(event.get_server_id(), aws_services.dynamodb_table)
-    if isinstance(data_result, ResponseMessage):
-        return data_result
+    event_data_result = db_helper.get_server_event_data_or_fail(event.get_server_id(), aws_services.dynamodb_table)
+    if isinstance(event_data_result, ResponseMessage):
+        return event_data_result
 
     should_ping_users = event.get_command_input_value("ping_users") or False # Default to No ping
 
-    registered_ids = data_result.registered.keys()
-    checked_in_ids = data_result.checked_in.keys()
+    registered_ids = event_data_result.registered.keys()
+    checked_in_ids = event_data_result.checked_in.keys()
 
     # Get list of users registered but not checked-in
     not_checked_in_ids = set(registered_ids) - set(checked_in_ids)
     non_checked_in_participants = [
-        data_result.registered[user_id]
+        event_data_result.registered[user_id]
         for user_id in not_checked_in_ids
     ]
     not_checked_in_message = message_helper.build_participants_list(
@@ -157,7 +170,7 @@ def show_not_checked_in(event: DiscordEvent, aws_services: AWSServices) -> Respo
     # Get list of users checked-in but not registered
     not_registered_ids = set(checked_in_ids) - set(registered_ids)
     non_registered_participants = [
-        data_result.checked_in[user_id]
+        event_data_result.checked_in[user_id]
         for user_id in not_registered_ids
     ]
     not_registered_message = message_helper.build_participants_list(
@@ -169,3 +182,31 @@ def show_not_checked_in(event: DiscordEvent, aws_services: AWSServices) -> Respo
     response = ResponseMessage(content)
 
     return response if should_ping_users else response.with_silent_pings()
+
+def toggle_check_in(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
+    error_message = _verify_has_organizer_role(event, aws_services)
+    if error_message:
+        return error_message
+
+    server_id = event.get_server_id()
+
+    event_data_result = db_helper.get_server_event_data_or_fail(server_id, aws_services.dynamodb_table)
+    if isinstance(event_data_result, ResponseMessage):
+        return event_data_result
+
+    check_in_state = event.get_command_input_value("state")
+    should_enable = True if check_in_state == check_in_constants.START_PARAM else False
+    print(f"{EventData.Keys.CHECK_IN_ENABLED}: {should_enable} via input {check_in_state}")
+
+    aws_services.dynamodb_table.update_item(
+        Key={"PK": db_helper.build_server_pk(event.get_server_id()), "SK": EventData.Keys.SK_SERVER},
+        UpdateExpression=f"SET {EventData.Keys.CHECK_IN_ENABLED} = :enable",
+        ExpressionAttributeValues={":enable": should_enable}
+    )
+    content = (
+        "🟢 Check-ins started! Participants can begin checking in with `/check-in`"
+        if should_enable
+        else "🔴 Check-ins closed! Check-ins will no longer be accepted."
+    )
+
+    return ResponseMessage(content=content)

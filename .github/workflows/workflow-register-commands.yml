@@ -10,11 +10,19 @@ on:
         options:
           - dev
           - prod
+      command_name:
+        description: Name of command to register/update
+        required: true
+        type: string
 
   workflow_call:
     inputs:
       environment:
         description: Deployment environment (dev or prod)
+        required: true
+        type: string
+      command_name:
+        description: Name of command to register/update
         required: true
         type: string
     secrets:
@@ -26,13 +34,53 @@ on:
 jobs:
   register-commands:
     runs-on: ubuntu-latest
-    env:
-      DISCORD_APP_ID: ${{ (inputs.environment == 'prod') && vars.DISCORD_APP_ID_PROD || vars.DISCORD_APP_ID_DEV }}
-      DISCORD_BOT_TOKEN: ${{ (inputs.environment == 'prod') && secrets.DISCORD_BOT_TOKEN_PROD || secrets.DISCORD_BOT_TOKEN_DEV }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Log Inputs
+        shell: bash
+        run: |
+          echo "Logging input variables:"
+          echo "Environment (inputs.environment): ${{ inputs.environment }}"
+          echo "Command Name (inputs.command_name): ${{ inputs.command_name }}"
+
+      - name: Set Environment Variables
+        shell: bash
+        run: |
+          ENV_NAME="${{ inputs.environment }}"
+
+          # Use explicit shell if/else to set variables directly into the $GITHUB_ENV for all subsequent steps
+          if [ "$ENV_NAME" == "prod" ]; then
+            echo "::notice title=Environment Selection::Setting Production Variables."
+            echo "DISCORD_APP_ID=${{ vars.DISCORD_APP_ID_PROD }}" >> $GITHUB_ENV
+            echo "DISCORD_BOT_TOKEN=${{ secrets.DISCORD_BOT_TOKEN_PROD }}" >> $GITHUB_ENV
+          else
+            echo "::notice title=Environment Selection::Setting Development Variables (Default/Fallback)."
+            echo "DISCORD_APP_ID=${{ vars.DISCORD_APP_ID_DEV }}" >> $GITHUB_ENV
+            echo "DISCORD_BOT_TOKEN=${{ secrets.DISCORD_BOT_TOKEN_DEV }}" >> $GITHUB_ENV
+          fi
+
+          echo "COMMAND_NAME=${{ inputs.command_name }}" >> $GITHUB_ENV
+
+      - name: Verify Environment Variable Setup
+        shell: bash
+        env:
+          # Re-declare ENV_NAME here to be available in this step's shell environment
+          ENV_NAME: ${{ inputs.environment }}
+        run: |
+          # The variables DISCORD_APP_ID and DISCORD_BOT_TOKEN are available from $GITHUB_ENV
+
+          echo "Verification (From \$GITHUB_ENV):"
+          echo "DISCORD_APP_ID is set to: ${DISCORD_APP_ID:0:4}..." # Log first 4 chars of App ID
+          echo "COMMAND_NAME is set to: $COMMAND_NAME"
+
+          # Check if the App ID or Token is empty, which indicates a loading failure
+          if [ -z "$DISCORD_APP_ID" ]; then
+             echo "::error title=App ID Missing::DISCORD_APP_ID was not loaded correctly."
+             exit 1
+          fi
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -46,7 +94,5 @@ jobs:
 
       - name: Register commands
         run: |
+          # The script can now access the variables as standard environment variables
           python scripts/register_commands.py
-        env:
-          DISCORD_APP_ID: ${{ env.DISCORD_APP_ID }}
-          DISCORD_BOT_TOKEN: ${{ env.DISCORD_BOT_TOKEN }}

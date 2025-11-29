@@ -50,7 +50,10 @@ def setup_server(event: DiscordEvent, aws_services: AWSServices) -> ResponseMess
                 "SK": EventData.Keys.SK_SERVER,
                 EventData.Keys.CHECKED_IN: {}, # Initialize empty checked_in map
                 EventData.Keys.REGISTERED: {}, # Initialize empty registered map
-                EventData.Keys.QUEUE: {}     # Initialize empty queue map
+                EventData.Keys.QUEUE: {},     # Initialize empty queue map,
+                # Default disable these fields to prevent unexpected data
+                EventData.Keys.CHECK_IN_ENABLED: False,
+                EventData.Keys.REGISTER_ENABLED: False
             }
         )
     # TODO: implement case for Per-Channel when modes are implemented

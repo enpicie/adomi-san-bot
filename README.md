@@ -6,13 +6,11 @@ But you can call her Adomin ~☆！
 
 ## Contributing
 
-### Adding Commands
+### Adding Commands in Code
 
 The [commands/](./src/commands/) directory is organized by groups of commands. **Create a directory for the set of commands you are working on, or find the existing directory and add to it.**
 
 [command_map.py](./src/commands/command_map.py) combines [CommandMapping](./src/commands/models/command_mapping.py) dicts from each set of commands' mapping.py file to build the full set of commands.
-
-**Run the `register-commands` workflow via GH Actions workflow dispatch to register new commands with discord**. The [register_commands script](./scripts/register_commands.py) will discover commands via command_map.py and call Discord's API to register them.
 
 Here is an example of the structure of a command mapping using a fully-populated entry:
 
@@ -37,6 +35,12 @@ Here is an example of the structure of a command mapping using a fully-populated
 ```
 
 For more information, look in the [commands/models/](./src/commands/models/) directory.
+
+#### Registering Commands with Discord
+
+**Run the "Register Discord Bot Slash Commands" workflow via GH Actions workflow dispatch to register new commands with discord**.
+
+Provide the name of a command you need to register (should match name you defined in the Python mapping). The [register_commands script](./scripts/register_commands.py) will discover commands via command_map.py and call Discord's API to register them.
 
 ### Adding AWS Services
 

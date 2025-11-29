@@ -13,5 +13,6 @@ command_map: CommandMapping = {
     setup_commands | 
     announce_commands |
     setup_commands |
+    setup_commands |
     get_registered_commands
 )

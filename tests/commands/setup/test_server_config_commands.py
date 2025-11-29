@@ -125,7 +125,9 @@ def test_setup_server_success_server_wide_mode(mock_db_and_perms, mock_discord_e
         "SK": EventData.Keys.SK_SERVER,
         EventData.Keys.CHECKED_IN: {},
         EventData.Keys.REGISTERED: {},
-        EventData.Keys.QUEUE: {}
+        EventData.Keys.QUEUE: {},
+        EventData.Keys.CHECK_IN_ENABLED: False,
+        EventData.Keys.REGISTER_ENABLED: False
     }
     # IMPORTANT FIX: ConditionExpression should NOT be present now
     assert "ConditionExpression" not in event_data_call.kwargs
