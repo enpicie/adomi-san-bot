@@ -178,7 +178,7 @@ def show_not_checked_in(event: DiscordEvent, aws_services: AWSServices) -> Respo
         participants=list(non_registered_participants)
     )
 
-    content = f"{not_checked_in_message}\n{not_registered_message}" if not_registered_message else not_checked_in_message
+    content = f"{not_checked_in_message}\n{not_registered_message}" if non_registered_participants else not_checked_in_message
     response = ResponseMessage(content)
 
     return response if should_ping_users else response.with_silent_pings()
