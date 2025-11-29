@@ -45,11 +45,11 @@ def set_event_message(event: DiscordEvent, aws_services: AWSServices) -> Respons
     announce_type = event.get_command_input_value("announce_type")
 
     message_key = EventData.Keys.START_MESSAGE if announce_type == "start" else EventData.Keys.END_MESSAGE
-    pk = db_helper.get_server_pk(event.get_server_id())
+    pk = db_helper.build_server_pk(event.get_server_id())
 
     aws_services.dynamotb_table.update_item(
         # Announcements configured at level of event data, not server config
-        Key={"PK": pk, "SK": constants.SK_SERVER},
+        Key={"PK": pk, "SK": EventData.Keys.SK_SERVER},
         UpdateExpression=f"SET {message_key} = :msg",
         ExpressionAttributeValues={":msg": message_text}
     )

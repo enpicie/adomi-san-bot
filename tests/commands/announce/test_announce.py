@@ -1,6 +1,7 @@
 from unittest.mock import Mock, patch
 
 import commands.announce.announce_commands as announce_commands
+import database.dynamodb_utils as db_helper
 from commands.models.discord_event import DiscordEvent
 from commands.models.response_message import ResponseMessage
 from database.models.event_data import EventData
@@ -41,8 +42,8 @@ def test_announce_event(mock_from_db, mock_role_ping, mock_build_pk):
     mock_role_ping.assert_called_once_with("123456789")
 
 
-@patch('database.dynamodb_utils.get_server_pk')
-@patch('constants.SK_SERVER', 'SERVER')
+@patch('database.dynamodb_utils.build_server_pk')
+@patch('database.models.event_data.EventData.Keys.SK_SERVER', 'SERVER')
 def test_set_announce(mock_get_pk):
     """Test setting an event announcement message"""
     # Setup mocks
@@ -72,8 +73,8 @@ def test_set_announce(mock_get_pk):
     assert call_args[1]['ExpressionAttributeValues'][':msg'] == "Welcome to the event!"
 
 
-@patch('database.dynamodb_utils.get_server_pk')
-@patch('constants.SK_SERVER', 'SERVER')
+@patch('database.dynamodb_utils.build_server_pk')
+@patch('database.models.event_data.EventData.Keys.SK_SERVER', 'SERVER')
 def test_set_announce_clear(mock_get_pk):
     """Test clearing an event announcement message by setting it to empty string"""
     # Setup mocks
