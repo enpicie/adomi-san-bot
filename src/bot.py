@@ -1,3 +1,4 @@
+import traceback
 from aws_services import AWSServices
 
 from commands.command_map import command_map
@@ -19,7 +20,8 @@ def process_bot_command(event_body: dict, aws_services: AWSServices) -> dict:
     try:
         message = command_function(event, aws_services)
     except Exception as e:
-        print(f"ERROR: Exception while processing command '{command_name}': {e}")
+        print(f"ERROR | {type(e).__name__} | Exception while processing command '{command_name}': {e}")
+        print(f"Traceback: {traceback.print_exc()}")
         message = ResponseMessage.get_error_message()
     if message:
         return message.to_dict()
