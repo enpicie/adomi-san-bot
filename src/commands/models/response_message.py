@@ -33,8 +33,9 @@ class ResponseMessage:
             "embeds": [embed.to_dict() for embed in self.embeds]
         }
 
-        if self.allowed_mentions is not None:
+        if self.allowed_mentions is not None: # Set when silencing mentions
             data["allowed_mentions"] = self.allowed_mentions
+            data["content"] = "@silent " + data["content"] # Will show with silent bell in discord
         if self.flags is not None:
             data["flags"] = self.flags
 

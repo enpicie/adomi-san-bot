@@ -12,12 +12,27 @@ def get_role_ping(role_id: str) -> str:
     return f"<@&{role_id}>"
 
 def build_participants_list(list_header: str, participants: List[Participant]) -> str:
-    list_lines = (
-        f"- {p[Participant.Keys.DISPLAY_NAME]}"
-        if p[Participant.Keys.USER_ID] == Participant.DEFAULT_ID_PLACEHOLDER
-        else f"- {get_user_ping(p[Participant.Keys.USER_ID])}: {p[Participant.Keys.DISPLAY_NAME]}"
-        for p in participants
+    """
+    Builds a sorted, numbered list of participants using direct attribute access.
+    """
+    # Sort the participants list by their display_name attribute
+    sorted_participants = sorted(
+        participants,
+        key=lambda p: p.display_name
     )
+
+    list_lines = []
+
+    # Format as a numbered list (starting at 1)
+    for i, p in enumerate(sorted_participants, 1):
+        user_id = p.user_id
+        display_name = p.display_name
+
+        if user_id == Participant.DEFAULT_ID_PLACEHOLDER:
+            line = f"{i}. {display_name}"
+        else:
+            line = f"{i}. {get_user_ping(user_id)}: {display_name}"
+        list_lines.append(line)
 
     return (
         f"{list_header}\n"
