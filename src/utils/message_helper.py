@@ -14,6 +14,7 @@ def get_role_ping(role_id: str) -> str:
 def build_participants_list(list_header: str, participants: List[Participant]) -> str:
     """
     Builds a sorted, numbered list of participants using direct attribute access.
+    List passed in will typically be dict of Participant since it may come from DynamoDB.
     """
     # Sort the participants list by their display_name attribute
     sorted_participants = sorted(
@@ -25,8 +26,8 @@ def build_participants_list(list_header: str, participants: List[Participant]) -
 
     # Format as a numbered list (starting at 1)
     for i, p in enumerate(sorted_participants, 1):
-        user_id = p.user_id
-        display_name = p.display_name
+        user_id = p[Participant.Keys.USER_ID]
+        display_name = p[Participant.Keys.DISPLAY_NAME]
 
         if user_id == Participant.DEFAULT_ID_PLACEHOLDER:
             line = f"{i}. {display_name}"

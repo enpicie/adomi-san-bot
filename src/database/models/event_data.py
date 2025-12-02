@@ -1,8 +1,10 @@
 from dataclasses import dataclass, field
 from typing import Dict, Any
 
+from database.models.subscriptable_mixin import SubscriptableMixin
+
 @dataclass
-class EventData:
+class EventData(SubscriptableMixin):
     class Keys:
         PK_FIELD = "pk"
         SK_FIELD = "sk"

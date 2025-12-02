@@ -2,8 +2,10 @@ from dataclasses import dataclass
 from datetime import datetime, timezone, timedelta
 from typing import Dict, Any
 
+from database.models.subscriptable_mixin import SubscriptableMixin
+
 @dataclass
-class Participant:
+class Participant(SubscriptableMixin):
     DEFAULT_ID_PLACEHOLDER = "no_id"
 
     class Keys:
