@@ -19,7 +19,7 @@ def build_participants_list(list_header: str, participants: List[Participant]) -
     # Sort the participants list by their display_name attribute
     sorted_participants = sorted(
         participants,
-        key=lambda p: p.display_name
+        key=lambda p: p[Participant.Keys.DISPLAY_NAME]
     )
 
     list_lines = []
