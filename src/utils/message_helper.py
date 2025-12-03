@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Dict
 
 from database.models.participant import Participant
 
@@ -11,13 +11,12 @@ def get_channel_mention(channel_id: str) -> str:
 def get_role_ping(role_id: str) -> str:
     return f"<@&{role_id}>"
 
-def build_participants_list(list_header: str, participants: List[Participant]) -> str:
+def build_participants_list(list_header: str, participants: List[Dict]) -> str:
     """
     Builds a sorted, numbered list of participants using direct attribute access.
-    List passed in will typically be dict of Participant since it may come from DynamoDB.
+    List passed in will be dict of Participant since it comes from DynamoDB.
     """
     if len(participants) == 0:
-        print("Participants list is empty: no list to build")
         return f"{list_header}\nNo participants"
 
     print(f"Building participants list for {participants}")

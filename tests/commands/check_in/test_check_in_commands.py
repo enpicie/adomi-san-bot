@@ -116,12 +116,10 @@ def test_show_not_checked_in_success_only_not_checked_in_list(
     # 1. Check build_participants_list calls
     # Not Checked In: u1 (1 user)
     mock_build_list.assert_any_call(list_header="🔍 **Participants not yet checked-in:**", participants=['UserA'])
-    # Not Registered: {} (0 users)
-    mock_build_list.assert_any_call(list_header="‼️ **Participants checked-in but not registered:**", participants=[])
-    assert mock_build_list.call_count == 2
+    assert mock_build_list.call_count == 1
 
     # 2. Check final message content (should include ONLY the first section)
-    expected_not_checked_in = "--- 🔍 **Participants not yet checked-in:** (1 users) ---"
+    expected_not_checked_in = "--- 🔍 **Participants not yet checked-in:** (1 users) ---\n👍 No unexpected check-ins"
 
     # This assertion verifies the new logic: content = not_checked_in_message
     # since non_registered_participants is empty/falsy
@@ -152,16 +150,8 @@ def test_show_not_checked_in_success_no_lists_empty_data(
     # Act
     response = check_in_commands.show_not_checked_in(mock_discord_event, mock_aws_services)
 
-    # Assertions
-    # 1. Check build_participants_list calls
-    # Not Checked In: {} (0 users)
-    mock_build_list.assert_any_call(list_header="🔍 **Participants not yet checked-in:**", participants=[])
-    # Not Registered: {} (0 users)
-    mock_build_list.assert_any_call(list_header="‼️ **Participants checked-in but not registered:**", participants=[])
-    assert mock_build_list.call_count == 2
-
     # 2. Check final message content (should include ONLY the first section)
-    expected_not_checked_in = "--- 🔍 **Participants not yet checked-in:** (0 users) ---"
+    expected_not_checked_in = "✅ All registered participants have checked-in\n👍 No unexpected check-ins"
 
     # This assertion verifies the new logic: content = not_checked_in_message
     # since non_registered_participants is empty/falsy

@@ -142,6 +142,23 @@ def clear_checked_in(event: DiscordEvent, aws_services: AWSServices) -> Response
 
     return ResponseMessage(content=content)
 
+def _generate_participant_message(search_ids, source_dict, header, default_message):
+    """
+    Generates the message for list of participants in source_dict with ids in search list.
+    Returns default message if no participants with an id in search_ids is found.
+    """
+    participants = [
+        source_dict[user_id]
+        for user_id in search_ids
+    ]
+    if participants:
+        return message_helper.build_participants_list(
+            list_header=header,
+            participants=participants
+        )
+    else:
+        return default_message
+
 def show_not_checked_in(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
     error_message = _verify_has_organizer_role(event, aws_services)
     if error_message:
@@ -158,27 +175,23 @@ def show_not_checked_in(event: DiscordEvent, aws_services: AWSServices) -> Respo
 
     # Get list of users registered but not checked-in
     not_checked_in_ids = set(registered_ids) - set(checked_in_ids)
-    non_checked_in_participants = [
-        event_data_result.registered[user_id]
-        for user_id in not_checked_in_ids
-    ]
-    not_checked_in_message = message_helper.build_participants_list(
-        list_header= "🔍 **Participants not yet checked-in:**",
-        participants=list(non_checked_in_participants)
+    not_checked_in_message = _generate_participant_message(
+        search_ids=not_checked_in_ids,
+        source_dict=event_data_result.registered,
+        header="🔍 **Participants not yet checked-in:**",
+        default_message="✅ All registered participants have checked-in"
     )
 
     # Get list of users checked-in but not registered
     not_registered_ids = set(checked_in_ids) - set(registered_ids)
-    non_registered_participants = [
-        event_data_result.checked_in[user_id]
-        for user_id in not_registered_ids
-    ]
-    not_registered_message = message_helper.build_participants_list(
-        list_header= "‼️ **Participants checked-in but not registered:**",
-        participants=list(non_registered_participants)
+    not_registered_message = _generate_participant_message(
+        search_ids=not_registered_ids,
+        source_dict=event_data_result.checked_in,
+        header="‼️ **Participants checked-in but not registered:**",
+        default_message="👍 No unexpected check-ins"
     )
 
-    content = f"{not_checked_in_message}\n{not_registered_message}" if non_registered_participants else not_checked_in_message
+    content = f"{not_checked_in_message}\n{not_registered_message}"
     response = ResponseMessage(content)
 
     return response if should_ping_users else response.with_silent_pings()
