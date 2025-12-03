@@ -16,6 +16,12 @@ def build_participants_list(list_header: str, participants: List[Participant]) -
     Builds a sorted, numbered list of participants using direct attribute access.
     List passed in will typically be dict of Participant since it may come from DynamoDB.
     """
+    if len(participants) == 0:
+        print("Participants list is empty: no list to build")
+        return f"{list_header}\nNo participants"
+
+    print(f"Building participants list for {participants}")
+
     # Sort the participants list by their display_name attribute
     sorted_participants = sorted(
         participants,

@@ -54,7 +54,7 @@ def test_build_participants_list_empty(mock_get_user_ping):
     """Tests list building with an empty participant list (no numbers or sorting necessary)."""
     header = "Attendees"
     participants = []
-    expected = "Attendees\n"
+    expected = "Attendees\nNo participants"
     assert message_helper.build_participants_list(header, participants) == expected
 
 
