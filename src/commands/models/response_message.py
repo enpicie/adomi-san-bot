@@ -3,15 +3,13 @@ from discord import Embed
 
 import constants
 import utils.adomin_messages as adomin_messages
-
-# https://discord.com/developers/docs/resources/message#message-object-message-flags
-SUPPRESS_EMBEDS_FLAG = 1 << 2
+import commands.models.message_flags as message_flags
 
 class ResponseMessage:
     content: str
     embeds: Optional[List[Embed]]
     allowed_mentions: Optional[Dict] = None
-    flags: Optional[int] = None
+    flags: int = 0
 
     def __init__(self, content: str, embeds: List[Embed] = None):
         self.content = content
@@ -24,7 +22,11 @@ class ResponseMessage:
         return self
 
     def with_suppressed_embeds(self) -> "ResponseMessage":
-        self.flags = SUPPRESS_EMBEDS_FLAG
+        self.flags |= message_flags.SUPPRESS_EMBEDS
+        return self
+
+    def with_suppressed_notifications(self) -> "ResponseMessage":
+        self.flags |= message_flags.SUPPRESS_NOTIFICATIONS
         return self
 
     def to_dict(self) -> dict:
@@ -35,8 +37,8 @@ class ResponseMessage:
 
         if self.allowed_mentions is not None: # Set when silencing mentions
             data["allowed_mentions"] = self.allowed_mentions
-            data["content"] = "@silent " + data["content"] # Will show with silent bell in discord
-        if self.flags is not None:
+            self = self.with_suppressed_notifications()
+        if self.flags != 0: # Default value implying no flags set
             data["flags"] = self.flags
 
         return {
