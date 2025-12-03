@@ -150,6 +150,7 @@ def _generate_participant_message(search_ids, source_dict, header, default_messa
     participants = [
         source_dict[user_id]
         for user_id in search_ids
+        if source_dict.get(user_id)
     ]
     if participants:
         return message_helper.build_participants_list(
