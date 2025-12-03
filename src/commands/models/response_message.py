@@ -19,14 +19,11 @@ class ResponseMessage:
         self.allowed_mentions = {
             "parse": [] # Disable all automatic pings
         }
+        self.flags |= message_flags.SUPPRESS_NOTIFICATIONS
         return self
 
     def with_suppressed_embeds(self) -> "ResponseMessage":
         self.flags |= message_flags.SUPPRESS_EMBEDS
-        return self
-
-    def with_suppressed_notifications(self) -> "ResponseMessage":
-        self.flags |= message_flags.SUPPRESS_NOTIFICATIONS
         return self
 
     def to_dict(self) -> dict:
@@ -37,7 +34,6 @@ class ResponseMessage:
 
         if self.allowed_mentions is not None: # Set when silencing mentions
             data["allowed_mentions"] = self.allowed_mentions
-            self = self.with_suppressed_notifications()
         if self.flags != 0: # Default value implying no flags set
             data["flags"] = self.flags
 
