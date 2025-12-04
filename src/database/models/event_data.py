@@ -21,7 +21,6 @@ class EventData(SubscriptableMixin):
         START_MESSAGE = "start_message"
         END_MESSAGE = "end_message"
 
-
     checked_in: dict = field(metadata={'db_key': Keys.CHECKED_IN})
     registered: dict = field(metadata={'db_key': Keys.REGISTERED})
     queue: dict = field(metadata={'db_key': Keys.QUEUE})
