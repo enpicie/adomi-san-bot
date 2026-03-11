@@ -140,7 +140,7 @@ jobs:
           TF_VAR_discord_public_key: '${{ inputs.discord_public_key }}'
 
       - name: Deploy Application Config via Terraform
-        uses: enpicie/gh-action-workflow-terraform-run@v0.2.0
+        uses: enpicie/gh-action-workflow-terraform-run@v0.3.0
         with:
           aws_role_arn: ${{ secrets.AWS_ROLE_ARN_LAMBDA_APIGW_DDB_SQS }}
           state_key: projects/${{ inputs.app_name }}/${{ inputs.deployment_env }}/infra.tfstate
