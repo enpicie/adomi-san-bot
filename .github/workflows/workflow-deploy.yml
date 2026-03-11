@@ -68,7 +68,7 @@ jobs:
 
       - name: Build and Upload Lambda Layer Artifact to S3 - Main Lambda
         id: build_layer
-        uses: enpicie/action-workflow-build-python-lambda-layer-zip@v2.0.4
+        uses: enpicie/gh-action-workflow-build-python-lambda-layer-zip@v2.0.4
         with:
           requirements_path: ./requirements.txt # Path relative the repository root
           app_name: ${{ inputs.app_name }}
@@ -78,7 +78,7 @@ jobs:
 
       - name: Build and Upload Lambda Layer Artifact to S3 - SQS Worker Lambda
         id: build_layer_worker
-        uses: enpicie/action-workflow-build-python-lambda-layer-zip@v2.0.4
+        uses: enpicie/gh-action-workflow-build-python-lambda-layer-zip@v2.0.4
         with:
           requirements_path: ./jobs/remove_role/requirements.txt # Path relative the repository root
           app_name: ${{ inputs.sqs_worker_name }}
@@ -87,7 +87,7 @@ jobs:
           aws_role_arn: ${{ secrets.AWS_S3_ARTIFACT_UPLOAD_ROLE_ARN }}
 
       - name: Upload Latest Lambda Zip to S3 - Main Lambda
-        uses: enpicie/action-workflow-upload-lambda-zip@v0.3.0
+        uses: enpicie/gh-action-workflow-upload-lambda-zip@v0.3.0
         with:
           source_directory: ./src
           app_name: ${{ inputs.app_name }}
@@ -97,7 +97,7 @@ jobs:
 
       - name: Upload Version Lambda Zip to S3 - Main Lambda
         if: ${{ inputs.app_version != '' }}
-        uses: enpicie/action-workflow-upload-lambda-zip@v0.3.0
+        uses: enpicie/gh-action-workflow-upload-lambda-zip@v0.3.0
         with:
           source_directory: ./src
           app_name: ${{ inputs.app_name }}
@@ -106,7 +106,7 @@ jobs:
           aws_role_arn: ${{ secrets.AWS_S3_ARTIFACT_UPLOAD_ROLE_ARN }}
 
       - name: Upload Latest Lambda Zip to S3 - SWS Worker Lambda
-        uses: enpicie/action-workflow-upload-lambda-zip@v0.3.0
+        uses: enpicie/gh-action-workflow-upload-lambda-zip@v0.3.0
         with:
           source_directory: ./jobs/remove_role
           app_name: ${{ inputs.sqs_worker_name }}
