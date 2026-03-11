@@ -64,23 +64,6 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup HCP Terraform Workspace
-        id: setup_workspace
-        uses: enpicie/action-workflow-hcp-terraform-workspace-setup@v1.1.0
-        with:
-          tfc_organization: ${{ inputs.hcp_terraform_org }}
-          tfc_workspace: ${{ inputs.hcp_terraform_workspace }}
-          tfc_project: ${{ inputs.hcp_terraform_project }}
-          tfc_token: ${{ secrets.TF_API_TOKEN }}
-
-      - name: Attach IAM Permissions Variable Set to this Workspace
-        uses: enpicie/action-workflow-hcp-terraform-var-set-attach@v1.0.1
-        with:
-          tfc_organization: ${{ inputs.hcp_terraform_org }}
-          tfc_workspace_id: ${{ steps.setup_workspace.outputs.workspace_id }}
-          tfc_token: ${{ secrets.TF_API_TOKEN }}
-          var_set_name: ${{ vars.AWS_TF_ROLE_VARSET_LAMB_APIGW_DDB_SQS }}
-
       - name: Build and Upload Lambda Layer Artifact to S3 - Main Lambda
         id: build_layer
         uses: enpicie/action-workflow-build-python-lambda-layer-zip@v2.0.4
@@ -156,25 +139,24 @@ jobs:
           TF_VAR_worker_lambda_layer_hash_s3_key: '${{ steps.build_layer_worker.outputs.s3_artifact_hash_key }}'
           TF_VAR_discord_public_key: '${{ inputs.discord_public_key }}'
 
-      - name: Deploy Application Config via HCP Terraform
-        uses: enpicie/action-workflow-hcp-terraform-run@v1.1.1
+      - name: Deploy Application Config via Terraform
+        uses: enpicie/gh-action-workflow-terraform-run@v0.2.0
         with:
-          terraform_directory: ./terraform
-          tfc_organization: ${{ inputs.hcp_terraform_org }}
-          tfc_workspace: ${{ inputs.hcp_terraform_workspace }}
-          tfc_token: ${{ secrets.TF_API_TOKEN }}
-        env:
-          # Need explicit quotes to pass strings as string literaly correctly
-          TF_VAR_app_name: '"${{ inputs.app_name }}"'
-          TF_VAR_sqs_worker_name: '"${{ inputs.sqs_worker_name }}"'
-          TF_VAR_aws_region: '"${{ inputs.aws_region }}"'
-          TF_VAR_python_runtime: '"${{ inputs.python_runtime }}"'
-          TF_VAR_deployment_env: '"${{ inputs.deployment_env }}"'
-          TF_VAR_bucket_name: '"${{ inputs.artifact_s3_bucket }}"'
-          TF_VAR_app_lambda_layer_s3_key: '"${{ steps.build_layer.outputs.s3_artifact_key }}"'
-          TF_VAR_app_lambda_layer_hash_s3_key: '"${{ steps.build_layer.outputs.s3_artifact_hash_key }}"'
-          TF_VAR_worker_lambda_layer_s3_key: '"${{ steps.build_layer_worker.outputs.s3_artifact_key }}"'
-          TF_VAR_worker_lambda_layer_hash_s3_key: '"${{ steps.build_layer_worker.outputs.s3_artifact_hash_key }}"'
-          TF_VAR_discord_public_key: '"${{ inputs.discord_public_key }}"'
-          TF_VAR_startgg_api_token: '"${{ secrets.STARTGG_API_TOKEN }}"'
-          TF_VAR_discord_bot_token: '"${{ secrets.DISCORD_BOT_TOKEN }}"'
+          aws_role_arn: ${{ secrets.AWS_ROLE_ARN_LAMBDA_APIGW_DDB_SQS }}
+          state_key: projects/${{ inputs.app_name }}/${{ inputs.deployment_env }}/infra.tfstate
+          aws_region: us-east-2
+          tf_directory: ./terraform
+          tf_vars: |
+            TF_VAR_app_name=${{ inputs.app_name }}
+            TF_VAR_sqs_worker_name=${{ inputs.sqs_worker_name }}
+            TF_VAR_aws_region=${{ inputs.aws_region }}
+            TF_VAR_python_runtime=${{ inputs.python_runtime }}
+            TF_VAR_deployment_env=${{ inputs.deployment_env }}
+            TF_VAR_bucket_name=${{ inputs.artifact_s3_bucket }}
+            TF_VAR_app_lambda_layer_s3_key=${{ steps.build_layer.outputs.s3_artifact_key }}
+            TF_VAR_app_lambda_layer_hash_s3_key=${{ steps.build_layer.outputs.s3_artifact_hash_key }}
+            TF_VAR_worker_lambda_layer_s3_key=${{ steps.build_layer_worker.outputs.s3_artifact_key }}
+            TF_VAR_worker_lambda_layer_hash_s3_key=${{ steps.build_layer_worker.outputs.s3_artifact_hash_key }}
+            TF_VAR_discord_public_key=${{ inputs.discord_public_key }}
+            TF_VAR_startgg_api_token=${{ secrets.STARTGG_API_TOKEN }}
+            TF_VAR_discord_bot_token=${{ secrets.DISCORD_BOT_TOKEN }}

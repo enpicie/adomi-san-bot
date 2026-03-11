@@ -5,6 +5,14 @@ terraform {
       version = "~> 5.0"
     }
   }
+  # backend "remote" {
+  #   hostname     = "app.terraform.io"
+  #   organization = "enpicie"
+  #   workspaces {
+  #     name = "adomi-san-bot-prod"
+  #   }
+  # }
+  backend "s3" {}
 }
 
 provider "aws" {
