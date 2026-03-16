@@ -79,6 +79,7 @@ jobs:
       AWS_ROLE_ARN_S3: ${{ secrets.AWS_ROLE_ARN_S3 }}
       TF_API_TOKEN: ${{ secrets.TF_API_TOKEN }}
       DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN_DEV }}
+      STARTGG_API_KEY: ${{ secrets.STARTGG_API_KEY }}
 
   register-commands:
     needs: deploy

@@ -56,6 +56,8 @@ on:
         required: true
       DISCORD_BOT_TOKEN:
         required: true
+      STARTGG_API_KEY:
+        required: true
 
 jobs:
   deploy-via-hcp-terraform:
@@ -159,3 +161,4 @@ jobs:
             TF_VAR_worker_lambda_layer_hash_s3_key=${{ steps.build_layer_worker.outputs.s3_artifact_hash_key }}
             TF_VAR_discord_public_key=${{ inputs.discord_public_key }}
             TF_VAR_discord_bot_token=${{ secrets.DISCORD_BOT_TOKEN }}
+            TF_VAR_startgg_api_key=${{ secrets.STARTGG_API_KEY }}

@@ -64,3 +64,9 @@ variable "discord_bot_token" {
   description = "Discord bot token for authenticating with Discord API"
   type        = string
 }
+
+variable "startgg_api_key" {
+  description = "Start.gg API key for accessing the start.gg GraphQL API"
+  type        = string
+  sensitive   = true
+}
