@@ -1,4 +1,4 @@
-name: 'Deploy Infrastructure via HCP Terraform'
+name: 'Deploy Infrastructure via Terraform'
 
 on:
   workflow_call:
@@ -50,7 +50,7 @@ on:
     secrets:
       AWS_ROLE_ARN_LAMBDA_APIGW_DDB_SQS:
         required: true
-      AWS_S3_ARTIFACT_UPLOAD_ROLE_ARN:
+      AWS_ROLE_ARN_S3:
         required: true
       TF_API_TOKEN:
         required: true
@@ -72,7 +72,7 @@ jobs:
           app_name: ${{ inputs.app_name }}
           python_runtime: ${{ inputs.python_runtime }}
           s3_layer_bucket_name: ${{ inputs.artifact_s3_bucket }} # Store layer in same bucket for env as artifacts
-          aws_role_arn: ${{ secrets.AWS_S3_ARTIFACT_UPLOAD_ROLE_ARN }}
+          aws_role_arn: ${{ secrets.AWS_ROLE_ARN_S3 }}
 
       - name: Build and Upload Lambda Layer Artifact to S3 - SQS Worker Lambda
         id: build_layer_worker
@@ -82,7 +82,7 @@ jobs:
           app_name: ${{ inputs.sqs_worker_name }}
           python_runtime: ${{ inputs.python_runtime }}
           s3_layer_bucket_name: ${{ inputs.artifact_s3_bucket }}
-          aws_role_arn: ${{ secrets.AWS_S3_ARTIFACT_UPLOAD_ROLE_ARN }}
+          aws_role_arn: ${{ secrets.AWS_ROLE_ARN_S3 }}
 
       - name: Upload Latest Lambda Zip to S3 - Main Lambda
         uses: enpicie/gh-action-workflow-upload-lambda-zip@v0.3.0
@@ -91,7 +91,7 @@ jobs:
           app_name: ${{ inputs.app_name }}
           artifact_name: ${{ inputs.app_name }}-latest
           s3_bucket_name: ${{ inputs.artifact_s3_bucket }}
-          aws_role_arn: ${{ secrets.AWS_S3_ARTIFACT_UPLOAD_ROLE_ARN }}
+          aws_role_arn: ${{ secrets.AWS_ROLE_ARN_S3 }}
 
       - name: Upload Version Lambda Zip to S3 - Main Lambda
         if: ${{ inputs.app_version != '' }}
@@ -101,7 +101,7 @@ jobs:
           app_name: ${{ inputs.app_name }}
           artifact_name: ${{ inputs.app_name }}-${{ inputs.app_version }}
           s3_bucket_name: ${{ inputs.artifact_s3_bucket }}
-          aws_role_arn: ${{ secrets.AWS_S3_ARTIFACT_UPLOAD_ROLE_ARN }}
+          aws_role_arn: ${{ secrets.AWS_ROLE_ARN_S3 }}
 
       - name: Upload Latest Lambda Zip to S3 - SWS Worker Lambda
         uses: enpicie/gh-action-workflow-upload-lambda-zip@v0.3.0
@@ -110,7 +110,7 @@ jobs:
           app_name: ${{ inputs.sqs_worker_name }}
           artifact_name: ${{ inputs.sqs_worker_name }}-latest
           s3_bucket_name: ${{ inputs.artifact_s3_bucket }}
-          aws_role_arn: ${{ secrets.AWS_S3_ARTIFACT_UPLOAD_ROLE_ARN }}
+          aws_role_arn: ${{ secrets.AWS_ROLE_ARN_S3 }}
 
       - name: Log Terraform input variables
         shell: bash
