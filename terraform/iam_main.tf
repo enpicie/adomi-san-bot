@@ -42,7 +42,10 @@ resource "aws_iam_role_policy" "lambda_dynamodb_policy" {
           "dynamodb:BatchWriteItem",
           "dynamodb:DescribeTable"
         ],
-        Resource = aws_dynamodb_table.adomi_discord_server_table.arn
+        Resource = [
+          aws_dynamodb_table.adomi_discord_server_table.arn,
+          "${aws_dynamodb_table.adomi_discord_server_table.arn}/index/*"
+        ]
       },
       {
         Sid      = "SQSAccess",

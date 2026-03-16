@@ -11,7 +11,7 @@ on:
           - dev
           - prod
       command_name:
-        description: Name of command to register/update
+        description: Name of command to register/update (or 'all' for all commands)
         required: true
         type: string
 
