@@ -12,7 +12,7 @@ register_commands_mapping: CommandMapping = {
         "description": "Show list of registered users for an event",
         "params": [EVENT_NAME_PARAM]
     },
-    "clear-registered": {
+    "register-clear": {
         "function": register_list_commands.clear_registered,
         "description": "Clear list of registered users for an event",
         "params": [EVENT_NAME_PARAM]

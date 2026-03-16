@@ -14,6 +14,48 @@ _EVENT_LINK_PARAM = CommandParam(
     choices=None
 )
 
+_TIMEZONE_PARAM = CommandParam(
+    name="timezone",
+    description="Timezone of the event",
+    param_type=AppCommandOptionType.string,
+    required=True,
+    choices=None,
+    autocomplete=True,
+    autocomplete_handler=autocomplete_handlers.autocomplete_event_timezone
+)
+
+_LOCATION_PARAM = CommandParam(
+    name="event_location",
+    description="Location of the event",
+    param_type=AppCommandOptionType.string,
+    required=True,
+    choices=None
+)
+
+_START_TIME_PARAM = CommandParam(
+    name="start_time",
+    description="Format: '2026-03-19 19:30' (24-hour time, year required). Date and time the event starts",
+    param_type=AppCommandOptionType.string,
+    required=True,
+    choices=None
+)
+
+_END_TIME_PARAM = CommandParam(
+    name="end_time",
+    description="Format: '2026-03-19 21:30' (24-hour time, year required). Date and time the event ends",
+    param_type=AppCommandOptionType.string,
+    required=True,
+    choices=None
+)
+
+_DESCRIPTION_PARAM = CommandParam(
+    name="event_description",
+    description="Description of the event",
+    param_type=AppCommandOptionType.string,
+    required=False,
+    choices=None
+)
+
 event_commands_mapping: CommandMapping = {
     "event-create": {
         "function": event_commands.create_event,
@@ -26,43 +68,30 @@ event_commands_mapping: CommandMapping = {
                 required=True,
                 choices=None
             ),
+            _LOCATION_PARAM,
+            _START_TIME_PARAM,
+            _END_TIME_PARAM,
+            _TIMEZONE_PARAM,
+            _DESCRIPTION_PARAM,
+        ]
+    },
+    "event-update": {
+        "function": event_commands.update_event,
+        "description": "Update an existing event's details",
+        "params": [
+            EVENT_NAME_PARAM,
+            _LOCATION_PARAM,
+            _START_TIME_PARAM,
+            _END_TIME_PARAM,
+            _TIMEZONE_PARAM,
             CommandParam(
-                name="event_location",
-                description="Location of the event",
-                param_type=AppCommandOptionType.string,
-                required=True,
-                choices=None
-            ),
-            CommandParam(
-                name="start_time",
-                description="Format: '2026-03-19 19:30' (24-hour time, year required). Date and time the event starts",
-                param_type=AppCommandOptionType.string,
-                required=True,
-                choices=None
-            ),
-            CommandParam(
-                name="end_time",
-                description="Format: '2026-03-19 21:30' (24-hour time, year required). Date and time the event ends",
-                param_type=AppCommandOptionType.string,
-                required=True,
-                choices=None
-            ),
-            CommandParam(
-                name="timezone",
-                description="Timezone of the event",
-                param_type=AppCommandOptionType.string,
-                required=True,
-                choices=None,
-                autocomplete=True,
-                autocomplete_handler=autocomplete_handlers.autocomplete_event_timezone
-            ),
-            CommandParam(
-                name="event_description",
-                description="Description of the event",
+                name="new_name",
+                description="New name for the event (leave blank to keep current name)",
                 param_type=AppCommandOptionType.string,
                 required=False,
                 choices=None
-            )
+            ),
+            _DESCRIPTION_PARAM,
         ]
     },
     "event-delete": {
@@ -85,13 +114,18 @@ event_commands_mapping: CommandMapping = {
         "description": "Create an event and import registered participants from a start.gg Tournament Event",
         "params": [_EVENT_LINK_PARAM]
     },
-    "event-refresh-startgg": {
-        "function": event_commands.event_refresh_startgg,
-        "description": "Refresh registered participants for an existing event from start.gg",
+    "event-update-startgg": {
+        "function": event_commands.update_event_startgg,
+        "description": "Link an existing event to a start.gg Tournament Event and refresh its data",
         "params": [
             EVENT_NAME_PARAM,
-            _EVENT_LINK_PARAM
+            _EVENT_LINK_PARAM,
         ]
+    },
+    "event-refresh-startgg": {
+        "function": event_commands.event_refresh_startgg,
+        "description": "Refresh registered participants for an existing event from its linked start.gg event",
+        "params": [EVENT_NAME_PARAM]
     },
     "events-list": {
         "function": event_commands.events_list,

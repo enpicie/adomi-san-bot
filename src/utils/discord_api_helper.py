@@ -56,6 +56,29 @@ def create_scheduled_event(guild_id: str, params: ScheduledEventParams) -> Optio
     return None
 
 
+def update_scheduled_event(guild_id: str, event_id: str, params: ScheduledEventParams) -> bool:
+    """
+    Updates a Discord guild scheduled event (EXTERNAL type).
+    :return: True if successful (200 response), False otherwise
+    """
+    url = f"https://discord.com/api/v10/guilds/{guild_id}/scheduled-events/{event_id}"
+    body = {
+        "name": params.name,
+        "scheduled_start_time": params.scheduled_start_time,
+        "scheduled_end_time": params.scheduled_end_time,
+        "entity_metadata": {"location": params.location},
+    }
+    if params.description:
+        body["description"] = params.description
+
+    response = requests.patch(url, headers=BOT_AUTH_HEADERS, json=body)
+
+    if response.status_code == 200:
+        return True
+    print(f"Error updating scheduled event: status {response.status_code}, body: {response.text}")
+    return False
+
+
 def delete_scheduled_event(guild_id: str, event_id: str) -> bool:
     """
     Deletes a Discord guild scheduled event.

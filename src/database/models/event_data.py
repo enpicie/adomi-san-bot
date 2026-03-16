@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 from database.models.subscriptable_mixin import SubscriptableMixin
 
@@ -26,6 +26,7 @@ class EventData(SubscriptableMixin):
 
         START_MESSAGE = "start_message"
         END_MESSAGE = "end_message"
+        STARTGG_URL = "startgg_url"
 
 
     checked_in: dict = field(metadata={'db_key': Keys.CHECKED_IN})
@@ -36,6 +37,7 @@ class EventData(SubscriptableMixin):
     register_enabled: bool = field(metadata={'db_key': Keys.REGISTER_ENABLED})
     start_message: str = field(metadata={'db_key': Keys.START_MESSAGE})
     end_message: str = field(metadata={'db_key': Keys.END_MESSAGE})
+    startgg_url: Optional[str] = field(default=None, metadata={'db_key': Keys.STARTGG_URL})
 
     @classmethod
     def from_dynamodb(cls, record: Dict[str, Any]) -> 'EventData':
@@ -47,5 +49,6 @@ class EventData(SubscriptableMixin):
             check_in_enabled=record.get(cls.Keys.CHECK_IN_ENABLED),
             register_enabled=record.get(cls.Keys.REGISTER_ENABLED),
             start_message=record.get(cls.Keys.START_MESSAGE),
-            end_message=record.get(cls.Keys.END_MESSAGE)
+            end_message=record.get(cls.Keys.END_MESSAGE),
+            startgg_url=record.get(cls.Keys.STARTGG_URL)
         )

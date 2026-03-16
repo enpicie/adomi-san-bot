@@ -55,6 +55,38 @@ def create_event_record(server_id: str, record: EventRecord, table: Table) -> st
     return event_id
 
 
+def update_event_record(server_id: str, event_id: str, record: EventRecord, table: Table) -> None:
+    """
+    Updates the Discord scheduled event and persists the new metadata to DynamoDB.
+    Raises RuntimeError if the Discord API call fails.
+    """
+    success = discord_helper.update_scheduled_event(server_id, event_id, ScheduledEventParams(
+        name=record.name,
+        location=record.location,
+        scheduled_start_time=record.start_time_utc,
+        scheduled_end_time=record.end_time_utc,
+        description=record.description
+    ))
+    if not success:
+        raise RuntimeError(f"Failed to update Discord scheduled event '{event_id}' for server '{server_id}'")
+
+    table.update_item(
+        Key={"PK": db_helper.build_server_pk(server_id), "SK": EventData.Keys.SK_EVENT_PREFIX + event_id},
+        UpdateExpression=(
+            f"SET {EventData.Keys.EVENT_NAME} = :name, "
+            f"{EventData.Keys.EVENT_LOCATION} = :location, "
+            f"{EventData.Keys.START_TIME} = :start_time, "
+            f"{EventData.Keys.END_TIME} = :end_time"
+        ),
+        ExpressionAttributeValues={
+            ":name": record.name,
+            ":location": record.location,
+            ":start_time": record.start_time_utc,
+            ":end_time": record.end_time_utc,
+        }
+    )
+
+
 def delete_event_record(server_id: str, event_id: str, table: Table) -> None:
     """
     Deletes the Discord scheduled event and removes the DynamoDB record.
