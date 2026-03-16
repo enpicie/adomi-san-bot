@@ -11,7 +11,8 @@ def show_event_roles(event: DiscordEvent, aws_services: AWSServices) -> Response
     if isinstance(config_result, ResponseMessage):
         return config_result
 
-    event_data_result = db_helper.get_server_event_data_or_fail(server_id, aws_services.dynamodb_table)
+    event_id = event.get_command_input_value("event_name")
+    event_data_result = db_helper.get_server_event_data_or_fail(server_id, event_id, aws_services.dynamodb_table)
     if isinstance(event_data_result, ResponseMessage):
         return event_data_result
 

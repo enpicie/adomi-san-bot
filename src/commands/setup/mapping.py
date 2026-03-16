@@ -5,6 +5,7 @@ from commands.models.command_param import CommandParam, ParamChoice
 import commands.setup.server_config_commands as server_config_commands
 import commands.setup.event_data_commands as event_data_commands
 import commands.setup.show_config_commands as show_config_commands
+from commands.event.autocomplete_handlers import EVENT_NAME_PARAM
 
 setup_commands: CommandMapping = {
     "setup-server": {
@@ -37,6 +38,7 @@ setup_commands: CommandMapping = {
         "function": event_data_commands.set_participant_role,
         "description": "Set the role for event participants to be pinged during events",
         "params": [
+            EVENT_NAME_PARAM,
             CommandParam(
                 name="participant_role",
                 description="Role for event participants to be pinged during events",
@@ -59,6 +61,6 @@ setup_commands: CommandMapping = {
     "show-event-roles": {
         "function": show_config_commands.show_event_roles,
         "description": "Show list of what the event roles in this server are",
-        "params": []
+        "params": [EVENT_NAME_PARAM]
     }
 }

@@ -35,8 +35,9 @@ def get_registered_startgg(event: DiscordEvent, aws_services: AWSServices) -> Re
             participant.user_id: participant.to_dict()
             for participant in startgg_event.participants
         }
+        event_id = event.get_command_input_value("event_name")
         aws_services.dynamodb_table.update_item(
-            Key={"PK": db_helper.build_server_pk(event.get_server_id()), "SK": EventData.Keys.SK_SERVER},
+            Key={"PK": db_helper.build_server_pk(event.get_server_id()), "SK": EventData.Keys.SK_EVENT_PREFIX + event_id},
             UpdateExpression=f"SET {EventData.Keys.REGISTERED} = :startgg_registered",
             ExpressionAttributeValues={":startgg_registered": startgg_participants_data}
         )

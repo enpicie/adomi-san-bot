@@ -4,6 +4,7 @@ import boto3
 import bot
 import constants
 import utils.discord_auth_helper as auth_helper
+from enums import DiscordInteractionType
 from aws_services import AWSServices
 
 dynamodb = boto3.resource("dynamodb", region_name=constants.AWS_REGION)
@@ -33,7 +34,14 @@ def lambda_handler(event, context):
         response = constants.PING_PONG_RESPONSE
     else:
         print(f"Received data: {body}") # debug print
-        response = bot.process_bot_command(body, aws_services)
+        interaction_type = body.get("type")
+        print(f"Interaction type: {interaction_type}") # debug print
+        if interaction_type == DiscordInteractionType.APPLICATION_COMMAND:
+            response = bot.process_bot_command(body, aws_services)
+        elif interaction_type == DiscordInteractionType.APPLICATION_COMMAND_AUTOCOMPLETE:
+            response = bot.process_input_autocomplete(body, aws_services)
+        else:
+            raise ValueError(f"Unsupported interaction type: {interaction_type}")
 
     print(f"Response: {response}") # debug print
     return response

@@ -18,4 +18,28 @@ resource "aws_dynamodb_table" "adomi_discord_server_table" {
     name = "SK"
     type = "S"
   }
+
+  attribute {
+    name = "server_id"
+    type = "S"
+  }
+
+  attribute {
+    name = "event_name"
+    type = "S"
+  }
+
+  global_secondary_index {
+    name = "EventNameIndex"
+    key_schema {
+      attribute_name = "server_id"
+      key_type       = "HASH"
+    }
+    key_schema {
+      attribute_name = "event_name"
+      key_type       = "RANGE"
+    }
+    projection_type    = "INCLUDE"
+    non_key_attributes = ["event_id"]
+  }
 }

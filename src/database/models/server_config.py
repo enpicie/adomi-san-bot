@@ -10,7 +10,7 @@ class ServerConfig(SubscriptableMixin):
         SK_FIELD = "sk"
         SK_CONFIG = "CONFIG"
 
-        EVENT_MODE = "event_mode"
+        SERVER_ID = "server_id"
         ORGANIZER_ROLE = "organizer_role"
 
     event_mode: str = field(metadata={'db_key': Keys.EVENT_MODE})

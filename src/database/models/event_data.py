@@ -8,8 +8,14 @@ class EventData(SubscriptableMixin):
     class Keys:
         PK_FIELD = "pk"
         SK_FIELD = "sk"
-        SK_SERVER = "SERVER"
-        SK_CHANNEL_PREFIX = "CHANNEL#"
+        SK_EVENT_PREFIX = "EVENT#"
+        SERVER_ID = "server_id"
+        EVENT_ID = "event_id"
+
+        EVENT_NAME = "event_name"
+        EVENT_LOCATION = "event_location"
+        START_TIME = "start_time"
+        END_TIME = "end_time"
 
         CHECKED_IN = "checked_in"
         REGISTERED = "registered"

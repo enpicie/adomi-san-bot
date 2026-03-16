@@ -25,12 +25,8 @@ def setup_server(event: DiscordEvent, aws_services: AWSServices) -> ResponseMess
             content=f"This server is already set up! Check out other commands to configure the settings for this server."
         )
 
-    # TODO: set based on user-input when functionality is fully built.
-    event_mode = EventMode.SERVER_WIDE.value
-    print(f"Event mode: {event_mode}")
     organizer_role = event.get_command_input_value("organizer_role")
     print(f"Organizer role: {organizer_role}")
-
 
     pk = db_helper.build_server_pk(server_id)
 
@@ -38,28 +34,13 @@ def setup_server(event: DiscordEvent, aws_services: AWSServices) -> ResponseMess
         Item={
             "PK": pk,
             "SK": ServerConfig.Keys.SK_CONFIG,
-            ServerConfig.Keys.EVENT_MODE: EventMode.SERVER_WIDE.value,
+            ServerConfig.Keys.SERVER_ID: server_id,
             ServerConfig.Keys.ORGANIZER_ROLE: organizer_role
         }
     )
 
-    if event_mode == EventMode.SERVER_WIDE.value:
-        table.put_item(
-            Item={
-                "PK": pk,
-                "SK": EventData.Keys.SK_SERVER,
-                EventData.Keys.CHECKED_IN: {}, # Initialize empty checked_in map
-                EventData.Keys.REGISTERED: {}, # Initialize empty registered map
-                EventData.Keys.QUEUE: {},     # Initialize empty queue map,
-                # Default disable these fields to prevent unexpected data
-                EventData.Keys.CHECK_IN_ENABLED: False,
-                EventData.Keys.REGISTER_ENABLED: False
-            }
-        )
-    # TODO: implement case for Per-Channel when modes are implemented
-
     return ResponseMessage(
-        content=f"👍 Server setup complete with event mode `{event_mode}`."
+        content=f"👍 Server setup complete`."
     )
 
 def set_organizer_role(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
@@ -103,6 +84,7 @@ def set_participant_role(event: DiscordEvent, aws_services: AWSServices) -> Resp
         # config or an error message if the config is not found.
         return result
 
+    event_id = event.get_command_input_value("event_name")
     participant_role = event.get_command_input_value("participant_role")
     should_remove_role = event.get_command_input_value("remove_role") or False # Default to No removal
 
@@ -111,8 +93,7 @@ def set_participant_role(event: DiscordEvent, aws_services: AWSServices) -> Resp
         participant_role = "" # Set to empty string to remove
 
     aws_services.dynamodb_table.update_item(
-        # Participant role is configured at level of event data (SK_SERVER for server-wide mode)
-        Key={"PK": db_helper.build_server_pk(server_id), "SK": EventData.Keys.SK_SERVER},
+        Key={"PK": db_helper.build_server_pk(server_id), "SK": EventData.Keys.SK_EVENT_PREFIX + event_id},
         UpdateExpression=f"SET {EventData.Keys.PARTICIPANT_ROLE} = :r",
         ExpressionAttributeValues={":r": participant_role}
     )

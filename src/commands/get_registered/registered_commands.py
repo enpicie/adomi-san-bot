@@ -24,7 +24,7 @@ def _verify_has_organizer_role(event: DiscordEvent, aws_services: AWSServices) -
 
 def show_registered(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
     """
-    Retrieves and displays a list of all currently registered users for the server event.
+    Retrieves and displays a list of all currently registered users for the event.
     Requires the calling user to have the organizer role.
     Returns a ResponseMessage with the list or an error/empty message.
     """
@@ -33,8 +33,9 @@ def show_registered(event: DiscordEvent, aws_services: AWSServices) -> ResponseM
         return error_message
 
     server_id = event.get_server_id()
+    event_id = event.get_command_input_value("event_name")
 
-    event_data_result = db_helper.get_server_event_data_or_fail(server_id, aws_services.dynamodb_table)
+    event_data_result = db_helper.get_server_event_data_or_fail(server_id, event_id, aws_services.dynamodb_table)
     if isinstance(event_data_result, ResponseMessage):
         return event_data_result
 
@@ -51,8 +52,7 @@ def show_registered(event: DiscordEvent, aws_services: AWSServices) -> ResponseM
 
 def clear_registered(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
     """
-    Clears all registered users from the server event record in DynamoDB.
-    Queues jobs to remove the participant role from all cleared users.
+    Clears all registered users from the event record in DynamoDB.
     Requires the calling user to have the organizer role.
     Returns a ResponseMessage indicating success or failure.
     """
@@ -61,8 +61,9 @@ def clear_registered(event: DiscordEvent, aws_services: AWSServices) -> Response
         return error_message
 
     server_id = event.get_server_id()
+    event_id = event.get_command_input_value("event_name")
 
-    event_data_result = db_helper.get_server_event_data_or_fail(server_id, aws_services.dynamodb_table)
+    event_data_result = db_helper.get_server_event_data_or_fail(server_id, event_id, aws_services.dynamodb_table)
     if isinstance(event_data_result, ResponseMessage):
         return event_data_result
 
@@ -72,7 +73,7 @@ def clear_registered(event: DiscordEvent, aws_services: AWSServices) -> Response
         )
 
     aws_services.dynamodb_table.update_item(
-        Key={"PK": db_helper.build_server_pk(server_id), "SK": EventData.Keys.SK_SERVER},
+        Key={"PK": db_helper.build_server_pk(server_id), "SK": EventData.Keys.SK_EVENT_PREFIX + event_id},
         UpdateExpression=f"SET {EventData.Keys.REGISTERED} = :empty_map",
         ExpressionAttributeValues={":empty_map": {}}
     )

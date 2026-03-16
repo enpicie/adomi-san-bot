@@ -16,6 +16,7 @@ def set_participant_role(event: DiscordEvent, aws_services: AWSServices) -> Resp
     if isinstance(error_message, ResponseMessage):
           return error_message
 
+    event_id = event.get_command_input_value("event_name")
     participant_role = event.get_command_input_value("participant_role")
     should_remove_role = event.get_command_input_value("remove_role") or False # Default to No removal
 
@@ -23,8 +24,7 @@ def set_participant_role(event: DiscordEvent, aws_services: AWSServices) -> Resp
         participant_role = "" # Set to empty string to remove
 
     aws_services.dynamodb_table.update_item(
-        # Participant role is configured at level of event data (SK_SERVER for server-wide mode)
-        Key={"PK": db_helper.build_server_pk(server_id), "SK": EventData.Keys.SK_SERVER},
+        Key={"PK": db_helper.build_server_pk(server_id), "SK": EventData.Keys.SK_EVENT_PREFIX + event_id},
         UpdateExpression=f"SET {EventData.Keys.PARTICIPANT_ROLE} = :r",
         ExpressionAttributeValues={":r": participant_role}
     )
