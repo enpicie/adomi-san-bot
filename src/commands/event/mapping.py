@@ -109,7 +109,7 @@ event_commands_mapping: CommandMapping = {
             )
         ]
     },
-    "create-event-startgg": {
+    "event-create-startgg": {
         "function": event_commands.create_event_startgg,
         "description": "Create an event and import registered participants from a start.gg Tournament Event",
         "params": [_EVENT_LINK_PARAM]
