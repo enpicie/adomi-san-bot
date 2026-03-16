@@ -32,5 +32,5 @@ def delete_event(event: DiscordEvent, aws_services: AWSServices) -> ResponseMess
         table=aws_services.dynamodb_table
     )
 
-    return ResponseMessage(content=f"Event deleted successfully.")
+    return ResponseMessage(content="Event deleted successfully.")
 

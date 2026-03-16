@@ -40,7 +40,7 @@ def setup_server(event: DiscordEvent, aws_services: AWSServices) -> ResponseMess
     )
 
     return ResponseMessage(
-        content=f"👍 Server setup complete`."
+        content="👍 Server setup complete."
     )
 
 def set_organizer_role(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:

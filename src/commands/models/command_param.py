@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Optional, List, Callable
+from typing import TYPE_CHECKING, Any, Optional, List, Callable
 from discord import AppCommandOptionType
 
 from commands.models.autocomplete_response import AutocompleteResponse
@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 @dataclass
 class ParamChoice:
     name: str
-    value: str
+    value: Any
 
 @dataclass
 class CommandParam:

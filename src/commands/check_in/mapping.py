@@ -46,7 +46,7 @@ checkin_commands: CommandMapping = {
             EVENT_NAME_PARAM,
             CommandParam(
                 name = "state",
-                description = "Set to 'Start' to begin accepting check-ins, and set ot 'End' to reject further check-ins",
+                description = "Set to 'Start' to begin accepting check-ins, and set to 'End' to reject further check-ins",
                 param_type=AppCommandOptionType.string,
                 required=True,
                 choices=[
