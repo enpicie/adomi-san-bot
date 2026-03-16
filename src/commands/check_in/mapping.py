@@ -22,7 +22,7 @@ checkin_commands: CommandMapping = {
         "description": "Clear list of checked-in users and remove Participant roles if set",
         "params": [EVENT_NAME_PARAM]
     },
-    "check-in-absent": {
+    "check-in-list-absent": {
         "function": check_in_commands.show_not_checked_in,
         "description": "Show list of users who are registered but not checked-in and optionally ping them",
         "params": [
