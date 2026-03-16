@@ -3,6 +3,7 @@ from unittest.mock import Mock
 
 import utils.permissions_helper as permissions_helper
 from commands.models.response_message import ResponseMessage
+from database.models.server_config import ServerConfig
 
 
 class TestRequireManageServerPermission(unittest.TestCase):
@@ -68,6 +69,54 @@ class TestRequireOrganizerRole(unittest.TestCase):
             self._make_event(["ROLE_MEMBER"])
         )
         self.assertIsInstance(result, ResponseMessage)
+
+
+class TestVerifyHasOrganizerRole(unittest.TestCase):
+    _ORGANIZER_ROLE = "ROLE_ORG"
+
+    def _make_aws(self, config_item=None):
+        aws = Mock()
+        aws.dynamodb_table.get_item.return_value = (
+            {"Item": config_item} if config_item is not None else {}
+        )
+        return aws
+
+    def _make_event(self, roles=None):
+        event = Mock()
+        event.get_server_id.return_value = "S1"
+        event.get_user_roles.return_value = roles or []
+        return event
+
+    def _config_item(self, organizer_role=_ORGANIZER_ROLE):
+        return {ServerConfig.Keys.ORGANIZER_ROLE: organizer_role}
+
+    def test_missing_config_returns_error(self):
+        result = permissions_helper.verify_has_organizer_role(
+            self._make_event(roles=[self._ORGANIZER_ROLE]),
+            self._make_aws(config_item=None)
+        )
+        self.assertIsInstance(result, ResponseMessage)
+
+    def test_user_missing_organizer_role_returns_error(self):
+        result = permissions_helper.verify_has_organizer_role(
+            self._make_event(roles=["OTHER_ROLE"]),
+            self._make_aws(config_item=self._config_item())
+        )
+        self.assertIsInstance(result, ResponseMessage)
+
+    def test_user_has_organizer_role_returns_none(self):
+        result = permissions_helper.verify_has_organizer_role(
+            self._make_event(roles=[self._ORGANIZER_ROLE]),
+            self._make_aws(config_item=self._config_item())
+        )
+        self.assertIsNone(result)
+
+    def test_user_with_multiple_roles_including_organizer_returns_none(self):
+        result = permissions_helper.verify_has_organizer_role(
+            self._make_event(roles=["MEMBER", self._ORGANIZER_ROLE, "BOOSTER"]),
+            self._make_aws(config_item=self._config_item())
+        )
+        self.assertIsNone(result)
 
 
 if __name__ == "__main__":

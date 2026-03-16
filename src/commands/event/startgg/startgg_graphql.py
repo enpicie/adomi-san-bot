@@ -2,10 +2,14 @@ EVENT_PARTICIPANTS_QUERY = """
     query EventEntrants($slug: String) {
         event(slug: $slug) {
             id
+            name
+            startAt
+            endAt
             tournament {
                 name
+                venueAddress
+                venueName
             }
-            name
             entrants(query: {
                 page: 1
                 perPage: 75

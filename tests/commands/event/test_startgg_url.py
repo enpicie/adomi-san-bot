@@ -1,6 +1,6 @@
 import unittest
 
-from commands.get_registered.startgg.startgg_api import is_valid_startgg_url
+from commands.event.startgg.startgg_api import is_valid_startgg_url
 
 
 class TestIsValidStartggUrl(unittest.TestCase):

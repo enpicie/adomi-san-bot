@@ -4,6 +4,15 @@ from commands.models.command_mapping import CommandMapping
 from commands.models.command_param import CommandParam
 import commands.event.event_commands as event_commands
 import commands.event.autocomplete_handlers as autocomplete_handlers
+from commands.event.autocomplete_handlers import EVENT_NAME_PARAM
+
+_EVENT_LINK_PARAM = CommandParam(
+    name="event_link",
+    description="Link to a start.gg Tournament Event (ex: start.gg/tournament/midweek-melting/event/mbaacc-bracket)",
+    param_type=AppCommandOptionType.string,
+    required=True,
+    choices=None
+)
 
 event_commands_mapping: CommandMapping = {
     "event-create": {
@@ -70,5 +79,23 @@ event_commands_mapping: CommandMapping = {
                 autocomplete_handler=autocomplete_handlers.autocomplete_event_name
             )
         ]
+    },
+    "create-event-startgg": {
+        "function": event_commands.create_event_startgg,
+        "description": "Create an event and import registered participants from a start.gg Tournament Event",
+        "params": [_EVENT_LINK_PARAM]
+    },
+    "event-refresh-startgg": {
+        "function": event_commands.event_refresh_startgg,
+        "description": "Refresh registered participants for an existing event from start.gg",
+        "params": [
+            EVENT_NAME_PARAM,
+            _EVENT_LINK_PARAM
+        ]
+    },
+    "events-list": {
+        "function": event_commands.events_list,
+        "description": "List all events for this server",
+        "params": []
     }
 }
