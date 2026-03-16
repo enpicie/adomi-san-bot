@@ -32,7 +32,7 @@ jobs:
       DISCORD_PUBLIC_KEY: ${{ steps.set-vars.outputs.DISCORD_PUBLIC_KEY }}
       BRANCH_NAME: ${{ steps.set-vars.outputs.BRANCH_NAME }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Load config
         id: set-vars
         run: |

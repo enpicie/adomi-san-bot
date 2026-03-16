@@ -28,7 +28,7 @@ jobs:
       DISCORD_PUBLIC_KEY: ${{ steps.set-vars.outputs.DISCORD_PUBLIC_KEY }}
       APP_VERSION: ${{ steps.set-vars.outputs.APP_VERSION }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Load config and extract tag version
         id: set-vars
         run: |
