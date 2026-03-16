@@ -22,7 +22,7 @@ checkin_commands: CommandMapping = {
         "description": "Clear list of checked-in users and remove Participant roles if set",
         "params": [EVENT_NAME_PARAM]
     },
-    "show-not-checked-in": {
+    "check-in-absent": {
         "function": check_in_commands.show_not_checked_in,
         "description": "Show list of users who are registered but not checked-in and optionally ping them",
         "params": [
@@ -39,7 +39,7 @@ checkin_commands: CommandMapping = {
             )
         ]
     },
-    "toggle-check-in": {
+    "check-in-toggle": {
         "function": check_in_commands.toggle_check_in,
         "description": "Toggle check-in start/end to set if check-ins are accepted or rejected",
         "params": [
