@@ -1,124 +1,70 @@
-import pytest
-from typing import List, Dict, Any
-from unittest.mock import patch
+import unittest
 
-# The relative import path to the module being tested
 import utils.message_helper as message_helper
-
-# The Participant class definition
 from database.models.participant import Participant
 
 
-# --- Mock Dependencies (get_user_ping) ---
-
-# Patching get_user_ping globally for all tests in this file
-@patch('utils.message_helper.get_user_ping', side_effect=lambda user_id: f"<@{user_id}>")
-class TestBuildParticipantsList:
-    # We use a test class to encapsulate all tests using the same patch
-
-    # Helper function to create Participant instances easily
-    def _create_participant(self, display_name, user_id):
-        # We must use the constructor which expects the actual data attributes
-        return Participant(display_name=display_name, user_id=user_id)
-
-    # --- Utility Tests (keeping them inside the class, though they don't strictly use the patch) ---
-
-    def test_get_user_ping(self, mock_get_user_ping):
-        """Tests the mock replacement for get_user_ping."""
-        user_id = "123"
-        expected = "<@123>"
-        # The mock will now handle this, so we check the mock's side_effect behavior
-        assert mock_get_user_ping(user_id) == expected
-
-    # Note: get_channel_mention is often a standalone function and should not be mocked
-    # but kept for completeness, assuming it's imported correctly.
-    # We remove it from the class to avoid interference with the patch.
-    # If the user insists on having it in the class, we'd adjust the patch decorator.
-    pass
+def _p(user_id: str, display_name: str) -> dict:
+    """Build a participant dict as it would come from DynamoDB."""
+    return {
+        Participant.Keys.USER_ID: user_id,
+        Participant.Keys.DISPLAY_NAME: display_name,
+    }
 
 
-# --- Standalone Utility Tests (outside the patched class) ---
+class TestFormatHelpers(unittest.TestCase):
+    def test_get_user_ping(self):
+        self.assertEqual(message_helper.get_user_ping("123"), "<@123>")
 
-def test_get_channel_mention():
-    """Tests the channel mention utility."""
-    channel_id = "456"
-    # Assuming get_channel_mention exists and returns the standard format
-    expected = "<#456>"
-    assert message_helper.get_channel_mention(channel_id) == expected
+    def test_get_channel_mention(self):
+        self.assertEqual(message_helper.get_channel_mention("456"), "<#456>")
 
-
-# --- Refactored Build List Tests ---
-
-@patch('utils.message_helper.get_user_ping', side_effect=lambda user_id: f"<@{user_id}>")
-def test_build_participants_list_empty(mock_get_user_ping):
-    """Tests list building with an empty participant list (no numbers or sorting necessary)."""
-    header = "Attendees"
-    participants = []
-    expected = "Attendees\nNo participants"
-    assert message_helper.build_participants_list(header, participants) == expected
+    def test_get_role_ping(self):
+        self.assertEqual(message_helper.get_role_ping("789"), "<@&789>")
 
 
-@patch('utils.message_helper.get_user_ping', side_effect=lambda user_id: f"<@{user_id}>")
-def test_build_participants_list_discord_users_and_sorting(mock_get_user_ping):
-    """Tests sorting and numbered list formatting for standard Discord users."""
-    header = "Discord Members"
+class TestBuildParticipantsList(unittest.TestCase):
+    HEADER = "Attendees"
 
-    # Input data is intentionally out of alphabetical order by display name
-    participants = [
-        Participant(user_id="200", display_name="Zed"),
-        Participant(user_id="100", display_name="Alice"),
-        Participant(user_id="300", display_name="Bob"),
-    ]
+    def test_empty_list(self):
+        result = message_helper.build_participants_list(self.HEADER, [])
+        self.assertEqual(result, "Attendees\nNo participants")
 
-    # Expected output should be sorted (Alice, Bob, Zed) and numbered (1., 2., 3.)
-    expected = (
-        "Discord Members\n"
-        "1. <@100>: Alice\n"
-        "2. <@300>: Bob\n"
-        "3. <@200>: Zed"
-    )
-    assert message_helper.build_participants_list(header, participants) == expected
+    def test_single_discord_user(self):
+        result = message_helper.build_participants_list(self.HEADER, [_p("100", "Alice")])
+        self.assertEqual(result, "Attendees\n1. <@100>: Alice")
 
-@patch('utils.message_helper.get_user_ping', side_effect=lambda user_id: f"<@{user_id}>")
-def test_build_participants_list_placeholder_users_and_sorting(mock_get_user_ping):
-    """Tests sorting and numbered list formatting for placeholder users."""
-    header = "External Guests"
+    def test_discord_users_sorted_alphabetically(self):
+        participants = [_p("200", "Zed"), _p("100", "Alice"), _p("300", "Bob")]
+        result = message_helper.build_participants_list(self.HEADER, participants)
+        self.assertEqual(result, "Attendees\n1. <@100>: Alice\n2. <@300>: Bob\n3. <@200>: Zed")
 
-    # Input data is intentionally out of alphabetical order
-    participants = [
-        Participant(user_id=Participant.DEFAULT_ID_PLACEHOLDER, display_name="Guest Z"),
-        Participant(user_id=Participant.DEFAULT_ID_PLACEHOLDER, display_name="Guest A"),
-        Participant(user_id=Participant.DEFAULT_ID_PLACEHOLDER, display_name="Guest M"),
-    ]
+    def test_placeholder_user_has_no_ping(self):
+        participants = [_p(Participant.DEFAULT_ID_PLACEHOLDER, "Guest A")]
+        result = message_helper.build_participants_list(self.HEADER, participants)
+        self.assertEqual(result, "Attendees\n1. Guest A")
 
-    # Expected output should be sorted (Guest A, Guest M, Guest Z) and numbered
-    expected = (
-        "External Guests\n"
-        "1. Guest A\n"
-        "2. Guest M\n"
-        "3. Guest Z"
-    )
-    assert message_helper.build_participants_list(header, participants) == expected
+    def test_placeholder_users_sorted(self):
+        participants = [
+            _p(Participant.DEFAULT_ID_PLACEHOLDER, "Guest Z"),
+            _p(Participant.DEFAULT_ID_PLACEHOLDER, "Guest A"),
+        ]
+        result = message_helper.build_participants_list(self.HEADER, participants)
+        self.assertEqual(result, "Attendees\n1. Guest A\n2. Guest Z")
 
-@patch('utils.message_helper.get_user_ping', side_effect=lambda user_id: f"<@{user_id}>")
-def test_build_participants_list_mixed_users_and_sorting(mock_get_user_ping):
-    """Tests list building with a mix of Discord and placeholder users, ensuring proper sorting."""
-    header = "All Attendees"
+    def test_mixed_discord_and_placeholder_sorted(self):
+        participants = [
+            _p("400", "Dave"),
+            _p(Participant.DEFAULT_ID_PLACEHOLDER, "External"),
+            _p("300", "Charlie"),
+            _p("500", "Adam"),
+        ]
+        result = message_helper.build_participants_list(self.HEADER, participants)
+        self.assertEqual(
+            result,
+            "Attendees\n1. <@500>: Adam\n2. <@300>: Charlie\n3. <@400>: Dave\n4. External"
+        )
 
-    # Input data (Unsorted by Display Name)
-    participants = [
-        Participant(user_id="400", display_name="Dave"),
-        Participant(user_id=Participant.DEFAULT_ID_PLACEHOLDER, display_name="External Reporter"),
-        Participant(user_id="300", display_name="Charlie"),
-        Participant(user_id="500", display_name="Adam"),
-    ]
 
-    # Expected output (Sorted by Display Name: Adam, Charlie, Dave, External Reporter)
-    expected = (
-        "All Attendees\n"
-        "1. <@500>: Adam\n"
-        "2. <@300>: Charlie\n"
-        "3. <@400>: Dave\n"
-        "4. External Reporter" # Placeholder should not have a ping, just the number and name
-    )
-    assert message_helper.build_participants_list(header, participants) == expected
+if __name__ == "__main__":
+    unittest.main()

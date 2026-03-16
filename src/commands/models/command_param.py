@@ -2,11 +2,10 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Optional, List, Callable
 from discord import AppCommandOptionType
 
-from commands.models.autocomplete_response import AutocompleteResponse
-
 if TYPE_CHECKING:
     from aws_services import AWSServices
     from commands.models.discord_event import DiscordEvent
+    from commands.models.autocomplete_response import AutocompleteResponse
 
 @dataclass
 class ParamChoice:
@@ -21,7 +20,7 @@ class CommandParam:
   required: bool
   choices: Optional[List[ParamChoice]]
   autocomplete: bool = False
-  autocomplete_handler: Optional[Callable[["DiscordEvent", "AWSServices"], AutocompleteResponse]] = None
+  autocomplete_handler: Optional[Callable[["DiscordEvent", "AWSServices"], "AutocompleteResponse"]] = None
 
   def to_dict(self) -> dict:
       param_dict = {

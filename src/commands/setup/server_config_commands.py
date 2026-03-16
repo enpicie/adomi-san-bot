@@ -3,7 +3,6 @@ from mypy_boto3_dynamodb.service_resource import Table
 import database.dynamodb_utils as db_helper
 import utils.permissions_helper as permissions_helper
 from aws_services import AWSServices
-from enums import EventMode
 from commands.models.discord_event import DiscordEvent
 from commands.models.response_message import ResponseMessage
 from database.models.event_data import EventData

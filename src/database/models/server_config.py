@@ -13,12 +13,10 @@ class ServerConfig(SubscriptableMixin):
         SERVER_ID = "server_id"
         ORGANIZER_ROLE = "organizer_role"
 
-    event_mode: str = field(metadata={'db_key': Keys.EVENT_MODE})
     organizer_role: str = field(metadata={'db_key': Keys.ORGANIZER_ROLE})
 
     @classmethod
     def from_dynamodb(cls, record: Dict[str, Any]) -> 'ServerConfig':
         return cls(
-            event_mode=record.get(cls.Keys.EVENT_MODE),
             organizer_role=record.get(cls.Keys.ORGANIZER_ROLE)
         )
