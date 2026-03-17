@@ -379,5 +379,6 @@ def _build_no_discord_report(no_discord_names: list) -> str:
     return (
         "\n**I found these start.gg users do not have Discord linked**\n"
         "---\n"
-        f"{participant_list_markdown}"
+        f"{participant_list_markdown}\n"
+        "\n*Please ensure the correct Discord account is linked and set to public on their start.gg profile.*"
     )

@@ -30,6 +30,18 @@ class ScheduledEventParams:
     scheduled_end_time: str    # UTC ISO 8601; required for EXTERNAL events
     description: Optional[str] = None
 
+def _extract_discord_error(response: requests.Response) -> str:
+    try:
+        body = response.json()
+        for field_errors in body.get("errors", {}).values():
+            for err in field_errors.get("_errors", []):
+                if "message" in err:
+                    return err["message"]
+        return body.get("message", "Unknown Discord API error")
+    except Exception:
+        return f"HTTP {response.status_code}"
+
+
 def create_scheduled_event(guild_id: str, params: ScheduledEventParams) -> Optional[str]:
     """
     Creates a Discord guild scheduled event (EXTERNAL type).
@@ -53,7 +65,7 @@ def create_scheduled_event(guild_id: str, params: ScheduledEventParams) -> Optio
     if response.status_code == 200:
         return response.json()["id"]
     print(f"Error creating scheduled event: status {response.status_code}, body: {response.text}")
-    return None
+    raise ValueError(_extract_discord_error(response))
 
 
 def update_scheduled_event(guild_id: str, event_id: str, params: ScheduledEventParams) -> bool:

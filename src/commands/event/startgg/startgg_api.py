@@ -40,6 +40,13 @@ def query_startgg_event(tourney_url: str) -> StartggEvent:
         headers=headers,
         timeout=10
     )
+
+    if not response.ok:
+        print(f"Error querying start.gg: status {response.status_code}, body: {response.text}")
     response.raise_for_status()
 
-    return StartggEvent.from_dict(response.json()["data"]["event"])
+    data = response.json()
+    if "errors" in data:
+        print(f"start.gg GraphQL errors for slug '{tourney_url}': {data['errors']}")
+
+    return StartggEvent.from_dict(data["data"]["event"])

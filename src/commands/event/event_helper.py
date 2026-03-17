@@ -32,7 +32,7 @@ def create_event_record(server_id: str, record: EventRecord, table: Table) -> st
         scheduled_end_time=record.end_time_utc,
         description=record.description
     ))
-    if not event_id:
+    if not event_id:  # pragma: no cover — ValueError raised by helper before this point
         raise RuntimeError(f"Failed to create Discord scheduled event for server '{server_id}'")
 
     table.put_item(Item={

@@ -16,13 +16,13 @@ aws_services = AWSServices(
 )
 
 def lambda_handler(event, context):
-    print(f"Received Event: {event}") # debug print
+    print(f"Received Event: {event}")
 
     # verify the signature
     try:
         auth_helper.verify_signature(event)
     except Exception as e:
-        raise Exception(f"[UNAUTHORIZED] Invalid request signature: {e}")
+        raise Exception(f"[UNAUTHORIZED] Invalid request signature: {e}") from e
 
     if not event["body"]:
         return { "message": "Request is not Lambda event: 'body-json' not found" }
@@ -33,9 +33,8 @@ def lambda_handler(event, context):
         print("discord_auth_helper.is_ping_pong: True")
         response = constants.PING_PONG_RESPONSE
     else:
-        print(f"Received data: {body}") # debug print
         interaction_type = body.get("type")
-        print(f"Interaction type: {interaction_type}") # debug print
+        print(f"Interaction type: {interaction_type}")
         if interaction_type == DiscordInteractionType.APPLICATION_COMMAND:
             response = bot.process_bot_command(body, aws_services)
         elif interaction_type == DiscordInteractionType.APPLICATION_COMMAND_AUTOCOMPLETE:
@@ -43,5 +42,5 @@ def lambda_handler(event, context):
         else:
             raise ValueError(f"Unsupported interaction type: {interaction_type}")
 
-    print(f"Response: {response}") # debug print
+    print(f"Response: {response}")
     return response
