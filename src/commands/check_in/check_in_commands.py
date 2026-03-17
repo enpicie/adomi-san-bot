@@ -56,7 +56,7 @@ def check_in_user(event: DiscordEvent, aws_services: AWSServices) -> ResponseMes
         )
     return ResponseMessage(
         content=f"✅ Checked in {message_helper.get_user_ping(user_id)}!"
-    )
+    ).with_silent_pings()
 
 def show_checked_in(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
     """

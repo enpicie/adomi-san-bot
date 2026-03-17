@@ -25,7 +25,7 @@ def register_user(event: DiscordEvent, aws_services: AWSServices) -> ResponseMes
     if isinstance(event_data_result, ResponseMessage):
         return event_data_result
 
-    if not event_data_result.register_enabled:
+    if not target_user_id and not event_data_result.register_enabled:
         return ResponseMessage(
             content="😵‍💫 Registration is not open for this event.\n"
                     "An Organizer must open registration before new registrations can be accepted."
@@ -62,9 +62,12 @@ def register_user(event: DiscordEvent, aws_services: AWSServices) -> ResponseMes
         ExpressionAttributeValues={":participant_info": participant.to_dict()}
     )
 
-    return ResponseMessage(
-        content=f"✅ {message_helper.get_user_ping(user_id)} has been registered!"
-    )
+    if target_user_id:
+        return ResponseMessage(
+            content=f"✅ {message_helper.get_user_ping(user_id)} has been registered!"
+        ).with_silent_pings()
+
+    return ResponseMessage(content="✅ You have been registered!")
 
 
 def register_remove(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
