@@ -32,7 +32,7 @@ resource "aws_lambda_layer_version" "event_poller_layer" {
 }
 
 module "event_poller" {
-  source = "github.com/enpicie/tf-module-eventbridge-scheduled-lambda?ref=v1.1.0"
+  source = "github.com/enpicie/tf-module-eventbridge-scheduled-lambda?ref=v1.2.0"
 
   name                = "${var.event_poller_name}-${var.deployment_env}"
   schedule_expression = "rate(15 minutes)"
