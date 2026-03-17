@@ -94,6 +94,9 @@ def update_event(event: DiscordEvent, aws_services: AWSServices) -> ResponseMess
     start_time_input = event.get_command_input_value("start_time")
     end_time_input = event.get_command_input_value("end_time")
 
+    if (start_time_input or end_time_input) and not timezone:
+        return ResponseMessage(content="❌ A timezone is required when providing a start time or end time.")
+
     start_time_utc = to_utc_iso(start_time_input, timezone) if start_time_input else event_data_result.start_time
     end_time_utc = to_utc_iso(end_time_input, timezone) if end_time_input else event_data_result.end_time
     location = event.get_command_input_value("event_location") or event_data_result.event_location
