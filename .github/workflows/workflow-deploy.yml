@@ -54,7 +54,7 @@ on:
     secrets:
       AWS_ROLE_ARN_LAMBDA_APIGW_DDB_SQS:
         required: true
-      AWS_ROLE_ARN_EVENTBRIDGE_LAMBDA:
+      AWS_ROLE_ARN_EVENTBRIDGE_LAMBDA_DDB_SQS:
         required: true
       AWS_ROLE_ARN_S3:
         required: true
@@ -170,7 +170,7 @@ jobs:
         uses: enpicie/gh-action-workflow-terraform-run@v0.3.1
         with:
           aws_role_arn: ${{ secrets.AWS_ROLE_ARN_LAMBDA_APIGW_DDB_SQS }}
-          state_key: projects/${{ inputs.app_name }}/${{ inputs.deployment_env }}/infra.tfstate
+          state_key: projects/${{ inputs.app_name }}/${{ inputs.deployment_env }}/app-config.tfstate
           aws_region: us-east-2
           tf_directory: ./terraform/adomi-bot
           tf_vars: |
@@ -191,8 +191,8 @@ jobs:
       - name: Deploy Event Poller Config via Terraform
         uses: enpicie/gh-action-workflow-terraform-run@v0.3.1
         with:
-          aws_role_arn: ${{ secrets.AWS_ROLE_ARN_EVENTBRIDGE_LAMBDA }}
-          state_key: projects/${{ inputs.app_name }}/event_poller/${{ inputs.deployment_env }}/infra.tfstate
+          aws_role_arn: ${{ secrets.AWS_ROLE_ARN_EVENTBRIDGE_LAMBDA_DDB_SQS }}
+          state_key: projects/${{ inputs.app_name }}/${{ inputs.deployment_env }}/event-poller-config.tfstate
           aws_region: us-east-2
           tf_directory: ./terraform/event_poller
           tf_vars: |
