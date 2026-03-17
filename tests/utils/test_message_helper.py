@@ -42,7 +42,7 @@ class TestBuildParticipantsList(unittest.TestCase):
     def test_placeholder_user_has_no_ping(self):
         participants = [_p(Participant.DEFAULT_ID_PLACEHOLDER, "Guest A")]
         result = message_helper.build_participants_list(self.HEADER, participants)
-        self.assertEqual(result, "Attendees\n1. Guest A")
+        self.assertEqual(result, "Attendees\n1. Guest A *(no Discord linked)*")
 
     def test_placeholder_users_sorted(self):
         participants = [
@@ -50,7 +50,7 @@ class TestBuildParticipantsList(unittest.TestCase):
             _p(Participant.DEFAULT_ID_PLACEHOLDER, "Guest A"),
         ]
         result = message_helper.build_participants_list(self.HEADER, participants)
-        self.assertEqual(result, "Attendees\n1. Guest A\n2. Guest Z")
+        self.assertEqual(result, "Attendees\n1. Guest A *(no Discord linked)*\n2. Guest Z *(no Discord linked)*")
 
     def test_mixed_discord_and_placeholder_sorted(self):
         participants = [
@@ -62,7 +62,7 @@ class TestBuildParticipantsList(unittest.TestCase):
         result = message_helper.build_participants_list(self.HEADER, participants)
         self.assertEqual(
             result,
-            "Attendees\n1. <@500>: Adam\n2. <@300>: Charlie\n3. <@400>: Dave\n4. External"
+            "Attendees\n1. <@500>: Adam\n2. <@300>: Charlie\n3. <@400>: Dave\n4. External *(no Discord linked)*"
         )
 
 
