@@ -198,16 +198,16 @@ def create_event_startgg(event: DiscordEvent, aws_services: AWSServices) -> Resp
     total_count = len(startgg_event.participants) + len(startgg_event.no_discord_participants)
     no_discord_names = [p.display_name for p in startgg_event.no_discord_participants]
 
+    all_participants_data = {p.user_id: p.to_dict() for p in startgg_event.participants}
+    for p in startgg_event.no_discord_participants:
+        all_participants_data[p.display_name] = p.to_dict()
+
     update_expressions = []
     expression_values = {":startgg_url": event_url}
 
-    if startgg_event.participants:
-        startgg_participants_data = {
-            participant.user_id: participant.to_dict()
-            for participant in startgg_event.participants
-        }
+    if all_participants_data:
         update_expressions.append(f"{EventData.Keys.REGISTERED} = :startgg_registered")
-        expression_values[":startgg_registered"] = startgg_participants_data
+        expression_values[":startgg_registered"] = all_participants_data
 
     update_expressions.append(f"{EventData.Keys.STARTGG_URL} = :startgg_url")
 
@@ -286,16 +286,16 @@ def update_event_startgg(event: DiscordEvent, aws_services: AWSServices) -> Resp
     total_count = len(startgg_event.participants) + len(startgg_event.no_discord_participants)
     no_discord_names = [p.display_name for p in startgg_event.no_discord_participants]
 
+    all_participants_data = {p.user_id: p.to_dict() for p in startgg_event.participants}
+    for p in startgg_event.no_discord_participants:
+        all_participants_data[p.display_name] = p.to_dict()
+
     update_expressions = [f"{EventData.Keys.STARTGG_URL} = :startgg_url"]
     expression_values = {":startgg_url": event_url}
 
-    if startgg_event.participants:
-        startgg_participants_data = {
-            participant.user_id: participant.to_dict()
-            for participant in startgg_event.participants
-        }
+    if all_participants_data:
         update_expressions.append(f"{EventData.Keys.REGISTERED} = :startgg_registered")
-        expression_values[":startgg_registered"] = startgg_participants_data
+        expression_values[":startgg_registered"] = all_participants_data
 
     aws_services.dynamodb_table.update_item(
         Key={"PK": db_helper.build_server_pk(server_id), "SK": EventData.Keys.SK_EVENT_PREFIX + event_id},
@@ -337,15 +337,15 @@ def event_refresh_startgg(event: DiscordEvent, aws_services: AWSServices) -> Res
             content="😔 No registered participants found for this start.gg event."
         )
 
-    if startgg_event.participants:
-        startgg_participants_data = {
-            participant.user_id: participant.to_dict()
-            for participant in startgg_event.participants
-        }
+    all_participants_data = {p.user_id: p.to_dict() for p in startgg_event.participants}
+    for p in startgg_event.no_discord_participants:
+        all_participants_data[p.display_name] = p.to_dict()
+
+    if all_participants_data:
         aws_services.dynamodb_table.update_item(
             Key={"PK": db_helper.build_server_pk(server_id), "SK": EventData.Keys.SK_EVENT_PREFIX + event_id},
             UpdateExpression=f"SET {EventData.Keys.REGISTERED} = :startgg_registered",
-            ExpressionAttributeValues={":startgg_registered": startgg_participants_data}
+            ExpressionAttributeValues={":startgg_registered": all_participants_data}
         )
 
     no_discord_report = _build_no_discord_report(no_discord_names)
