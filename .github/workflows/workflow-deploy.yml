@@ -170,9 +170,9 @@ jobs:
         uses: enpicie/gh-action-workflow-terraform-run@v0.3.1
         with:
           aws_role_arn: ${{ secrets.AWS_ROLE_ARN_LAMBDA_APIGW_DDB_SQS }}
-          state_key: projects/${{ inputs.app_name }}/${{ inputs.deployment_env }}/app-config.tfstate
+          state_key: projects/${{ inputs.app_name }}/${{ inputs.deployment_env }}/infra.tfstate
           aws_region: us-east-2
-          tf_directory: ./terraform/adomi-bot
+          tf_directory: ./terraform/infra
           tf_vars: |
             TF_VAR_app_name=${{ inputs.app_name }}
             TF_VAR_sqs_worker_name=${{ inputs.sqs_worker_name }}
@@ -192,7 +192,7 @@ jobs:
         uses: enpicie/gh-action-workflow-terraform-run@v0.3.1
         with:
           aws_role_arn: ${{ secrets.AWS_ROLE_ARN_EVENTBRIDGE_LAMBDA_DDB_SQS }}
-          state_key: projects/${{ inputs.app_name }}/${{ inputs.deployment_env }}/event-poller-config.tfstate
+          state_key: projects/${{ inputs.app_name }}/${{ inputs.deployment_env }}/event-poller.tfstate
           aws_region: us-east-2
           tf_directory: ./terraform/event_poller
           tf_vars: |

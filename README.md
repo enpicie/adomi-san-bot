@@ -370,7 +370,7 @@ Reading config in code: [src/constants.py](./src/constants.py)
 
 Terraform modules live in [terraform/](./terraform/), split into two independent root modules.
 
-### `terraform/adomi-bot/`
+### `terraform/infra/`
 
 Provisions the main bot infrastructure:
 
@@ -397,7 +397,7 @@ Provisions the scheduled cleanup job:
 
 ### Adding new infrastructure
 
-1. Add config variables to [config.env](./config.env) and [terraform/adomi-bot/variables.tf](./terraform/adomi-bot/variables.tf)
+1. Add config variables to [config.env](./config.env) and [terraform/infra/variables.tf](./terraform/infra/variables.tf)
 2. Update the `read-config` step in [.github/workflows/development.yml](./.github/workflows/development.yml) to pass new vars
 3. Reference them in Lambda environment variables via Terraform
 4. Read them in Python via [src/constants.py](./src/constants.py)
