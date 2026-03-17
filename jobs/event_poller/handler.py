@@ -146,7 +146,20 @@ def cleanup_ended_event(table, server_id, event_id):
     participant_role = event_record.get("participant_role")
     checked_in = event_record.get("checked_in") or {}
 
-    if participant_role and checked_in:
+    logger.info(
+        f"Event {event_id} cleanup: participant_role={participant_role!r}, "
+        f"checked_in_count={len(checked_in)}, checked_in={list(checked_in)}"
+    )
+
+    if not participant_role:
+        logger.warning(
+            f"Event {event_id} in server {server_id} has no participant_role, skipping role removals"
+        )
+    elif not checked_in:
+        logger.info(
+            f"Event {event_id} in server {server_id} has no checked-in users, skipping role removals"
+        )
+    else:
         queue_role_removals(server_id, checked_in, participant_role)
 
     delete_discord_event(server_id, event_id)
@@ -185,3 +198,11 @@ def handler(event, context):
                     f"Event {event_id} in server {server_id} ended (status={status}), cleaning up"
                 )
                 cleanup_ended_event(table, server_id, event_id)
+            elif status is None:
+                logger.warning(
+                    f"Event {event_id} in server {server_id} not found in Discord, skipping"
+                )
+            else:
+                logger.info(
+                    f"Event {event_id} in server {server_id} still active (status={status}), no action needed"
+                )
