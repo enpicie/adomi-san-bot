@@ -28,7 +28,7 @@ def _make_server_config(organizer_role="ROLE_ORG", default_participant_role=None
     return config
 
 
-def _make_event_item(registered=None, startgg_url=None):
+def _make_event_item(registered=None, startgg_url=None, start_time="2026-03-01T18:00:00Z"):
     return {
         EventData.Keys.REGISTERED: registered if registered is not None else {},
         EventData.Keys.CHECKED_IN: {},
@@ -39,6 +39,7 @@ def _make_event_item(registered=None, startgg_url=None):
         EventData.Keys.START_MESSAGE: "",
         EventData.Keys.END_MESSAGE: "",
         EventData.Keys.STARTGG_URL: startgg_url,
+        EventData.Keys.START_TIME: start_time,
     }
 
 
@@ -324,7 +325,19 @@ class TestUpdateEventStartgg(unittest.TestCase):
             result = update_event_startgg(_make_event(), aws)
         self.assertIsInstance(result, ResponseMessage)
         self.assertIn("updated", result.content.lower())
-        self.assertIn("2 registered", result.content)
+        self.assertIn("2 participant", result.content)
+
+    def test_start_time_change_reported_in_response(self):
+        startgg_event = _make_startgg_event(start_time_utc="2026-04-01T20:00:00Z")
+        aws = _make_aws(event_item=_make_event_item(start_time="2026-03-01T18:00:00Z"))
+        with patch("commands.event.event_commands.db_helper.get_server_config_or_fail", return_value=_make_server_config()), \
+             patch("commands.event.event_commands.permissions_helper.require_organizer_role", return_value=None), \
+             patch("commands.event.startgg.startgg_api.is_valid_startgg_url", return_value=True), \
+             patch("commands.event.startgg.startgg_api.query_startgg_event", return_value=startgg_event), \
+             patch("commands.event.event_commands.update_event_record"):
+            result = update_event_startgg(_make_event(), aws)
+        self.assertIn("2026-04-01T20:00:00Z", result.content)
+        self.assertIn("Start time updated", result.content)
 
     def test_success_stores_startgg_url(self):
         startgg_event = _make_startgg_event()
@@ -417,7 +430,7 @@ class TestEventRefreshStartgg(unittest.TestCase):
              patch("commands.event.startgg.startgg_api.query_startgg_event", return_value=startgg_event):
             result = event_refresh_startgg(_make_event(), aws)
         self.assertIsInstance(result, ResponseMessage)
-        self.assertIn("2 participants", result.content)
+        self.assertIn("2 participant", result.content)
         aws.dynamodb_table.update_item.assert_called_once()
 
     def test_success_reports_total_including_no_discord(self):
@@ -428,7 +441,29 @@ class TestEventRefreshStartgg(unittest.TestCase):
         with patch("utils.permissions_helper.verify_has_organizer_role", return_value=None), \
              patch("commands.event.startgg.startgg_api.query_startgg_event", return_value=startgg_event):
             result = event_refresh_startgg(_make_event(), _make_aws(event_item=item))
-        self.assertIn("2 participants", result.content)
+        self.assertIn("2 participant", result.content)
+
+    def test_start_time_updated_when_different_from_startgg(self):
+        item = _make_event_item(startgg_url=VALID_URL, start_time="2026-01-01T10:00:00Z")
+        startgg_event = _make_startgg_event(start_time_utc="2026-04-01T20:00:00Z")
+        aws = _make_aws(event_item=item)
+        with patch("utils.permissions_helper.verify_has_organizer_role", return_value=None), \
+             patch("commands.event.startgg.startgg_api.query_startgg_event", return_value=startgg_event), \
+             patch("commands.event.event_commands.update_event_record") as mock_update:
+            result = event_refresh_startgg(_make_event(), aws)
+        mock_update.assert_called_once()
+        self.assertIn("Start time updated", result.content)
+        self.assertIn("2026-04-01T20:00:00Z", result.content)
+
+    def test_start_time_not_updated_when_same_as_startgg(self):
+        item = _make_event_item(startgg_url=VALID_URL, start_time="2026-03-01T18:00:00Z")
+        participants = [RegisteredParticipant(display_name="P1", user_id="U1", source="startgg")]
+        startgg_event = _make_startgg_event(start_time_utc="2026-03-01T18:00:00Z", participants=participants)
+        with patch("utils.permissions_helper.verify_has_organizer_role", return_value=None), \
+             patch("commands.event.startgg.startgg_api.query_startgg_event", return_value=startgg_event), \
+             patch("commands.event.event_commands.update_event_record") as mock_update:
+            event_refresh_startgg(_make_event(), _make_aws(event_item=item))
+        mock_update.assert_not_called()
 
     def test_success_includes_no_discord_report(self):
         item = _make_event_item(startgg_url=VALID_URL)

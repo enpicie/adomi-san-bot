@@ -305,8 +305,14 @@ def update_event_startgg(event: DiscordEvent, aws_services: AWSServices) -> Resp
 
     no_discord_report = _build_no_discord_report(no_discord_names)
 
+    changes = []
+    if startgg_event.start_time_utc != event_data_result.start_time:
+        changes.append(f"🕒 Start time updated to `{startgg_event.start_time_utc}`")
+    changes.append(f"👥 Registered list synced with {total_count} participant(s)")
+    change_summary = "\n".join(f"• {c}" for c in changes)
+
     return ResponseMessage(
-        content=f"✅ Event **{startgg_event.event_name}** updated with {total_count} registered participants!{no_discord_report}{no_role_warning}"
+        content=f"✅ Event **{startgg_event.event_name}** updated from start.gg:\n{change_summary}{no_discord_report}{no_role_warning}"
     )
 
 
@@ -332,26 +338,45 @@ def event_refresh_startgg(event: DiscordEvent, aws_services: AWSServices) -> Res
     total_count = len(startgg_event.participants) + len(startgg_event.no_discord_participants)
     no_discord_names = [p.display_name for p in startgg_event.no_discord_participants]
 
-    if total_count == 0:
+    changes = []
+
+    if startgg_event.start_time_utc and startgg_event.start_time_utc != event_data_result.start_time:
+        update_event_record(
+            server_id=server_id,
+            event_id=event_id,
+            record=EventRecord(
+                name=event_data_result.event_name or event_id,
+                location=event_data_result.event_location or "Online",
+                start_time_utc=startgg_event.start_time_utc,
+                end_time_utc=event_data_result.end_time,
+                participant_role=event_data_result.participant_role
+            ),
+            table=aws_services.dynamodb_table
+        )
+        changes.append(f"🕒 Start time updated to `{startgg_event.start_time_utc}`")
+
+    if total_count == 0 and not changes:
         return ResponseMessage(
             content="😔 No registered participants found for this start.gg event."
         )
 
-    all_participants_data = {p.user_id: p.to_dict() for p in startgg_event.participants}
-    for p in startgg_event.no_discord_participants:
-        all_participants_data[p.display_name] = p.to_dict()
+    if total_count > 0:
+        all_participants_data = {p.user_id: p.to_dict() for p in startgg_event.participants}
+        for p in startgg_event.no_discord_participants:
+            all_participants_data[p.display_name] = p.to_dict()
 
-    if all_participants_data:
         aws_services.dynamodb_table.update_item(
             Key={"PK": db_helper.build_server_pk(server_id), "SK": EventData.Keys.SK_EVENT_PREFIX + event_id},
             UpdateExpression=f"SET {EventData.Keys.REGISTERED} = :startgg_registered",
             ExpressionAttributeValues={":startgg_registered": all_participants_data}
         )
+        changes.append(f"👥 Registered list updated with {total_count} participant(s)")
 
     no_discord_report = _build_no_discord_report(no_discord_names)
+    change_summary = "\n".join(f"• {c}" for c in changes)
 
     return ResponseMessage(
-        content=f"👍 Updated registered list with {total_count} participants from start.gg!" + no_discord_report
+        content=f"👍 Event refreshed from start.gg:\n{change_summary}{no_discord_report}"
     )
 
 
