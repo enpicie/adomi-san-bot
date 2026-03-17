@@ -150,7 +150,7 @@ event_commands_mapping: CommandMapping = {
             ),
             CommandParam(
                 name="end_time",
-                description="Format: '2026-03-19 21:30' (24-hour time, year required). Event end time — event data will be cleaned up after this time",
+                description="Format: '2026-03-19 21:30'. End time — event data cleaned up after this",
                 param_type=AppCommandOptionType.string,
                 required=True,
                 choices=None
@@ -187,7 +187,7 @@ event_commands_mapping: CommandMapping = {
             ),
             CommandParam(
                 name="end_time",
-                description="Format: '2026-03-19 21:30' (24-hour time, year required). Event end time — event data will be cleaned up after this time",
+                description="Format: '2026-03-19 21:30'. End time — event data cleaned up after this",
                 param_type=AppCommandOptionType.string,
                 required=True,
                 choices=None
