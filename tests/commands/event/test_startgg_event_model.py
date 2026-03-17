@@ -21,7 +21,6 @@ class TestStartggEventFromDict(unittest.TestCase):
         data = {
             "name": "Main Bracket",
             "startAt": 1735689600,  # 2025-01-01T00:00:00Z
-            "endAt": 1735693200,    # 2025-01-01T01:00:00Z
             "tournament": {
                 "name": "Midweek Melting",
                 "venueName": "The Arena",
@@ -59,13 +58,11 @@ class TestStartggEventFromDict(unittest.TestCase):
         event = StartggEvent.from_dict(data)
         self.assertEqual(event.location, "Online")
 
-    def test_missing_times_are_none(self):
+    def test_missing_start_time_is_none(self):
         data = self._base_event_data()
         data["startAt"] = None
-        data["endAt"] = None
         event = StartggEvent.from_dict(data)
         self.assertIsNone(event.start_time_utc)
-        self.assertIsNone(event.end_time_utc)
 
     def test_participant_with_discord_added_to_registered(self):
         data = self._base_event_data()

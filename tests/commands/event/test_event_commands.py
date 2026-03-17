@@ -68,7 +68,6 @@ def _make_event(server_id="S1", event_name="evt-1", event_link=VALID_URL, new_na
 def _make_startgg_event(
     event_name="Main Bracket",
     start_time_utc="2026-03-01T18:00:00Z",
-    end_time_utc="2026-03-01T22:00:00Z",
     location="Venue Hall",
     participants=None,
     no_discord_participants=None,
@@ -77,7 +76,6 @@ def _make_startgg_event(
         tourney_name="Midweek Melting",
         event_name=event_name,
         start_time_utc=start_time_utc,
-        end_time_utc=end_time_utc,
         location=location,
         participants=participants or [],
         no_discord_participants=no_discord_participants or [],
@@ -175,14 +173,14 @@ class TestCreateEventStartgg(unittest.TestCase):
         self.assertIsInstance(result, ResponseMessage)
         self.assertIn("not valid", result.content)
 
-    def test_missing_times_returns_error(self):
-        startgg_event = _make_startgg_event(start_time_utc=None, end_time_utc=None)
+    def test_missing_start_time_returns_error(self):
+        startgg_event = _make_startgg_event(start_time_utc=None)
         with patch("utils.permissions_helper.verify_has_organizer_role", return_value=None), \
              patch("commands.event.startgg.startgg_api.is_valid_startgg_url", return_value=True), \
              patch("commands.event.startgg.startgg_api.query_startgg_event", return_value=startgg_event):
             result = create_event_startgg(_make_event(), _make_aws())
         self.assertIsInstance(result, ResponseMessage)
-        self.assertIn("start/end times", result.content)
+        self.assertIn("start time", result.content)
 
     def test_success_no_participants(self):
         startgg_event = _make_startgg_event()
@@ -245,13 +243,13 @@ class TestUpdateEventStartgg(unittest.TestCase):
         self.assertIsInstance(result, ResponseMessage)
         self.assertIn("not valid", result.content)
 
-    def test_missing_times_returns_error(self):
-        startgg_event = _make_startgg_event(start_time_utc=None, end_time_utc=None)
+    def test_missing_start_time_returns_error(self):
+        startgg_event = _make_startgg_event(start_time_utc=None)
         with patch("utils.permissions_helper.verify_has_organizer_role", return_value=None), \
              patch("commands.event.startgg.startgg_api.is_valid_startgg_url", return_value=True), \
              patch("commands.event.startgg.startgg_api.query_startgg_event", return_value=startgg_event):
             result = update_event_startgg(_make_event(), _make_aws())
-        self.assertIn("start/end times", result.content)
+        self.assertIn("start time", result.content)
 
     def test_event_not_found_returns_error(self):
         startgg_event = _make_startgg_event()

@@ -18,7 +18,6 @@ class StartggEvent:
     tourney_name: str
     event_name: str
     start_time_utc: Optional[str]
-    end_time_utc: Optional[str]
     location: Optional[str]
     participants: List[RegisteredParticipant] = field(default_factory=list)
     no_discord_participants: List[Participant] = field(default_factory=list)
@@ -31,7 +30,6 @@ class StartggEvent:
         event_name = event_data.get("name", tourney_name)
 
         start_time_utc = _unix_to_utc_iso(event_data.get("startAt"))
-        end_time_utc = _unix_to_utc_iso(event_data.get("endAt"))
 
         venue_name = tournament.get("venueName")
         venue_address = tournament.get("venueAddress")
@@ -43,7 +41,6 @@ class StartggEvent:
             tourney_name=tourney_name,
             event_name=event_name,
             start_time_utc=start_time_utc,
-            end_time_utc=end_time_utc,
             location=location,
             participants=participants,
             no_discord_participants=no_discord_participants

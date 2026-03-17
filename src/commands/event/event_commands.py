@@ -92,11 +92,14 @@ def create_event_startgg(event: DiscordEvent, aws_services: AWSServices) -> Resp
 
     startgg_event = startgg_api.query_startgg_event(event_url)
 
-    if not startgg_event.start_time_utc or not startgg_event.end_time_utc:
+    if not startgg_event.start_time_utc:
         return ResponseMessage(
-            content="😔 Could not retrieve start/end times from this start.gg event. "
+            content="😔 Could not retrieve the start time from this start.gg event. "
                     "Please create the event manually with `/event-create`."
         )
+
+    timezone = event.get_command_input_value("timezone")
+    end_time_utc = to_utc_iso(event.get_command_input_value("end_time"), timezone)
 
     server_id = event.get_server_id()
     event_id = create_event_record(
@@ -105,7 +108,7 @@ def create_event_startgg(event: DiscordEvent, aws_services: AWSServices) -> Resp
             name=startgg_event.event_name,
             location=startgg_event.location or "Online",
             start_time_utc=startgg_event.start_time_utc,
-            end_time_utc=startgg_event.end_time_utc,
+            end_time_utc=end_time_utc,
         ),
         table=aws_services.dynamodb_table
     )
@@ -154,11 +157,14 @@ def update_event_startgg(event: DiscordEvent, aws_services: AWSServices) -> Resp
 
     startgg_event = startgg_api.query_startgg_event(event_url)
 
-    if not startgg_event.start_time_utc or not startgg_event.end_time_utc:
+    if not startgg_event.start_time_utc:
         return ResponseMessage(
-            content="😔 Could not retrieve start/end times from this start.gg event. "
+            content="😔 Could not retrieve the start time from this start.gg event. "
                     "Please update the event manually with `/event-update`."
         )
+
+    timezone = event.get_command_input_value("timezone")
+    end_time_utc = to_utc_iso(event.get_command_input_value("end_time"), timezone)
 
     server_id = event.get_server_id()
     event_id = event.get_command_input_value("event_name")
@@ -174,7 +180,7 @@ def update_event_startgg(event: DiscordEvent, aws_services: AWSServices) -> Resp
             name=startgg_event.event_name,
             location=startgg_event.location or "Online",
             start_time_utc=startgg_event.start_time_utc,
-            end_time_utc=startgg_event.end_time_utc,
+            end_time_utc=end_time_utc,
         ),
         table=aws_services.dynamodb_table
     )

@@ -4,7 +4,6 @@ EVENT_PARTICIPANTS_QUERY = """
             id
             name
             startAt
-            endAt
             tournament {
                 name
                 venueAddress

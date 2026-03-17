@@ -133,6 +133,22 @@ event_commands_mapping: CommandMapping = {
                 param_type=AppCommandOptionType.string,
                 required=True,
                 choices=None
+            ),
+            CommandParam(
+                name="end_time",
+                description="Format: '2026-03-19 21:30' (24-hour time, year required). Event end time — event data will be cleaned up after this time",
+                param_type=AppCommandOptionType.string,
+                required=True,
+                choices=None
+            ),
+            CommandParam(
+                name="timezone",
+                description="Timezone for the end time",
+                param_type=AppCommandOptionType.string,
+                required=True,
+                choices=None,
+                autocomplete=True,
+                autocomplete_handler=autocomplete_handlers.autocomplete_event_timezone
             )
         ]
     },
@@ -147,6 +163,22 @@ event_commands_mapping: CommandMapping = {
                 param_type=AppCommandOptionType.string,
                 required=True,
                 choices=None
+            ),
+            CommandParam(
+                name="end_time",
+                description="Format: '2026-03-19 21:30' (24-hour time, year required). Event end time — event data will be cleaned up after this time",
+                param_type=AppCommandOptionType.string,
+                required=True,
+                choices=None
+            ),
+            CommandParam(
+                name="timezone",
+                description="Timezone for the end time",
+                param_type=AppCommandOptionType.string,
+                required=True,
+                choices=None,
+                autocomplete=True,
+                autocomplete_handler=autocomplete_handlers.autocomplete_event_timezone
             )
         ]
     },

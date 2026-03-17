@@ -40,6 +40,6 @@ resource "aws_dynamodb_table" "adomi_discord_server_table" {
       key_type       = "RANGE"
     }
     projection_type    = "INCLUDE"
-    non_key_attributes = ["event_id"]
+    non_key_attributes = ["event_id", "start_time", "end_time", "description"]
   }
 }
