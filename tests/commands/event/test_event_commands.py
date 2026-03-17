@@ -249,6 +249,33 @@ class TestCreateEventStartgg(unittest.TestCase):
         self.assertIn("NoDiscordGuy", result.content)
         self.assertIn("do not have Discord linked", result.content)
 
+    def test_no_discord_participants_stored_keyed_by_display_name(self):
+        no_discord = [Participant(display_name="NoDiscordGuy", user_id=Participant.DEFAULT_ID_PLACEHOLDER)]
+        startgg_event = _make_startgg_event(no_discord_participants=no_discord)
+        aws = _make_aws()
+        with patch("commands.event.event_commands.db_helper.get_server_config_or_fail", return_value=_make_server_config()), \
+             patch("commands.event.event_commands.permissions_helper.require_organizer_role", return_value=None), \
+             patch("commands.event.startgg.startgg_api.is_valid_startgg_url", return_value=True), \
+             patch("commands.event.startgg.startgg_api.query_startgg_event", return_value=startgg_event), \
+             patch("commands.event.event_commands.create_event_record", return_value="EVT1"):
+            create_event_startgg(_make_event(), aws)
+        registered = aws.dynamodb_table.update_item.call_args.kwargs["ExpressionAttributeValues"][":startgg_registered"]
+        self.assertIn("NoDiscordGuy", registered)
+        self.assertEqual(registered["NoDiscordGuy"][Participant.Keys.USER_ID], Participant.DEFAULT_ID_PLACEHOLDER)
+
+    def test_only_no_discord_participants_still_writes_registered(self):
+        no_discord = [Participant(display_name="OfflineOnly", user_id=Participant.DEFAULT_ID_PLACEHOLDER)]
+        startgg_event = _make_startgg_event(participants=[], no_discord_participants=no_discord)
+        aws = _make_aws()
+        with patch("commands.event.event_commands.db_helper.get_server_config_or_fail", return_value=_make_server_config()), \
+             patch("commands.event.event_commands.permissions_helper.require_organizer_role", return_value=None), \
+             patch("commands.event.startgg.startgg_api.is_valid_startgg_url", return_value=True), \
+             patch("commands.event.startgg.startgg_api.query_startgg_event", return_value=startgg_event), \
+             patch("commands.event.event_commands.create_event_record", return_value="EVT1"):
+            create_event_startgg(_make_event(), aws)
+        call_kwargs = aws.dynamodb_table.update_item.call_args.kwargs
+        self.assertIn(":startgg_registered", call_kwargs["ExpressionAttributeValues"])
+
 
 class TestUpdateEventStartgg(unittest.TestCase):
     def test_no_organizer_role_returns_error(self):
@@ -322,6 +349,33 @@ class TestUpdateEventStartgg(unittest.TestCase):
             result = update_event_startgg(_make_event(), _make_aws(event_item=_make_event_item()))
         self.assertIn("OffGridPlayer", result.content)
 
+    def test_no_discord_participants_stored_keyed_by_display_name(self):
+        no_discord = [Participant(display_name="OffGridPlayer", user_id=Participant.DEFAULT_ID_PLACEHOLDER)]
+        startgg_event = _make_startgg_event(no_discord_participants=no_discord)
+        aws = _make_aws(event_item=_make_event_item())
+        with patch("commands.event.event_commands.db_helper.get_server_config_or_fail", return_value=_make_server_config()), \
+             patch("commands.event.event_commands.permissions_helper.require_organizer_role", return_value=None), \
+             patch("commands.event.startgg.startgg_api.is_valid_startgg_url", return_value=True), \
+             patch("commands.event.startgg.startgg_api.query_startgg_event", return_value=startgg_event), \
+             patch("commands.event.event_commands.update_event_record"):
+            update_event_startgg(_make_event(), aws)
+        registered = aws.dynamodb_table.update_item.call_args.kwargs["ExpressionAttributeValues"][":startgg_registered"]
+        self.assertIn("OffGridPlayer", registered)
+        self.assertEqual(registered["OffGridPlayer"][Participant.Keys.USER_ID], Participant.DEFAULT_ID_PLACEHOLDER)
+
+    def test_only_no_discord_participants_still_writes_registered(self):
+        no_discord = [Participant(display_name="OfflineOnly", user_id=Participant.DEFAULT_ID_PLACEHOLDER)]
+        startgg_event = _make_startgg_event(participants=[], no_discord_participants=no_discord)
+        aws = _make_aws(event_item=_make_event_item())
+        with patch("commands.event.event_commands.db_helper.get_server_config_or_fail", return_value=_make_server_config()), \
+             patch("commands.event.event_commands.permissions_helper.require_organizer_role", return_value=None), \
+             patch("commands.event.startgg.startgg_api.is_valid_startgg_url", return_value=True), \
+             patch("commands.event.startgg.startgg_api.query_startgg_event", return_value=startgg_event), \
+             patch("commands.event.event_commands.update_event_record"):
+            update_event_startgg(_make_event(), aws)
+        call_kwargs = aws.dynamodb_table.update_item.call_args.kwargs
+        self.assertIn(":startgg_registered", call_kwargs["ExpressionAttributeValues"])
+
 
 class TestEventRefreshStartgg(unittest.TestCase):
     def test_no_organizer_role_returns_error(self):
@@ -384,6 +438,30 @@ class TestEventRefreshStartgg(unittest.TestCase):
              patch("commands.event.startgg.startgg_api.query_startgg_event", return_value=startgg_event):
             result = event_refresh_startgg(_make_event(), _make_aws(event_item=item))
         self.assertIn("OffGridPlayer", result.content)
+
+    def test_no_discord_participants_stored_keyed_by_display_name(self):
+        item = _make_event_item(startgg_url=VALID_URL)
+        no_discord = [Participant(display_name="OffGridPlayer", user_id=Participant.DEFAULT_ID_PLACEHOLDER)]
+        startgg_event = _make_startgg_event(no_discord_participants=no_discord)
+        aws = _make_aws(event_item=item)
+        with patch("utils.permissions_helper.verify_has_organizer_role", return_value=None), \
+             patch("commands.event.startgg.startgg_api.query_startgg_event", return_value=startgg_event):
+            event_refresh_startgg(_make_event(), aws)
+        registered = aws.dynamodb_table.update_item.call_args.kwargs["ExpressionAttributeValues"][":startgg_registered"]
+        self.assertIn("OffGridPlayer", registered)
+        self.assertEqual(registered["OffGridPlayer"][Participant.Keys.USER_ID], Participant.DEFAULT_ID_PLACEHOLDER)
+
+    def test_only_no_discord_participants_still_writes_registered(self):
+        item = _make_event_item(startgg_url=VALID_URL)
+        no_discord = [Participant(display_name="OfflineOnly", user_id=Participant.DEFAULT_ID_PLACEHOLDER)]
+        startgg_event = _make_startgg_event(participants=[], no_discord_participants=no_discord)
+        aws = _make_aws(event_item=item)
+        with patch("utils.permissions_helper.verify_has_organizer_role", return_value=None), \
+             patch("commands.event.startgg.startgg_api.query_startgg_event", return_value=startgg_event):
+            event_refresh_startgg(_make_event(), aws)
+        aws.dynamodb_table.update_item.assert_called_once()
+        call_kwargs = aws.dynamodb_table.update_item.call_args.kwargs
+        self.assertIn(":startgg_registered", call_kwargs["ExpressionAttributeValues"])
 
     def test_uses_stored_url_not_command_input(self):
         stored_url = "https://www.start.gg/tournament/stored-event/event/stored-bracket"
