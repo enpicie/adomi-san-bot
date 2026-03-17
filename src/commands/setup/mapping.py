@@ -1,7 +1,7 @@
 from discord import AppCommandOptionType
 
 from commands.models.command_mapping import CommandMapping
-from commands.models.command_param import CommandParam
+from commands.models.command_param import CommandParam, ParamChoice
 import commands.setup.server_config_commands as server_config_commands
 import commands.setup.show_config_commands as show_config_commands
 from commands.event.autocomplete_handlers import EVENT_NAME_PARAM
@@ -45,6 +45,34 @@ setup_commands: CommandMapping = {
                 choices=None
             )
         ]
+    },
+    "setup-notifications": {
+        "function": server_config_commands.setup_notifications,
+        "description": "Set the channel for bot notifications and whether to ping organizers",
+        "params": [
+            CommandParam(
+                name="channel",
+                description="Channel to post bot notifications in",
+                param_type=AppCommandOptionType.channel,
+                required=True,
+                choices=None
+            ),
+            CommandParam(
+                name="ping_organizers",
+                description="Ping the organizer role with notifications (default: False)",
+                param_type=AppCommandOptionType.boolean,
+                required=False,
+                choices=[
+                    ParamChoice(name="True", value=True),
+                    ParamChoice(name="False", value=False)
+                ]
+            )
+        ]
+    },
+    "event-view": {
+        "function": show_config_commands.event_view,
+        "description": "View event settings, toggle states, and participant counts",
+        "params": [EVENT_NAME_PARAM]
     },
     "show-event-roles": {
         "function": show_config_commands.show_event_roles,

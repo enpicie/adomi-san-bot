@@ -14,6 +14,16 @@ _SK_EVENT_PREFIX = "EVENT#"
 dynamodb = boto3.resource("dynamodb", region_name=REGION)
 
 
+_SK_CONFIG = "CONFIG"
+
+
+def get_server_config(table, server_id):
+    """Get the server CONFIG record. Returns item dict or None."""
+    pk = f"{_PK_SERVER_PREFIX}{server_id}"
+    response = table.get_item(Key={"PK": pk, "SK": _SK_CONFIG})
+    return response.get("Item")
+
+
 def get_all_events_by_server(table):
     """Scan EventNameIndex to get all event records grouped by server_id -> [event_id]."""
     server_events = {}

@@ -48,16 +48,18 @@ def queue_role_removals(guild_id, checked_in, participant_role):
 
 
 def cleanup_ended_event(table, server_id, event_id):
-    """Queue role removals, delete Discord event, and delete DynamoDB record."""
+    """Queue role removals, delete Discord event, and delete DynamoDB record.
+    Returns the event name on success, or None if the record was not found."""
     event_record = db.get_event_record(table, server_id, event_id)
     if not event_record:
         logger.warning(
             f"DynamoDB record not found for event {event_id} in server {server_id}, skipping cleanup"
         )
-        return
+        return None
 
     participant_role = event_record.get("participant_role")
     checked_in = event_record.get("checked_in") or {}
+    event_name = event_record.get("event_name") or event_id
 
     logger.info(
         f"Event {event_id} cleanup: participant_role={participant_role!r}, "
@@ -79,6 +81,7 @@ def cleanup_ended_event(table, server_id, event_id):
     time.sleep(0.5)  # Brief pause between Discord API calls to avoid rate limits
 
     db.delete_event_record(table, server_id, event_id)
+    return event_name
 
 
 def handler(event, context):
@@ -104,20 +107,41 @@ def handler(event, context):
             e["id"]: e["status"] for e in discord_events if e["id"] in db_event_id_set
         }
 
+        cleaned_up_event_names = []
         for event_id in db_event_ids:
             status = discord_event_status.get(event_id)
             if status in (STATUS_COMPLETED, STATUS_CANCELED):
                 logger.info(
                     f"Event {event_id} in server {server_id} ended (status={status}), cleaning up"
                 )
-                cleanup_ended_event(table, server_id, event_id)
+                event_name = cleanup_ended_event(table, server_id, event_id)
+                if event_name:
+                    cleaned_up_event_names.append(event_name)
             elif status is None:
                 logger.warning(
                     f"Event {event_id} in server {server_id} not found in Discord — "
                     f"assuming event is over, cleaning up"
                 )
-                cleanup_ended_event(table, server_id, event_id)
+                event_name = cleanup_ended_event(table, server_id, event_id)
+                if event_name:
+                    cleaned_up_event_names.append(event_name)
             else:
                 logger.info(
                     f"Event {event_id} in server {server_id} still active (status={status}), no action needed"
                 )
+
+        if cleaned_up_event_names:
+            server_config = db.get_server_config(table, server_id)
+            notification_channel_id = server_config.get("notification_channel_id") if server_config else None
+            if notification_channel_id:
+                event_list = "\n".join(f"• {name}" for name in cleaned_up_event_names)
+                count = len(cleaned_up_event_names)
+                message = f"🧹 Cleaned up {count} ended event(s):\n{event_list}"
+                ping_organizers = server_config.get("ping_organizers", False) if server_config else False
+                if ping_organizers:
+                    organizer_role = server_config.get("organizer_role") if server_config else None
+                    if organizer_role:
+                        message = f"<@&{organizer_role}> {message}"
+                discord_api.send_channel_message(notification_channel_id, message)
+            else:
+                logger.info(f"No notification_channel_id configured for server {server_id}, skipping notification")

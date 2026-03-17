@@ -67,6 +67,34 @@ def set_organizer_role(event: DiscordEvent, aws_services: AWSServices) -> Respon
         content=f"👍 Organizer role updated successfully."
     )
 
+def setup_notifications(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
+    """Sets the channel and ping preference for bot notifications."""
+    error_message = permissions_helper.require_manage_server_permission(event)
+    if isinstance(error_message, ResponseMessage):
+        return error_message
+
+    server_id = event.get_server_id()
+    pk = db_helper.build_server_pk(server_id)
+
+    result = db_helper.get_server_config_or_fail(server_id, aws_services.dynamodb_table)
+    if isinstance(result, ResponseMessage):
+        return result
+
+    channel_id = event.get_command_input_value("channel")
+    ping_organizers = event.get_command_input_value("ping_organizers") or False
+
+    aws_services.dynamodb_table.update_item(
+        Key={"PK": pk, "SK": ServerConfig.Keys.SK_CONFIG},
+        UpdateExpression=f"SET {ServerConfig.Keys.NOTIFICATION_CHANNEL_ID} = :c, {ServerConfig.Keys.PING_ORGANIZERS} = :p",
+        ExpressionAttributeValues={":c": channel_id, ":p": ping_organizers}
+    )
+
+    ping_note = " Organizers will be pinged with notifications." if ping_organizers else ""
+    return ResponseMessage(
+        content=f"👍 Notification channel updated successfully.{ping_note}"
+    )
+
+
 def set_default_participant_role(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
     """Sets the default_participant_role property of the server CONFIG record."""
     error_message = permissions_helper.require_manage_server_permission(event)
