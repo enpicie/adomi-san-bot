@@ -21,6 +21,13 @@ VALID_URL = "https://www.start.gg/tournament/midweek-melting/event/main-bracket"
 INVALID_URL = "https://bad-url.com/not-startgg"
 
 
+def _make_server_config(organizer_role="ROLE_ORG", default_participant_role=None):
+    config = Mock()
+    config.organizer_role = organizer_role
+    config.default_participant_role = default_participant_role
+    return config
+
+
 def _make_event_item(registered=None, startgg_url=None):
     return {
         EventData.Keys.REGISTERED: registered if registered is not None else {},
@@ -84,14 +91,16 @@ def _make_startgg_event(
 
 class TestCreateEvent(unittest.TestCase):
     def test_no_organizer_role_returns_error(self):
-        with patch("utils.permissions_helper.verify_has_organizer_role",
+        with patch("commands.event.event_commands.db_helper.get_server_config_or_fail", return_value=_make_server_config()), \
+             patch("commands.event.event_commands.permissions_helper.require_organizer_role",
                    return_value=ResponseMessage(content="no permission")):
             result = create_event(_make_event(), _make_aws())
         self.assertIsInstance(result, ResponseMessage)
         self.assertEqual(result.content, "no permission")
 
     def test_success_calls_create_and_returns_confirmation(self):
-        with patch("utils.permissions_helper.verify_has_organizer_role", return_value=None), \
+        with patch("commands.event.event_commands.db_helper.get_server_config_or_fail", return_value=_make_server_config()), \
+             patch("commands.event.event_commands.permissions_helper.require_organizer_role", return_value=None), \
              patch("commands.event.event_commands.create_event_record", return_value="EVT1") as mock_create, \
              patch("commands.event.event_commands.to_utc_iso", return_value="2026-01-01T18:00:00Z"):
             result = create_event(_make_event(event_name="Spring Smash"), _make_aws())
@@ -119,21 +128,24 @@ class TestDeleteEvent(unittest.TestCase):
 
 class TestUpdateEvent(unittest.TestCase):
     def test_no_organizer_role_returns_error(self):
-        with patch("utils.permissions_helper.verify_has_organizer_role",
+        with patch("commands.event.event_commands.db_helper.get_server_config_or_fail", return_value=_make_server_config()), \
+             patch("commands.event.event_commands.permissions_helper.require_organizer_role",
                    return_value=ResponseMessage(content="no permission")):
             result = update_event(_make_event(), _make_aws())
         self.assertIsInstance(result, ResponseMessage)
         self.assertEqual(result.content, "no permission")
 
     def test_event_not_found_returns_error(self):
-        with patch("utils.permissions_helper.verify_has_organizer_role", return_value=None):
+        with patch("commands.event.event_commands.db_helper.get_server_config_or_fail", return_value=_make_server_config()), \
+             patch("commands.event.event_commands.permissions_helper.require_organizer_role", return_value=None):
             result = update_event(_make_event(), _make_aws(event_item=None))
         self.assertIsInstance(result, ResponseMessage)
 
     def test_success_calls_update_and_returns_confirmation(self):
         item = _make_event_item()
         aws = _make_aws(event_item=item)
-        with patch("utils.permissions_helper.verify_has_organizer_role", return_value=None), \
+        with patch("commands.event.event_commands.db_helper.get_server_config_or_fail", return_value=_make_server_config()), \
+             patch("commands.event.event_commands.permissions_helper.require_organizer_role", return_value=None), \
              patch("commands.event.event_commands.update_event_record") as mock_update:
             result = update_event(_make_event(), aws)
         self.assertIsInstance(result, ResponseMessage)
@@ -142,7 +154,8 @@ class TestUpdateEvent(unittest.TestCase):
 
     def test_new_name_used_when_provided(self):
         item = _make_event_item()
-        with patch("utils.permissions_helper.verify_has_organizer_role", return_value=None), \
+        with patch("commands.event.event_commands.db_helper.get_server_config_or_fail", return_value=_make_server_config()), \
+             patch("commands.event.event_commands.permissions_helper.require_organizer_role", return_value=None), \
              patch("commands.event.event_commands.update_event_record") as mock_update:
             update_event(_make_event(new_name="Renamed Event"), _make_aws(event_item=item))
         record_arg = mock_update.call_args.kwargs["record"]
@@ -150,7 +163,8 @@ class TestUpdateEvent(unittest.TestCase):
 
     def test_original_name_used_when_new_name_not_provided(self):
         item = _make_event_item()
-        with patch("utils.permissions_helper.verify_has_organizer_role", return_value=None), \
+        with patch("commands.event.event_commands.db_helper.get_server_config_or_fail", return_value=_make_server_config()), \
+             patch("commands.event.event_commands.permissions_helper.require_organizer_role", return_value=None), \
              patch("commands.event.event_commands.update_event_record") as mock_update, \
              patch("commands.event.event_commands.to_utc_iso", return_value="2026-01-01T18:00:00Z"):
             update_event(_make_event(event_name="evt-1", new_name=None), _make_aws(event_item=item))
@@ -161,21 +175,24 @@ class TestUpdateEvent(unittest.TestCase):
 
 class TestCreateEventStartgg(unittest.TestCase):
     def test_no_organizer_role_returns_error(self):
-        with patch("utils.permissions_helper.verify_has_organizer_role",
+        with patch("commands.event.event_commands.db_helper.get_server_config_or_fail", return_value=_make_server_config()), \
+             patch("commands.event.event_commands.permissions_helper.require_organizer_role",
                    return_value=ResponseMessage(content="no permission")):
             result = create_event_startgg(_make_event(), _make_aws())
         self.assertIsInstance(result, ResponseMessage)
         self.assertEqual(result.content, "no permission")
 
     def test_invalid_url_returns_error(self):
-        with patch("utils.permissions_helper.verify_has_organizer_role", return_value=None):
+        with patch("commands.event.event_commands.db_helper.get_server_config_or_fail", return_value=_make_server_config()), \
+             patch("commands.event.event_commands.permissions_helper.require_organizer_role", return_value=None):
             result = create_event_startgg(_make_event(event_link=INVALID_URL), _make_aws())
         self.assertIsInstance(result, ResponseMessage)
         self.assertIn("not valid", result.content)
 
     def test_missing_start_time_returns_error(self):
         startgg_event = _make_startgg_event(start_time_utc=None)
-        with patch("utils.permissions_helper.verify_has_organizer_role", return_value=None), \
+        with patch("commands.event.event_commands.db_helper.get_server_config_or_fail", return_value=_make_server_config()), \
+             patch("commands.event.event_commands.permissions_helper.require_organizer_role", return_value=None), \
              patch("commands.event.startgg.startgg_api.is_valid_startgg_url", return_value=True), \
              patch("commands.event.startgg.startgg_api.query_startgg_event", return_value=startgg_event):
             result = create_event_startgg(_make_event(), _make_aws())
@@ -185,7 +202,8 @@ class TestCreateEventStartgg(unittest.TestCase):
     def test_success_no_participants(self):
         startgg_event = _make_startgg_event()
         aws = _make_aws()
-        with patch("utils.permissions_helper.verify_has_organizer_role", return_value=None), \
+        with patch("commands.event.event_commands.db_helper.get_server_config_or_fail", return_value=_make_server_config()), \
+             patch("commands.event.event_commands.permissions_helper.require_organizer_role", return_value=None), \
              patch("commands.event.startgg.startgg_api.is_valid_startgg_url", return_value=True), \
              patch("commands.event.startgg.startgg_api.query_startgg_event", return_value=startgg_event), \
              patch("commands.event.event_commands.create_event_record", return_value="EVT1"):
@@ -198,7 +216,8 @@ class TestCreateEventStartgg(unittest.TestCase):
         participants = [RegisteredParticipant(display_name="P1", user_id="U1", source="startgg")]
         no_discord = [Participant(display_name="P2", user_id=Participant.DEFAULT_ID_PLACEHOLDER)]
         startgg_event = _make_startgg_event(participants=participants, no_discord_participants=no_discord)
-        with patch("utils.permissions_helper.verify_has_organizer_role", return_value=None), \
+        with patch("commands.event.event_commands.db_helper.get_server_config_or_fail", return_value=_make_server_config()), \
+             patch("commands.event.event_commands.permissions_helper.require_organizer_role", return_value=None), \
              patch("commands.event.startgg.startgg_api.is_valid_startgg_url", return_value=True), \
              patch("commands.event.startgg.startgg_api.query_startgg_event", return_value=startgg_event), \
              patch("commands.event.event_commands.create_event_record", return_value="EVT1"):
@@ -208,7 +227,8 @@ class TestCreateEventStartgg(unittest.TestCase):
     def test_success_stores_startgg_url(self):
         startgg_event = _make_startgg_event()
         aws = _make_aws()
-        with patch("utils.permissions_helper.verify_has_organizer_role", return_value=None), \
+        with patch("commands.event.event_commands.db_helper.get_server_config_or_fail", return_value=_make_server_config()), \
+             patch("commands.event.event_commands.permissions_helper.require_organizer_role", return_value=None), \
              patch("commands.event.startgg.startgg_api.is_valid_startgg_url", return_value=True), \
              patch("commands.event.startgg.startgg_api.query_startgg_event", return_value=startgg_event), \
              patch("commands.event.event_commands.create_event_record", return_value="EVT1"):
@@ -220,7 +240,8 @@ class TestCreateEventStartgg(unittest.TestCase):
     def test_success_includes_no_discord_report(self):
         no_discord = [Participant(display_name="NoDiscordGuy", user_id=Participant.DEFAULT_ID_PLACEHOLDER)]
         startgg_event = _make_startgg_event(no_discord_participants=no_discord)
-        with patch("utils.permissions_helper.verify_has_organizer_role", return_value=None), \
+        with patch("commands.event.event_commands.db_helper.get_server_config_or_fail", return_value=_make_server_config()), \
+             patch("commands.event.event_commands.permissions_helper.require_organizer_role", return_value=None), \
              patch("commands.event.startgg.startgg_api.is_valid_startgg_url", return_value=True), \
              patch("commands.event.startgg.startgg_api.query_startgg_event", return_value=startgg_event), \
              patch("commands.event.event_commands.create_event_record", return_value="EVT1"):
@@ -231,21 +252,24 @@ class TestCreateEventStartgg(unittest.TestCase):
 
 class TestUpdateEventStartgg(unittest.TestCase):
     def test_no_organizer_role_returns_error(self):
-        with patch("utils.permissions_helper.verify_has_organizer_role",
+        with patch("commands.event.event_commands.db_helper.get_server_config_or_fail", return_value=_make_server_config()), \
+             patch("commands.event.event_commands.permissions_helper.require_organizer_role",
                    return_value=ResponseMessage(content="no permission")):
             result = update_event_startgg(_make_event(), _make_aws())
         self.assertIsInstance(result, ResponseMessage)
         self.assertEqual(result.content, "no permission")
 
     def test_invalid_url_returns_error(self):
-        with patch("utils.permissions_helper.verify_has_organizer_role", return_value=None):
+        with patch("commands.event.event_commands.db_helper.get_server_config_or_fail", return_value=_make_server_config()), \
+             patch("commands.event.event_commands.permissions_helper.require_organizer_role", return_value=None):
             result = update_event_startgg(_make_event(event_link=INVALID_URL), _make_aws())
         self.assertIsInstance(result, ResponseMessage)
         self.assertIn("not valid", result.content)
 
     def test_missing_start_time_returns_error(self):
         startgg_event = _make_startgg_event(start_time_utc=None)
-        with patch("utils.permissions_helper.verify_has_organizer_role", return_value=None), \
+        with patch("commands.event.event_commands.db_helper.get_server_config_or_fail", return_value=_make_server_config()), \
+             patch("commands.event.event_commands.permissions_helper.require_organizer_role", return_value=None), \
              patch("commands.event.startgg.startgg_api.is_valid_startgg_url", return_value=True), \
              patch("commands.event.startgg.startgg_api.query_startgg_event", return_value=startgg_event):
             result = update_event_startgg(_make_event(), _make_aws())
@@ -253,7 +277,8 @@ class TestUpdateEventStartgg(unittest.TestCase):
 
     def test_event_not_found_returns_error(self):
         startgg_event = _make_startgg_event()
-        with patch("utils.permissions_helper.verify_has_organizer_role", return_value=None), \
+        with patch("commands.event.event_commands.db_helper.get_server_config_or_fail", return_value=_make_server_config()), \
+             patch("commands.event.event_commands.permissions_helper.require_organizer_role", return_value=None), \
              patch("commands.event.startgg.startgg_api.is_valid_startgg_url", return_value=True), \
              patch("commands.event.startgg.startgg_api.query_startgg_event", return_value=startgg_event):
             result = update_event_startgg(_make_event(), _make_aws(event_item=None))
@@ -264,7 +289,8 @@ class TestUpdateEventStartgg(unittest.TestCase):
         no_discord = [Participant(display_name="P2", user_id=Participant.DEFAULT_ID_PLACEHOLDER)]
         startgg_event = _make_startgg_event(participants=participants, no_discord_participants=no_discord)
         aws = _make_aws(event_item=_make_event_item())
-        with patch("utils.permissions_helper.verify_has_organizer_role", return_value=None), \
+        with patch("commands.event.event_commands.db_helper.get_server_config_or_fail", return_value=_make_server_config()), \
+             patch("commands.event.event_commands.permissions_helper.require_organizer_role", return_value=None), \
              patch("commands.event.startgg.startgg_api.is_valid_startgg_url", return_value=True), \
              patch("commands.event.startgg.startgg_api.query_startgg_event", return_value=startgg_event), \
              patch("commands.event.event_commands.update_event_record"):
@@ -276,7 +302,8 @@ class TestUpdateEventStartgg(unittest.TestCase):
     def test_success_stores_startgg_url(self):
         startgg_event = _make_startgg_event()
         aws = _make_aws(event_item=_make_event_item())
-        with patch("utils.permissions_helper.verify_has_organizer_role", return_value=None), \
+        with patch("commands.event.event_commands.db_helper.get_server_config_or_fail", return_value=_make_server_config()), \
+             patch("commands.event.event_commands.permissions_helper.require_organizer_role", return_value=None), \
              patch("commands.event.startgg.startgg_api.is_valid_startgg_url", return_value=True), \
              patch("commands.event.startgg.startgg_api.query_startgg_event", return_value=startgg_event), \
              patch("commands.event.event_commands.update_event_record"):
@@ -287,7 +314,8 @@ class TestUpdateEventStartgg(unittest.TestCase):
     def test_success_includes_no_discord_report(self):
         no_discord = [Participant(display_name="OffGridPlayer", user_id=Participant.DEFAULT_ID_PLACEHOLDER)]
         startgg_event = _make_startgg_event(no_discord_participants=no_discord)
-        with patch("utils.permissions_helper.verify_has_organizer_role", return_value=None), \
+        with patch("commands.event.event_commands.db_helper.get_server_config_or_fail", return_value=_make_server_config()), \
+             patch("commands.event.event_commands.permissions_helper.require_organizer_role", return_value=None), \
              patch("commands.event.startgg.startgg_api.is_valid_startgg_url", return_value=True), \
              patch("commands.event.startgg.startgg_api.query_startgg_event", return_value=startgg_event), \
              patch("commands.event.event_commands.update_event_record"):

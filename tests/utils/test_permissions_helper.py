@@ -88,7 +88,7 @@ class TestVerifyHasOrganizerRole(unittest.TestCase):
         return event
 
     def _config_item(self, organizer_role=_ORGANIZER_ROLE):
-        return {ServerConfig.Keys.ORGANIZER_ROLE: organizer_role}
+        return {ServerConfig.Keys.SERVER_ID: "S1", ServerConfig.Keys.ORGANIZER_ROLE: organizer_role}
 
     def test_missing_config_returns_error(self):
         result = permissions_helper.verify_has_organizer_role(
