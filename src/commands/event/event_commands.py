@@ -8,56 +8,121 @@ from commands.models.discord_event import DiscordEvent
 from commands.models.response_message import ResponseMessage
 from database.models.event_data import EventData
 
+
+def _resolve_participant_role(event: DiscordEvent, aws_services: AWSServices) -> tuple:
+    """
+    Returns (server_config, participant_role, no_role_warning).
+    server_config may be a ResponseMessage on failure.
+    participant_role is the resolved role (input or server default), or None if unset.
+    no_role_warning is a string to append to the response if no role is set, or "".
+    """
+    server_id = event.get_server_id()
+    server_config = db_helper.get_server_config_or_fail(server_id, aws_services.dynamodb_table)
+    if isinstance(server_config, ResponseMessage):
+        return server_config, None, ""
+
+    participant_role = (
+        event.get_command_input_value("participant_role")
+        or server_config.default_participant_role
+    )
+
+    no_role_warning = (
+        "\n⚠️ No participant role is set for this event. "
+        "Use `/event-update` or `/set-default-participant-role` to add one."
+        if not participant_role else ""
+    )
+
+    return server_config, participant_role, no_role_warning
+
+
 def create_event(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
-    error_message = permissions_helper.verify_has_organizer_role(event, aws_services)
+    server_id = event.get_server_id()
+    server_config = db_helper.get_server_config_or_fail(server_id, aws_services.dynamodb_table)
+    if isinstance(server_config, ResponseMessage):
+        return server_config
+    error_message = permissions_helper.require_organizer_role(server_config, event)
     if error_message:
         return error_message
+
+    participant_role = (
+        event.get_command_input_value("participant_role")
+        or server_config.default_participant_role
+    )
+    no_role_warning = (
+        "\n⚠️ No participant role is set for this event. "
+        "Use `/event-update` or `/set-default-participant-role` to add one."
+        if not participant_role else ""
+    )
 
     timezone = event.get_command_input_value("timezone")
 
     create_event_record(
-        server_id=event.get_server_id(),
+        server_id=server_id,
         record=EventRecord(
             name=event.get_command_input_value("event_name"),
             location=event.get_command_input_value("event_location"),
             start_time_utc=to_utc_iso(event.get_command_input_value("start_time"), timezone),
             end_time_utc=to_utc_iso(event.get_command_input_value("end_time"), timezone),
-            description=event.get_command_input_value("event_description")
+            description=event.get_command_input_value("event_description"),
+            participant_role=participant_role
         ),
         table=aws_services.dynamodb_table
     )
 
-    return ResponseMessage(content=f"Event '{event.get_command_input_value('event_name')}' created successfully.")
+    event_name = event.get_command_input_value("event_name")
+    return ResponseMessage(content=f"Event '{event_name}' created successfully.{no_role_warning}")
 
 
 def update_event(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
-    error_message = permissions_helper.verify_has_organizer_role(event, aws_services)
+    server_id = event.get_server_id()
+    server_config = db_helper.get_server_config_or_fail(server_id, aws_services.dynamodb_table)
+    if isinstance(server_config, ResponseMessage):
+        return server_config
+    error_message = permissions_helper.require_organizer_role(server_config, event)
     if error_message:
         return error_message
 
-    server_id = event.get_server_id()
     event_id = event.get_command_input_value("event_name")
-    timezone = event.get_command_input_value("timezone")
     new_name = event.get_command_input_value("new_name")
 
     event_data_result = db_helper.get_server_event_data_or_fail(server_id, event_id, aws_services.dynamodb_table)
     if isinstance(event_data_result, ResponseMessage):
         return event_data_result
 
+    # For optional time/location fields, fall back to existing stored values
+    timezone = event.get_command_input_value("timezone")
+    start_time_input = event.get_command_input_value("start_time")
+    end_time_input = event.get_command_input_value("end_time")
+
+    start_time_utc = to_utc_iso(start_time_input, timezone) if start_time_input else event_data_result.start_time
+    end_time_utc = to_utc_iso(end_time_input, timezone) if end_time_input else event_data_result.end_time
+    location = event.get_command_input_value("event_location") or event_data_result.event_location
+
+    # Resolve participant_role: input → server default → existing event role
+    participant_role_input = event.get_command_input_value("participant_role")
+    participant_role = participant_role_input or server_config.default_participant_role or event_data_result.participant_role
+
+    no_role_warning = (
+        "\n⚠️ No participant role is set for this event. "
+        "Use `/event-update` or `/set-default-participant-role` to add one."
+        if not participant_role else ""
+    )
+
     update_event_record(
         server_id=server_id,
         event_id=event_id,
         record=EventRecord(
-            name=new_name or event.get_command_input_value("event_name"),
-            location=event.get_command_input_value("event_location"),
-            start_time_utc=to_utc_iso(event.get_command_input_value("start_time"), timezone),
-            end_time_utc=to_utc_iso(event.get_command_input_value("end_time"), timezone),
-            description=event.get_command_input_value("event_description")
+            name=new_name or event_data_result.event_name or event_id,
+            location=location,
+            start_time_utc=start_time_utc,
+            end_time_utc=end_time_utc,
+            description=event.get_command_input_value("event_description"),
+            participant_role=participant_role
         ),
         table=aws_services.dynamodb_table
     )
 
-    return ResponseMessage(content="Event updated successfully.")
+    return ResponseMessage(content=f"Event updated successfully.{no_role_warning}")
 
 
 def delete_event(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
@@ -78,7 +143,11 @@ def delete_event(event: DiscordEvent, aws_services: AWSServices) -> ResponseMess
 
 
 def create_event_startgg(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
-    error_message = permissions_helper.verify_has_organizer_role(event, aws_services)
+    server_id = event.get_server_id()
+    server_config = db_helper.get_server_config_or_fail(server_id, aws_services.dynamodb_table)
+    if isinstance(server_config, ResponseMessage):
+        return server_config
+    error_message = permissions_helper.require_organizer_role(server_config, event)
     if error_message:
         return error_message
 
@@ -98,10 +167,19 @@ def create_event_startgg(event: DiscordEvent, aws_services: AWSServices) -> Resp
                     "Please create the event manually with `/event-create`."
         )
 
+    participant_role = (
+        event.get_command_input_value("participant_role")
+        or server_config.default_participant_role
+    )
+    no_role_warning = (
+        "\n⚠️ No participant role is set for this event. "
+        "Use `/event-update` or `/set-default-participant-role` to add one."
+        if not participant_role else ""
+    )
+
     timezone = event.get_command_input_value("timezone")
     end_time_utc = to_utc_iso(event.get_command_input_value("end_time"), timezone)
 
-    server_id = event.get_server_id()
     event_id = create_event_record(
         server_id=server_id,
         record=EventRecord(
@@ -109,6 +187,7 @@ def create_event_startgg(event: DiscordEvent, aws_services: AWSServices) -> Resp
             location=startgg_event.location or "Online",
             start_time_utc=startgg_event.start_time_utc,
             end_time_utc=end_time_utc,
+            participant_role=participant_role
         ),
         table=aws_services.dynamodb_table
     )
@@ -138,12 +217,16 @@ def create_event_startgg(event: DiscordEvent, aws_services: AWSServices) -> Resp
     no_discord_report = _build_no_discord_report(no_discord_names)
 
     return ResponseMessage(
-        content=f"✅ Event **{startgg_event.event_name}** created with {total_count} registered participants!" + no_discord_report
+        content=f"✅ Event **{startgg_event.event_name}** created with {total_count} registered participants!{no_discord_report}{no_role_warning}"
     )
 
 
 def update_event_startgg(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
-    error_message = permissions_helper.verify_has_organizer_role(event, aws_services)
+    server_id = event.get_server_id()
+    server_config = db_helper.get_server_config_or_fail(server_id, aws_services.dynamodb_table)
+    if isinstance(server_config, ResponseMessage):
+        return server_config
+    error_message = permissions_helper.require_organizer_role(server_config, event)
     if error_message:
         return error_message
 
@@ -163,15 +246,26 @@ def update_event_startgg(event: DiscordEvent, aws_services: AWSServices) -> Resp
                     "Please update the event manually with `/event-update`."
         )
 
-    timezone = event.get_command_input_value("timezone")
-    end_time_utc = to_utc_iso(event.get_command_input_value("end_time"), timezone)
-
-    server_id = event.get_server_id()
     event_id = event.get_command_input_value("event_name")
 
     event_data_result = db_helper.get_server_event_data_or_fail(server_id, event_id, aws_services.dynamodb_table)
     if isinstance(event_data_result, ResponseMessage):
         return event_data_result
+
+    timezone = event.get_command_input_value("timezone")
+    end_time_utc = to_utc_iso(event.get_command_input_value("end_time"), timezone)
+
+    # Resolve participant_role: input → server default → existing event role
+    participant_role = (
+        event.get_command_input_value("participant_role")
+        or server_config.default_participant_role
+        or event_data_result.participant_role
+    )
+    no_role_warning = (
+        "\n⚠️ No participant role is set for this event. "
+        "Use `/event-update` or `/set-default-participant-role` to add one."
+        if not participant_role else ""
+    )
 
     update_event_record(
         server_id=server_id,
@@ -181,6 +275,7 @@ def update_event_startgg(event: DiscordEvent, aws_services: AWSServices) -> Resp
             location=startgg_event.location or "Online",
             start_time_utc=startgg_event.start_time_utc,
             end_time_utc=end_time_utc,
+            participant_role=participant_role
         ),
         table=aws_services.dynamodb_table
     )
@@ -208,7 +303,7 @@ def update_event_startgg(event: DiscordEvent, aws_services: AWSServices) -> Resp
     no_discord_report = _build_no_discord_report(no_discord_names)
 
     return ResponseMessage(
-        content=f"✅ Event **{startgg_event.event_name}** updated with {total_count} registered participants!" + no_discord_report
+        content=f"✅ Event **{startgg_event.event_name}** updated with {total_count} registered participants!{no_discord_report}{no_role_warning}"
     )
 
 

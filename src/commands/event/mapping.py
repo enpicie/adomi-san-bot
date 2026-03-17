@@ -54,6 +54,13 @@ event_commands_mapping: CommandMapping = {
                 param_type=AppCommandOptionType.string,
                 required=False,
                 choices=None
+            ),
+            CommandParam(
+                name="participant_role",
+                description="Role for participants. Defaults to server default if not provided.",
+                param_type=AppCommandOptionType.role,
+                required=False,
+                choices=None
             )
         ]
     },
@@ -63,36 +70,6 @@ event_commands_mapping: CommandMapping = {
         "params": [
             EVENT_NAME_PARAM,
             CommandParam(
-                name="event_location",
-                description="Location of the event",
-                param_type=AppCommandOptionType.string,
-                required=True,
-                choices=None
-            ),
-            CommandParam(
-                name="start_time",
-                description="Format: '2026-03-19 19:30' (24-hour time, year required). Date and time the event starts",
-                param_type=AppCommandOptionType.string,
-                required=True,
-                choices=None
-            ),
-            CommandParam(
-                name="end_time",
-                description="Format: '2026-03-19 21:30' (24-hour time, year required). Date and time the event ends",
-                param_type=AppCommandOptionType.string,
-                required=True,
-                choices=None
-            ),
-            CommandParam(
-                name="timezone",
-                description="Timezone of the event",
-                param_type=AppCommandOptionType.string,
-                required=True,
-                choices=None,
-                autocomplete=True,
-                autocomplete_handler=autocomplete_handlers.autocomplete_event_timezone
-            ),
-            CommandParam(
                 name="new_name",
                 description="New name for the event (leave blank to keep current name)",
                 param_type=AppCommandOptionType.string,
@@ -100,9 +77,46 @@ event_commands_mapping: CommandMapping = {
                 choices=None
             ),
             CommandParam(
+                name="event_location",
+                description="Location of the event (leave blank to keep current)",
+                param_type=AppCommandOptionType.string,
+                required=False,
+                choices=None
+            ),
+            CommandParam(
+                name="start_time",
+                description="Format: 'YYYY-MM-DD HH:MM' (24-hr). Leave blank to keep current start time.",
+                param_type=AppCommandOptionType.string,
+                required=False,
+                choices=None
+            ),
+            CommandParam(
+                name="end_time",
+                description="Format: 'YYYY-MM-DD HH:MM' (24-hr). Leave blank to keep current end time.",
+                param_type=AppCommandOptionType.string,
+                required=False,
+                choices=None
+            ),
+            CommandParam(
+                name="timezone",
+                description="Timezone for start/end time (required if providing start_time or end_time)",
+                param_type=AppCommandOptionType.string,
+                required=False,
+                choices=None,
+                autocomplete=True,
+                autocomplete_handler=autocomplete_handlers.autocomplete_event_timezone
+            ),
+            CommandParam(
                 name="event_description",
                 description="Description of the event",
                 param_type=AppCommandOptionType.string,
+                required=False,
+                choices=None
+            ),
+            CommandParam(
+                name="participant_role",
+                description="Role for participants. Defaults to server default if not provided.",
+                param_type=AppCommandOptionType.role,
                 required=False,
                 choices=None
             )
@@ -149,6 +163,13 @@ event_commands_mapping: CommandMapping = {
                 choices=None,
                 autocomplete=True,
                 autocomplete_handler=autocomplete_handlers.autocomplete_event_timezone
+            ),
+            CommandParam(
+                name="participant_role",
+                description="Role for participants. Defaults to server default if not provided.",
+                param_type=AppCommandOptionType.role,
+                required=False,
+                choices=None
             )
         ]
     },
@@ -179,6 +200,13 @@ event_commands_mapping: CommandMapping = {
                 choices=None,
                 autocomplete=True,
                 autocomplete_handler=autocomplete_handlers.autocomplete_event_timezone
+            ),
+            CommandParam(
+                name="participant_role",
+                description="Role for participants. Defaults to server default if not provided.",
+                param_type=AppCommandOptionType.role,
+                required=False,
+                choices=None
             )
         ]
     },

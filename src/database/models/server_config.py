@@ -12,11 +12,16 @@ class ServerConfig(SubscriptableMixin):
 
         SERVER_ID = "server_id"
         ORGANIZER_ROLE = "organizer_role"
+        DEFAULT_PARTICIPANT_ROLE = "default_participant_role"
 
+    server_id: str = field(metadata={'db_key': Keys.SERVER_ID})
     organizer_role: str = field(metadata={'db_key': Keys.ORGANIZER_ROLE})
+    default_participant_role: str = field(metadata={'db_key': Keys.DEFAULT_PARTICIPANT_ROLE})
 
     @classmethod
     def from_dynamodb(cls, record: Dict[str, Any]) -> 'ServerConfig':
         return cls(
-            organizer_role=record.get(cls.Keys.ORGANIZER_ROLE)
+            server_id=record[cls.Keys.SERVER_ID],
+            organizer_role=record.get(cls.Keys.ORGANIZER_ROLE),
+            default_participant_role=record.get(cls.Keys.DEFAULT_PARTICIPANT_ROLE)
         )

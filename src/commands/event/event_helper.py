@@ -16,6 +16,7 @@ class EventRecord:
     start_time_utc: str       # UTC ISO 8601, e.g. "2026-03-19T19:30:00Z"
     end_time_utc: str         # UTC ISO 8601
     description: Optional[str] = None
+    participant_role: Optional[str] = None
 
 
 def create_event_record(server_id: str, record: EventRecord, table: Table) -> str:
@@ -34,23 +35,22 @@ def create_event_record(server_id: str, record: EventRecord, table: Table) -> st
     if not event_id:
         raise RuntimeError(f"Failed to create Discord scheduled event for server '{server_id}'")
 
-    table.put_item(
-        Item={
-            "PK": db_helper.build_server_pk(server_id),
-            "SK": EventData.Keys.SK_EVENT_PREFIX + event_id,
-            EventData.Keys.SERVER_ID: server_id,
-            EventData.Keys.EVENT_ID: event_id,
-            EventData.Keys.EVENT_NAME: record.name,
-            EventData.Keys.EVENT_LOCATION: record.location,
-            EventData.Keys.START_TIME: record.start_time_utc,
-            EventData.Keys.END_TIME: record.end_time_utc,
-            EventData.Keys.CHECKED_IN: {},
-            EventData.Keys.REGISTERED: {},
-            EventData.Keys.QUEUE: {},
-            EventData.Keys.CHECK_IN_ENABLED: False,
-            EventData.Keys.REGISTER_ENABLED: False,
-        }
-    )
+    table.put_item(Item={
+        "PK": db_helper.build_server_pk(server_id),
+        "SK": EventData.Keys.SK_EVENT_PREFIX + event_id,
+        EventData.Keys.SERVER_ID: server_id,
+        EventData.Keys.EVENT_ID: event_id,
+        EventData.Keys.EVENT_NAME: record.name,
+        EventData.Keys.EVENT_LOCATION: record.location,
+        EventData.Keys.START_TIME: record.start_time_utc,
+        EventData.Keys.END_TIME: record.end_time_utc,
+        EventData.Keys.PARTICIPANT_ROLE: record.participant_role or "",
+        EventData.Keys.CHECKED_IN: {},
+        EventData.Keys.REGISTERED: {},
+        EventData.Keys.QUEUE: {},
+        EventData.Keys.CHECK_IN_ENABLED: False,
+        EventData.Keys.REGISTER_ENABLED: False,
+    })
 
     return event_id
 
@@ -76,13 +76,15 @@ def update_event_record(server_id: str, event_id: str, record: EventRecord, tabl
             f"SET {EventData.Keys.EVENT_NAME} = :name, "
             f"{EventData.Keys.EVENT_LOCATION} = :location, "
             f"{EventData.Keys.START_TIME} = :start_time, "
-            f"{EventData.Keys.END_TIME} = :end_time"
+            f"{EventData.Keys.END_TIME} = :end_time, "
+            f"{EventData.Keys.PARTICIPANT_ROLE} = :participant_role"
         ),
         ExpressionAttributeValues={
             ":name": record.name,
             ":location": record.location,
             ":start_time": record.start_time_utc,
             ":end_time": record.end_time_utc,
+            ":participant_role": record.participant_role or "",
         }
     )
 

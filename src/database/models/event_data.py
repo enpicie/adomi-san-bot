@@ -37,6 +37,10 @@ class EventData(SubscriptableMixin):
     register_enabled: bool = field(metadata={'db_key': Keys.REGISTER_ENABLED})
     start_message: str = field(metadata={'db_key': Keys.START_MESSAGE})
     end_message: str = field(metadata={'db_key': Keys.END_MESSAGE})
+    start_time: Optional[str] = field(default=None, metadata={'db_key': Keys.START_TIME})
+    end_time: Optional[str] = field(default=None, metadata={'db_key': Keys.END_TIME})
+    event_location: Optional[str] = field(default=None, metadata={'db_key': Keys.EVENT_LOCATION})
+    event_name: Optional[str] = field(default=None, metadata={'db_key': Keys.EVENT_NAME})
     startgg_url: Optional[str] = field(default=None, metadata={'db_key': Keys.STARTGG_URL})
 
     @classmethod
@@ -50,5 +54,9 @@ class EventData(SubscriptableMixin):
             register_enabled=record.get(cls.Keys.REGISTER_ENABLED),
             start_message=record.get(cls.Keys.START_MESSAGE),
             end_message=record.get(cls.Keys.END_MESSAGE),
+            start_time=record.get(cls.Keys.START_TIME),
+            end_time=record.get(cls.Keys.END_TIME),
+            event_location=record.get(cls.Keys.EVENT_LOCATION),
+            event_name=record.get(cls.Keys.EVENT_NAME),
             startgg_url=record.get(cls.Keys.STARTGG_URL)
         )
