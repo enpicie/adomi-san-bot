@@ -61,8 +61,7 @@ def startgg_connect(event: DiscordEvent, aws_services: AWSServices) -> ResponseM
 
     return ResponseMessage(
         content=(
-            f"🔗 Click the link below to connect your start.gg account to this server:\n"
-            f"{oauth_url}\n\n"
+            f"🔗 Click this [start.gg OAuth Link]({oauth_url}) to connect your start.gg account to this server.\n\n"
             f"*This link expires in 10 minutes. Once authorized, scores can be reported via `/startgg-report-score`.*"
         )
     ).with_suppressed_embeds()
