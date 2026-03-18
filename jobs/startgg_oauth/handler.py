@@ -62,6 +62,7 @@ def handler(event, context):
 
     discord_user_id = state_data["discord_user_id"]
     server_id = state_data.get("server_id")
+    channel_id = state_data.get("channel_id")
 
     credentials = _get_oauth_credentials()
     token_response = requests.post(
@@ -104,4 +105,10 @@ def handler(event, context):
     else:
         logger.warning(f"No server_id in state for Discord user {discord_user_id}; server config not updated")
 
+    if server_id and channel_id:
+        return {
+            "statusCode": 302,
+            "headers": {"Location": f"https://discord.com/channels/{server_id}/{channel_id}"},
+            "body": "",
+        }
     return _html_response(200, "Connected!", "Your start.gg account has been linked to Discord. You can close this window.")

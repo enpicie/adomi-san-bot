@@ -14,7 +14,7 @@ def consume_state(table, nonce: str) -> dict | None:
     if not item:
         return None
     table.delete_item(Key={"PK": pk, "SK": _STATE_SK})
-    return {"discord_user_id": item["discord_user_id"], "server_id": item.get("server_id")}
+    return {"discord_user_id": item["discord_user_id"], "server_id": item.get("server_id"), "channel_id": item.get("channel_id")}
 
 
 def store_user_tokens(table, discord_user_id: str, access_token: str, refresh_token: str, expires_in: int):

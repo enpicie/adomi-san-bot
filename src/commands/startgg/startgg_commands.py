@@ -47,6 +47,7 @@ def startgg_connect(event: DiscordEvent, aws_services: AWSServices) -> ResponseM
         "SK": _OAUTH_STATE_SK,
         "discord_user_id": discord_user_id,
         "server_id": server_id,
+        "channel_id": event.get_channel_id(),
         "expires_at": int(time.time()) + _OAUTH_STATE_TTL_SECONDS,
     })
 
