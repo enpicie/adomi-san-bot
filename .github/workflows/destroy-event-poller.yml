@@ -1,0 +1,45 @@
+name: '[ONE-TIME] Destroy Obsolete Event Poller'
+
+on:
+  workflow_dispatch:
+
+jobs:
+  destroy-dev:
+    uses: enpicie/gh-action-workflow-terraform-destroy/.github/workflows/terraform-destroy.yml@main
+    with:
+      confirmation: 'DESTROY'
+      repository: adomi-san-bot
+      tf_directory: ./terraform/event_poller
+      state_key: projects/adomi-san-bot/dev/event-poller.tfstate
+      aws_region: us-east-2
+      tf_vars: |
+        TF_VAR_app_name=adomi-san-bot
+        TF_VAR_event_poller_name=adomi-event-poller
+        TF_VAR_sqs_worker_name=adomi-sqs-worker-remove-role
+        TF_VAR_aws_region=us-east-2
+        TF_VAR_python_runtime=3.11
+        TF_VAR_deployment_env=dev
+        TF_VAR_bucket_name=enpicie-dev-lambda-artifacts
+        TF_VAR_event_poller_layer_s3_key=placeholder
+        TF_VAR_event_poller_layer_hash_s3_key=placeholder
+        TF_VAR_discord_bot_token=placeholder
+
+  destroy-prod:
+    uses: enpicie/gh-action-workflow-terraform-destroy/.github/workflows/terraform-destroy.yml@main
+    with:
+      confirmation: 'DESTROY'
+      repository: adomi-san-bot
+      tf_directory: ./terraform/event_poller
+      state_key: projects/adomi-san-bot/prod/event-poller.tfstate
+      aws_region: us-east-2
+      tf_vars: |
+        TF_VAR_app_name=adomi-san-bot
+        TF_VAR_event_poller_name=adomi-event-poller
+        TF_VAR_sqs_worker_name=adomi-sqs-worker-remove-role
+        TF_VAR_aws_region=us-east-2
+        TF_VAR_python_runtime=3.11
+        TF_VAR_deployment_env=prod
+        TF_VAR_bucket_name=enpicie-prod-lambda-artifacts
+        TF_VAR_event_poller_layer_s3_key=placeholder
+        TF_VAR_event_poller_layer_hash_s3_key=placeholder
+        TF_VAR_discord_bot_token=placeholder
