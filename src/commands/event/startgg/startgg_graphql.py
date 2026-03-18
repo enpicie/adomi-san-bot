@@ -1,3 +1,36 @@
+FIND_SET_QUERY = """
+    query FindSetBetweenEntrants($eventSlug: String, $entrantIds: [ID]) {
+        event(slug: $eventSlug) {
+            sets(query: {
+                page: 1
+                perPage: 50
+                filters: {
+                    entrantIds: $entrantIds
+                }
+            }) {
+                nodes {
+                    id
+                    createdAt
+                    slots {
+                        entrant {
+                            id
+                        }
+                    }
+                }
+            }
+        }
+    }
+"""
+
+REPORT_SET_MUTATION = """
+    mutation ReportBracketSet($setId: ID!, $winnerId: ID!, $gameData: [BracketSetGameDataInput]) {
+        reportBracketSet(setId: $setId, winnerId: $winnerId, gameData: $gameData) {
+            id
+            state
+        }
+    }
+"""
+
 EVENT_PARTICIPANTS_QUERY = """
     query EventEntrants($slug: String) {
         event(slug: $slug) {
@@ -17,6 +50,7 @@ EVENT_PARTICIPANTS_QUERY = """
                     total
                 }
                 nodes {
+                    id
                     participants {
                         id
                         gamerTag

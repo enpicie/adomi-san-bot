@@ -21,5 +21,10 @@ help_commands: CommandMapping = {
         "function": adomi_help_commands.help_event,
         "description": "List all event commands with descriptions",
         "params": []
+    },
+    "help-startgg": {
+        "function": adomi_help_commands.help_startgg,
+        "description": "List all start.gg commands with descriptions",
+        "params": []
     }
 }

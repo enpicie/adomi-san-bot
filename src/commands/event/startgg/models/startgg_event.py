@@ -68,7 +68,7 @@ class StartggEvent:
                     display_name=startgg_name,
                     user_id=discord_auth.get("externalId"),
                     source=source_constants.STARTGG,
-                    external_id=participant_data.get("id")
+                    external_id=str(entrant.get("id"))
                 ))
             else:
                 no_discord_participants.append(Participant(

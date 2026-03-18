@@ -15,6 +15,7 @@ But you can call her Adomin ~☆！
   - [Registration Commands](#registration-commands)
   - [Check-In Commands](#check-in-commands)
   - [Setup Commands](#setup-commands)
+  - [Score Reporting Commands](#score-reporting-commands)
   - [Help Commands](#help-commands)
 - [Database Schema](#database-schema)
 - [Configuration](#configuration)
@@ -276,6 +277,29 @@ These commands configure the bot for your server. All require the **Manage Serve
 
 ---
 
+### Score Reporting Commands
+
+These commands allow participants to report bracket set results directly to start.gg.
+
+> **Prerequisite:** Participants must have their start.gg account linked to Discord in their start.gg account settings under **Connections**. Users without a linked account cannot be looked up and score reporting will fail for them.
+
+| Command | Who can use | Description |
+|---------|-------------|-------------|
+| `/startgg-report-score` | Any participant | Report the result of a start.gg bracket set |
+
+**`/startgg-report-score` parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `event_name` | string | yes | Event the set belongs to (autocomplete) |
+| `winner` | user | yes | Player who won the set |
+| `loser` | user | yes | Player who lost the set |
+| `score` | string | yes | Score in `<winner games>-<loser games>` format, e.g. `2-1` |
+
+The command finds the most recently created open set between the two players on start.gg and reports the result. Both players must be registered for the event via start.gg with Discord linked.
+
+---
+
 ### Help Commands
 
 | Command | Description |
@@ -284,6 +308,7 @@ These commands configure the bot for your server. All require the **Manage Serve
 | `/help-event` | Help for event commands |
 | `/help-register` | Help for registration commands |
 | `/help-check-in` | Help for check-in commands |
+| `/help-startgg` | Help for start.gg score reporting commands |
 
 ---
 
