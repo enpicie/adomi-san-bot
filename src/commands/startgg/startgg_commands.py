@@ -55,7 +55,7 @@ def startgg_connect(event: DiscordEvent, aws_services: AWSServices) -> ResponseM
         f"{_STARTGG_OAUTH_BASE_URL}"
         f"?response_type=code"
         f"&client_id={client_id}"
-        f"&scope=user.identity+tournament.manager"
+        f"&scope=user.identity+tournament.manager+tournament.reporter"
         f"&redirect_uri={redirect_uri}"
         f"&state={nonce}"
     )
