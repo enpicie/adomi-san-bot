@@ -70,3 +70,24 @@ variable "startgg_api_key" {
   type        = string
   sensitive   = true
 }
+
+variable "startgg_oauth_client_id" {
+  description = "start.gg OAuth application client ID"
+  type        = string
+}
+
+variable "startgg_oauth_client_secret" {
+  description = "start.gg OAuth application client secret"
+  type        = string
+  sensitive   = true
+}
+
+variable "oauth_callback_lambda_s3_key" {
+  description = "S3 key for the start.gg OAuth callback Lambda zip"
+  type        = string
+}
+
+variable "oauth_callback_lambda_hash_s3_key" {
+  description = "S3 key for the hash file of the start.gg OAuth callback Lambda zip"
+  type        = string
+}
