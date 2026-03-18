@@ -1,4 +1,7 @@
+import os
 import re
+import secrets
+import time
 
 from aws_services import AWSServices
 from commands.models.discord_event import DiscordEvent
@@ -6,8 +9,14 @@ from commands.models.response_message import ResponseMessage
 import commands.event.startgg.startgg_api as startgg_api
 from commands.event.startgg.startgg_api import StartggAuthError
 import database.dynamodb_utils as db_helper
+import utils.permissions_helper as permissions_helper
 
 _SCORE_PATTERN = re.compile(r"^(\d+)-(\d+)$")
+
+_STARTGG_OAUTH_BASE_URL = "https://start.gg/oauth/authorize"
+_OAUTH_STATE_PK_PREFIX = "OAUTH_STATE#"
+_OAUTH_STATE_SK = "STATE"
+_OAUTH_STATE_TTL_SECONDS = 600  # 10 minutes
 
 _AUTH_REQUIRED_MSG = (
     "A start.gg organizer account must be linked to this server before scores can be reported. "
@@ -17,6 +26,46 @@ _AUTH_EXPIRED_MSG = (
     "The start.gg authentication for this server has expired or is no longer valid. "
     "Contact an organizer to re-authenticate via `/startgg-connect`."
 )
+
+
+def startgg_connect(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
+    error_message = permissions_helper.verify_has_organizer_role(event, aws_services)
+    if error_message:
+        return error_message
+
+    client_id = os.environ.get("STARTGG_OAUTH_CLIENT_ID")
+    redirect_uri = os.environ.get("STARTGG_OAUTH_REDIRECT_URI")
+    if not client_id or not redirect_uri:
+        return ResponseMessage(content="😔 start.gg OAuth is not configured for this bot. Contact the bot administrator.")
+
+    nonce = secrets.token_urlsafe(32)
+    server_id = event.get_server_id()
+    discord_user_id = event.get_user_id()
+
+    aws_services.dynamodb_table.put_item(Item={
+        "PK": f"{_OAUTH_STATE_PK_PREFIX}{nonce}",
+        "SK": _OAUTH_STATE_SK,
+        "discord_user_id": discord_user_id,
+        "server_id": server_id,
+        "expires_at": int(time.time()) + _OAUTH_STATE_TTL_SECONDS,
+    })
+
+    oauth_url = (
+        f"{_STARTGG_OAUTH_BASE_URL}"
+        f"?response_type=code"
+        f"&client_id={client_id}"
+        f"&scope=user.identity+tournament.manager"
+        f"&redirect_uri={redirect_uri}"
+        f"&state={nonce}"
+    )
+
+    return ResponseMessage(
+        content=(
+            f"🔗 Click the link below to connect your start.gg account to this server:\n"
+            f"{oauth_url}\n\n"
+            f"*This link expires in 10 minutes. Once authorized, scores can be reported via `/startgg-report-score`.*"
+        )
+    ).with_suppressed_embeds()
 
 
 def report_score(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:

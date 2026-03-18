@@ -6,6 +6,11 @@ from commands.event.autocomplete_handlers import EVENT_NAME_PARAM
 import commands.startgg.startgg_commands as startgg_commands
 
 startgg_commands_mapping: CommandMapping = {
+    "startgg-connect": {
+        "function": startgg_commands.startgg_connect,
+        "description": "Link your start.gg organizer account to this Discord server to enable score reporting",
+        "params": []
+    },
     "startgg-report-score": {
         "function": startgg_commands.report_score,
         "description": "Report the result of a start.gg bracket set",

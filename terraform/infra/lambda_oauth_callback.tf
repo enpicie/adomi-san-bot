@@ -108,6 +108,7 @@ resource "aws_lambda_function" "oauth_callback_lambda" {
       DYNAMODB_TABLE_NAME       = aws_dynamodb_table.adomi_discord_server_table.name
       STARTGG_OAUTH_SECRET_NAME = aws_secretsmanager_secret.startgg_oauth_credentials.name
       OAUTH_REDIRECT_URI        = "${aws_apigatewayv2_stage.env_stage.invoke_url}/startgg/callback"
+      DISCORD_BOT_TOKEN         = var.discord_bot_token
     }
   }
 }
