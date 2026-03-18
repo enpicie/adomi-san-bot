@@ -15,6 +15,10 @@ on:
         description: Name of the event poller Lambda function
         required: true
         type: string
+      startgg_oauth_name:
+        description: Name of the start.gg OAuth Lambda function
+        required: true
+        type: string
       deployment_env:
         description: Environment to deploy to (e.g., dev, prod)
         required: true
@@ -136,6 +140,25 @@ jobs:
           source_directory: ./jobs/event_poller
           app_name: ${{ inputs.event_poller_name }}
           artifact_name: ${{ inputs.event_poller_name }}-latest
+          s3_bucket_name: ${{ inputs.artifact_s3_bucket }}
+          aws_role_arn: ${{ secrets.AWS_ROLE_ARN_S3 }}
+
+      - name: Build and Upload Lambda Layer Artifact to S3 - start.gg OAuth Lambda
+        id: build_layer_startgg_oauth
+        uses: enpicie/gh-action-workflow-build-python-lambda-layer-zip@v2.0.4
+        with:
+          requirements_path: ./jobs/startgg_oauth/requirements.txt
+          app_name: ${{ inputs.startgg_oauth_name }}
+          python_runtime: ${{ inputs.python_runtime }}
+          s3_layer_bucket_name: ${{ inputs.artifact_s3_bucket }}
+          aws_role_arn: ${{ secrets.AWS_ROLE_ARN_S3 }}
+
+      - name: Upload Latest Lambda Zip to S3 - start.gg OAuth Lambda
+        uses: enpicie/gh-action-workflow-upload-lambda-zip@v0.3.0
+        with:
+          source_directory: ./jobs/startgg_oauth
+          app_name: ${{ inputs.startgg_oauth_name }}
+          artifact_name: ${{ inputs.startgg_oauth_name }}-latest
           s3_bucket_name: ${{ inputs.artifact_s3_bucket }}
           aws_role_arn: ${{ secrets.AWS_ROLE_ARN_S3 }}
 
