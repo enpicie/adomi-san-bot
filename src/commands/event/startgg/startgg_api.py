@@ -129,4 +129,4 @@ def report_set(set_id: str, winner_entrant_id: str, game_data: list[dict], oauth
     data = response.json()
     if "errors" in data:
         print(f"[startgg] GraphQL errors reporting set '{set_id}': {data['errors']}")
-        raise ValueError("start.gg returned an error while reporting the set. Please check that the set is still open.")
+        raise ValueError("start.gg returned an error while reporting the set. Please check that the set is still open or contact an organizer.")
