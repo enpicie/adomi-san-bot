@@ -169,29 +169,48 @@ jobs:
       - name: Log Terraform input variables
         shell: bash
         run: |
-          echo "Logging Terraform variables:"
-          echo "TF_VAR_app_name=${TF_VAR_app_name}"
-          echo "TF_VAR_aws_region=${TF_VAR_aws_region}"
-          echo "TF_VAR_python_runtime=${TF_VAR_python_runtime}"
-          echo "TF_VAR_deployment_env=${TF_VAR_deployment_env}"
-          echo "TF_VAR_bucket_name=${TF_VAR_bucket_name}"
-          echo "TF_VAR_app_lambda_layer_s3_key=${TF_VAR_app_lambda_layer_s3_key}"
-          echo "TF_VAR_app_lambda_layer_hash_s3_key=${TF_VAR_app_lambda_layer_hash_s3_key}"
-          echo "TF_VAR_worker_lambda_layer_s3_key=${TF_VAR_worker_lambda_layer_s3_key}"
-          echo "TF_VAR_worker_lambda_layer_hash_s3_key=${TF_VAR_worker_lambda_layer_hash_s3_key}"
-          echo "TF_VAR_discord_public_key=${TF_VAR_discord_public_key}"
+          echo "=== Deployment Context ==="
+          echo "app_name=${APP_NAME}"
+          echo "deployment_env=${DEPLOYMENT_ENV}"
+          echo "aws_region=${AWS_REGION}"
+          echo "python_runtime=${PYTHON_RUNTIME}"
+          echo "artifact_s3_bucket=${ARTIFACT_S3_BUCKET}"
+
+          echo "=== Main Lambda ==="
+          echo "app_lambda_layer_s3_key=${APP_LAMBDA_LAYER_S3_KEY}"
+          echo "app_lambda_layer_hash_s3_key=${APP_LAMBDA_LAYER_HASH_S3_KEY}"
+
+          echo "=== SQS Worker Lambda ==="
+          echo "sqs_worker_name=${SQS_WORKER_NAME}"
+          echo "worker_lambda_layer_s3_key=${WORKER_LAMBDA_LAYER_S3_KEY}"
+          echo "worker_lambda_layer_hash_s3_key=${WORKER_LAMBDA_LAYER_HASH_S3_KEY}"
+
+          echo "=== Event Poller Lambda ==="
+          echo "event_poller_name=${EVENT_POLLER_NAME}"
+          echo "event_poller_layer_s3_key=${EVENT_POLLER_LAYER_S3_KEY}"
+          echo "event_poller_layer_hash_s3_key=${EVENT_POLLER_LAYER_HASH_S3_KEY}"
+
+          echo "=== start.gg OAuth Lambda ==="
+          echo "startgg_oauth_name=${STARTGG_OAUTH_NAME}"
+          echo "oauth_callback_lambda_layer_s3_key=${OAUTH_CALLBACK_LAMBDA_LAYER_S3_KEY}"
+          echo "oauth_callback_lambda_layer_hash_s3_key=${OAUTH_CALLBACK_LAMBDA_LAYER_HASH_S3_KEY}"
         env:
-          TF_VAR_app_name: '${{ inputs.app_name }}'
-          TF_VAR_aws_region: '${{ inputs.aws_region }}'
-          TF_VAR_python_runtime: '${{ inputs.python_runtime }}'
-          TF_VAR_deployment_env: '${{ inputs.deployment_env }}'
-          TF_VAR_bucket_name: '${{ inputs.artifact_s3_bucket }}'
-          # These outputs are guaranteed to be set if the conditional Build steps run.
-          TF_VAR_app_lambda_layer_s3_key: '${{ steps.build_layer.outputs.s3_artifact_key }}'
-          TF_VAR_app_lambda_layer_hash_s3_key: '${{ steps.build_layer.outputs.s3_artifact_hash_key }}'
-          TF_VAR_worker_lambda_layer_s3_key: '${{ steps.build_layer_worker.outputs.s3_artifact_key }}'
-          TF_VAR_worker_lambda_layer_hash_s3_key: '${{ steps.build_layer_worker.outputs.s3_artifact_hash_key }}'
-          TF_VAR_discord_public_key: '${{ inputs.discord_public_key }}'
+          APP_NAME: '${{ inputs.app_name }}'
+          DEPLOYMENT_ENV: '${{ inputs.deployment_env }}'
+          AWS_REGION: '${{ inputs.aws_region }}'
+          PYTHON_RUNTIME: '${{ inputs.python_runtime }}'
+          ARTIFACT_S3_BUCKET: '${{ inputs.artifact_s3_bucket }}'
+          APP_LAMBDA_LAYER_S3_KEY: '${{ steps.build_layer.outputs.s3_artifact_key }}'
+          APP_LAMBDA_LAYER_HASH_S3_KEY: '${{ steps.build_layer.outputs.s3_artifact_hash_key }}'
+          SQS_WORKER_NAME: '${{ inputs.sqs_worker_name }}'
+          WORKER_LAMBDA_LAYER_S3_KEY: '${{ steps.build_layer_worker.outputs.s3_artifact_key }}'
+          WORKER_LAMBDA_LAYER_HASH_S3_KEY: '${{ steps.build_layer_worker.outputs.s3_artifact_hash_key }}'
+          EVENT_POLLER_NAME: '${{ inputs.event_poller_name }}'
+          EVENT_POLLER_LAYER_S3_KEY: '${{ steps.build_layer_event_poller.outputs.s3_artifact_key }}'
+          EVENT_POLLER_LAYER_HASH_S3_KEY: '${{ steps.build_layer_event_poller.outputs.s3_artifact_hash_key }}'
+          STARTGG_OAUTH_NAME: '${{ inputs.startgg_oauth_name }}'
+          OAUTH_CALLBACK_LAMBDA_LAYER_S3_KEY: '${{ steps.build_layer_startgg_oauth.outputs.s3_artifact_key }}'
+          OAUTH_CALLBACK_LAMBDA_LAYER_HASH_S3_KEY: '${{ steps.build_layer_startgg_oauth.outputs.s3_artifact_hash_key }}'
 
       - name: Deploy Application Config via Terraform
         uses: enpicie/gh-action-workflow-terraform-run@v0.3.1
@@ -211,8 +230,9 @@ jobs:
             TF_VAR_app_lambda_layer_hash_s3_key=${{ steps.build_layer.outputs.s3_artifact_hash_key }}
             TF_VAR_worker_lambda_layer_s3_key=${{ steps.build_layer_worker.outputs.s3_artifact_key }}
             TF_VAR_worker_lambda_layer_hash_s3_key=${{ steps.build_layer_worker.outputs.s3_artifact_hash_key }}
-            TF_VAR_oauth_callback_lambda_s3_key=${{ steps.build_layer_startgg_oauth.outputs.s3_artifact_key }}
-            TF_VAR_oauth_callback_lambda_hash_s3_key=${{ steps.build_layer_startgg_oauth.outputs.s3_artifact_hash_key }}
+            TF_VAR_startgg_oauth_name=${{ inputs.startgg_oauth_name }}
+            TF_VAR_oauth_callback_lambda_layer_s3_key=${{ steps.build_layer_startgg_oauth.outputs.s3_artifact_key }}
+            TF_VAR_oauth_callback_lambda_layer_hash_s3_key=${{ steps.build_layer_startgg_oauth.outputs.s3_artifact_hash_key }}
             TF_VAR_discord_public_key=${{ inputs.discord_public_key }}
             TF_VAR_discord_bot_token=${{ secrets.DISCORD_BOT_TOKEN }}
             TF_VAR_startgg_api_key=${{ secrets.STARTGG_API_KEY }}

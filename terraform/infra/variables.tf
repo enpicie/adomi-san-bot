@@ -82,12 +82,17 @@ variable "startgg_oauth_client_secret" {
   sensitive   = true
 }
 
-variable "oauth_callback_lambda_s3_key" {
-  description = "S3 key for the start.gg OAuth callback Lambda zip"
+variable "startgg_oauth_name" {
+  description = "Name of the start.gg OAuth callback Lambda function"
   type        = string
 }
 
-variable "oauth_callback_lambda_hash_s3_key" {
-  description = "S3 key for the hash file of the start.gg OAuth callback Lambda zip"
+variable "oauth_callback_lambda_layer_s3_key" {
+  description = "S3 key for the start.gg OAuth callback Lambda layer zip"
+  type        = string
+}
+
+variable "oauth_callback_lambda_layer_hash_s3_key" {
+  description = "S3 key for the hash file of the start.gg OAuth callback Lambda layer zip"
   type        = string
 }

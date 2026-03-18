@@ -83,12 +83,27 @@ resource "aws_iam_role_policy" "oauth_callback_secrets_policy" {
 
 data "aws_s3_object" "oauth_callback_lambda_zip" {
   bucket = var.bucket_name
-  key    = var.oauth_callback_lambda_s3_key
+  key    = "${var.startgg_oauth_name}/${var.startgg_oauth_name}-latest.zip"
 }
 
-data "aws_s3_object" "oauth_callback_lambda_hash" {
+data "aws_s3_object" "oauth_callback_layer_zip" {
   bucket = var.bucket_name
-  key    = var.oauth_callback_lambda_hash_s3_key
+  key    = var.oauth_callback_lambda_layer_s3_key
+}
+
+data "aws_s3_object" "oauth_callback_layer_hash" {
+  bucket = var.bucket_name
+  key    = var.oauth_callback_lambda_layer_hash_s3_key
+}
+
+resource "aws_lambda_layer_version" "oauth_callback_layer" {
+  layer_name               = "${var.startgg_oauth_name}-layer-${var.deployment_env}"
+  description              = "Lambda layer for dependencies of ${var.startgg_oauth_name}"
+  s3_bucket                = var.bucket_name
+  s3_key                   = data.aws_s3_object.oauth_callback_layer_zip.key
+  compatible_runtimes      = ["python${var.python_runtime}"]
+  compatible_architectures = [var.architecture]
+  source_code_hash         = trimspace(data.aws_s3_object.oauth_callback_layer_hash.body)
 }
 
 resource "aws_lambda_function" "oauth_callback_lambda" {
@@ -100,7 +115,8 @@ resource "aws_lambda_function" "oauth_callback_lambda" {
   architectures    = [var.architecture]
   role             = aws_iam_role.oauth_callback_exec_role.arn
   timeout          = 10
-  source_code_hash = trimspace(data.aws_s3_object.oauth_callback_lambda_hash.body)
+  layers           = [aws_lambda_layer_version.oauth_callback_layer.arn]
+  source_code_hash = data.aws_s3_object.oauth_callback_lambda_zip.etag
 
   environment {
     variables = {

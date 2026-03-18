@@ -281,11 +281,24 @@ These commands configure the bot for your server. All require the **Manage Serve
 
 These commands allow participants to report bracket set results directly to start.gg.
 
-> **Prerequisite:** Participants must have their start.gg account linked to Discord in their start.gg account settings under **Connections**. Users without a linked account cannot be looked up and score reporting will fail for them.
+> **Prerequisites:**
+> - An organizer must run `/startgg-connect` to link their start.gg account to the server before score reporting is available.
+> - Participants must have their start.gg account linked to Discord in their start.gg account settings under **Connections**. Users without a linked account cannot be looked up and score reporting will fail for them.
 
 | Command | Who can use | Description |
 |---------|-------------|-------------|
+| `/startgg-connect` | Organizer | Link a start.gg organizer account to this server via OAuth |
 | `/startgg-report-score` | Any participant | Report the result of a start.gg bracket set |
+
+#### `/startgg-connect`
+
+Initiates the start.gg OAuth flow for the server. The organizer who runs this command must have tournament manager permissions on start.gg for the tournaments they want to report scores on — score reporting is performed on their behalf using their linked account.
+
+Running the command returns a one-time authorization link (expires in 10 minutes). After the organizer approves access on start.gg, the account is linked to the server and `/startgg-report-score` becomes available. Only one account can be linked to a server at a time; running `/startgg-connect` again replaces the previous link.
+
+No parameters.
+
+#### `/startgg-report-score`
 
 **`/startgg-report-score` parameters:**
 
@@ -332,6 +345,9 @@ The command finds the most recently created open set between the two players on 
 | `server_id` | Discord guild ID |
 | `organizer_role` | Role ID for organizers |
 | `default_participant_role` | Default role assigned on check-in (optional) |
+| `notification_channel_id` | Channel to post bot notifications to (optional) |
+| `ping_organizers` | Whether to ping the organizer role in notifications (optional) |
+| `oauth_token_startgg` | start.gg OAuth access token linked via `/startgg-connect` (optional) |
 
 ### EventData record (SK: `EVENT#{event_id}`)
 
@@ -378,14 +394,25 @@ The command finds the most recently created open set between the two players on 
 - `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`
 - `TF_TOKEN` (HCP Terraform API token)
 - `STARTGG_API_TOKEN` (stored in AWS Secrets Manager at runtime)
+- `STARTGG_OAUTH_CLIENT_ID_DEV` / `STARTGG_OAUTH_CLIENT_ID_PROD` (start.gg OAuth app client ID)
+- `STARTGG_OAUTH_CLIENT_SECRET_DEV` / `STARTGG_OAUTH_CLIENT_SECRET_PROD` (start.gg OAuth app client secret)
 
-**Lambda environment variables** (injected by Terraform):
+**Main Lambda environment variables** (injected by Terraform):
 - `REGION`
 - `PUBLIC_KEY`
 - `DISCORD_BOT_TOKEN`
 - `DYNAMODB_TABLE_NAME`
 - `REMOVE_ROLE_QUEUE_URL`
 - `STARTGG_SECRET_NAME`
+- `STARTGG_OAUTH_CLIENT_ID`
+- `STARTGG_OAUTH_REDIRECT_URI`
+
+**OAuth callback Lambda environment variables** (injected by Terraform):
+- `REGION`
+- `DYNAMODB_TABLE_NAME`
+- `STARTGG_OAUTH_SECRET_NAME`
+- `OAUTH_REDIRECT_URI`
+- `DISCORD_BOT_TOKEN`
 
 Reading config in code: [src/constants.py](./src/constants.py)
 

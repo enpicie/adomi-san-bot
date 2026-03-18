@@ -1,10 +1,12 @@
 import json
 import logging
 import os
-import time
 
 import boto3
 import requests
+
+from db import consume_state, get_server_config, store_user_tokens, update_server_oauth_token
+from discord import send_oauth_notification
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -13,10 +15,8 @@ DYNAMODB_TABLE_NAME = os.environ["DYNAMODB_TABLE_NAME"]
 REGION = os.environ["REGION"]
 STARTGG_OAUTH_SECRET_NAME = os.environ["STARTGG_OAUTH_SECRET_NAME"]
 OAUTH_REDIRECT_URI = os.environ["OAUTH_REDIRECT_URI"]
-DISCORD_BOT_TOKEN = os.environ["DISCORD_BOT_TOKEN"]
 
 STARTGG_TOKEN_URL = "https://api.start.gg/oauth/access_token"
-_DISCORD_API = "https://discord.com/api/v10"
 
 dynamodb = boto3.resource("dynamodb", region_name=REGION)
 secrets_client = boto3.client("secretsmanager", region_name=REGION)
@@ -30,72 +30,6 @@ def _get_oauth_credentials() -> dict:
         response = secrets_client.get_secret_value(SecretId=STARTGG_OAUTH_SECRET_NAME)
         _oauth_credentials = json.loads(response["SecretString"])
     return _oauth_credentials
-
-
-# DynamoDB key constants
-_STATE_PK_PREFIX = "OAUTH_STATE#"
-_STATE_SK = "STATE"
-_USER_PK_PREFIX = "USER#"
-_TOKEN_SK = "STARTGG_TOKEN"
-
-
-def _consume_state(table, nonce: str) -> dict | None:
-    """Look up and delete the state nonce. Returns dict with discord_user_id and server_id, or None if not found."""
-    pk = f"{_STATE_PK_PREFIX}{nonce}"
-    response = table.get_item(Key={"PK": pk, "SK": _STATE_SK})
-    item = response.get("Item")
-    if not item:
-        return None
-    table.delete_item(Key={"PK": pk, "SK": _STATE_SK})
-    return {"discord_user_id": item["discord_user_id"], "server_id": item.get("server_id")}
-
-
-def _update_server_oauth_token(table, server_id: str, access_token: str):
-    """Write the OAuth access token into the server's config record."""
-    table.update_item(
-        Key={"PK": f"SERVER#{server_id}", "SK": "CONFIG"},
-        UpdateExpression="SET oauth_token_startgg = :token",
-        ExpressionAttributeValues={":token": access_token},
-    )
-
-
-def _get_server_config(table, server_id: str) -> dict | None:
-    response = table.get_item(Key={"PK": f"SERVER#{server_id}", "SK": "CONFIG"})
-    return response.get("Item")
-
-
-def _send_oauth_notification(server_config: dict, discord_user_id: str):
-    """Send a notification to the server's notification channel if configured."""
-    notification_channel_id = server_config.get("notification_channel_id")
-    if not notification_channel_id:
-        return
-
-    message = (
-        f"✅ <@{discord_user_id}> has linked their start.gg organizer account to this server. "
-        "Score reporting via `/startgg-report-score` is now enabled."
-    )
-    if server_config.get("ping_organizers"):
-        organizer_role = server_config.get("organizer_role")
-        if organizer_role:
-            message = f"<@&{organizer_role}> {message}"
-
-    requests.post(
-        f"{_DISCORD_API}/channels/{notification_channel_id}/messages",
-        headers={"Authorization": f"Bot {DISCORD_BOT_TOKEN}", "Content-Type": "application/json"},
-        json={"content": message},
-        timeout=5,
-    )
-
-
-def _store_user_tokens(table, discord_user_id: str, access_token: str, refresh_token: str, expires_in: int):
-    table.put_item(Item={
-        "PK": f"{_USER_PK_PREFIX}{discord_user_id}",
-        "SK": _TOKEN_SK,
-        "discord_user_id": discord_user_id,
-        "access_token": access_token,
-        "refresh_token": refresh_token,
-        "expires_at": int(time.time()) + expires_in,
-    })
 
 
 def _html_response(status_code: int, title: str, message: str) -> dict:
@@ -120,7 +54,7 @@ def handler(event, context):
         return _html_response(400, "Authorization Failed", "Missing required parameters. Please try connecting again.")
 
     table = dynamodb.Table(DYNAMODB_TABLE_NAME)
-    state_data = _consume_state(table, state)
+    state_data = consume_state(table, state)
 
     if not state_data:
         logger.warning(f"No valid state record for nonce: {state}")
@@ -155,16 +89,16 @@ def handler(event, context):
         logger.error(f"No access_token in token response: {token_data}")
         return _html_response(500, "Authorization Failed", "Could not retrieve access token. Please try again.")
 
-    _store_user_tokens(table, discord_user_id, access_token, refresh_token, expires_in)
+    store_user_tokens(table, discord_user_id, access_token, refresh_token, expires_in)
     logger.info(f"Stored start.gg OAuth tokens for Discord user {discord_user_id}")
 
     if server_id:
-        _update_server_oauth_token(table, server_id, access_token)
+        update_server_oauth_token(table, server_id, access_token)
         logger.info(f"Updated start.gg OAuth token for Discord server {server_id}")
         try:
-            server_config = _get_server_config(table, server_id)
+            server_config = get_server_config(table, server_id)
             if server_config:
-                _send_oauth_notification(server_config, discord_user_id)
+                send_oauth_notification(server_config, discord_user_id)
         except Exception as e:
             logger.error(f"Failed to send OAuth notification for server {server_id}: {e}")
     else:
