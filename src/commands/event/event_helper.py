@@ -55,18 +55,27 @@ def create_event_record(server_id: str, record: EventRecord, table: Table) -> st
     return event_id
 
 
-def update_event_record(server_id: str, event_id: str, record: EventRecord, table: Table) -> None:
+def update_event_record(server_id: str, event_id: str, record: EventRecord, table: Table) -> bool:
     """
     Updates the Discord scheduled event and persists the new metadata to DynamoDB.
-    Raises RuntimeError if the Discord API call fails.
+    Returns True if the start time was updated on Discord, False if the event was already active
+    and the start time could not be changed (other fields still updated).
+    Raises RuntimeError if the Discord API call fails entirely.
     """
-    success = discord_helper.update_scheduled_event(server_id, event_id, ScheduledEventParams(
+    params = ScheduledEventParams(
         name=record.name,
         location=record.location,
         scheduled_start_time=record.start_time_utc,
         scheduled_end_time=record.end_time_utc,
         description=record.description
-    ))
+    )
+    start_time_updated = True
+    try:
+        success = discord_helper.update_scheduled_event(server_id, event_id, params)
+    except discord_helper.EventAlreadyActiveError:
+        success = discord_helper.update_scheduled_event(server_id, event_id, params, skip_start_time=True)
+        start_time_updated = False
+
     if not success:
         raise RuntimeError(f"Failed to update Discord scheduled event '{event_id}' for server '{server_id}'")
 
@@ -87,6 +96,8 @@ def update_event_record(server_id: str, event_id: str, record: EventRecord, tabl
             ":participant_role": record.participant_role or "",
         }
     )
+
+    return start_time_updated
 
 
 def delete_event_record(server_id: str, event_id: str, table: Table) -> None:

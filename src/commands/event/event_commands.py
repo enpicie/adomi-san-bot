@@ -270,7 +270,7 @@ def update_event_startgg(event: DiscordEvent, aws_services: AWSServices) -> Resp
         if not participant_role else ""
     )
 
-    update_event_record(
+    start_time_updated = update_event_record(
         server_id=server_id,
         event_id=event_id,
         record=EventRecord(
@@ -307,7 +307,10 @@ def update_event_startgg(event: DiscordEvent, aws_services: AWSServices) -> Resp
 
     changes = []
     if startgg_event.start_time_utc != event_data_result.start_time:
-        changes.append(f"🕒 Start time updated to `{startgg_event.start_time_utc}`")
+        if start_time_updated:
+            changes.append(f"🕒 Start time updated to `{startgg_event.start_time_utc}`")
+        else:
+            changes.append(f"⚠️ Start time in start.gg (`{startgg_event.start_time_utc}`) differs but could not be updated — event is already active on Discord")
     changes.append(f"👥 Registered list synced with {total_count} participant(s)")
     change_summary = "\n".join(f"• {c}" for c in changes)
 
@@ -341,7 +344,7 @@ def event_refresh_startgg(event: DiscordEvent, aws_services: AWSServices) -> Res
     changes = []
 
     if startgg_event.start_time_utc and startgg_event.start_time_utc != event_data_result.start_time:
-        update_event_record(
+        start_time_updated = update_event_record(
             server_id=server_id,
             event_id=event_id,
             record=EventRecord(
@@ -353,7 +356,10 @@ def event_refresh_startgg(event: DiscordEvent, aws_services: AWSServices) -> Res
             ),
             table=aws_services.dynamodb_table
         )
-        changes.append(f"🕒 Start time updated to `{startgg_event.start_time_utc}`")
+        if start_time_updated:
+            changes.append(f"🕒 Start time updated to `{startgg_event.start_time_utc}`")
+        else:
+            changes.append(f"⚠️ Start time in start.gg (`{startgg_event.start_time_utc}`) differs but could not be updated — event is already active on Discord")
 
     if total_count == 0 and not changes:
         return ResponseMessage(

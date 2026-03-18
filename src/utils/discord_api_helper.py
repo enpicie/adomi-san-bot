@@ -9,6 +9,13 @@ BOT_AUTH_HEADERS = {
     "Content-Type": "application/json",
 }
 
+_START_TIME_LOCKED_CODE = "GUILD_SCHEDULED_EVENT_SCHEDULE_INVALID_START_BY_STATUS"
+
+
+class EventAlreadyActiveError(Exception):
+    """Raised when Discord rejects a start_time update because the event is already active."""
+    pass
+
 def add_role_to_user(guild_id: str, user_id: str, role_id: str) -> bool:
     """
     Adds a role to a Discord guild member using the Discord REST API.
@@ -68,18 +75,21 @@ def create_scheduled_event(guild_id: str, params: ScheduledEventParams) -> Optio
     raise ValueError(_extract_discord_error(response))
 
 
-def update_scheduled_event(guild_id: str, event_id: str, params: ScheduledEventParams) -> bool:
+def update_scheduled_event(guild_id: str, event_id: str, params: ScheduledEventParams, skip_start_time: bool = False) -> bool:
     """
     Updates a Discord guild scheduled event (EXTERNAL type).
+    :param skip_start_time: If True, omits scheduled_start_time from the request body.
     :return: True if successful (200 response), False otherwise
+    :raises EventAlreadyActiveError: if Discord rejects the start time update because the event is active.
     """
     url = f"https://discord.com/api/v10/guilds/{guild_id}/scheduled-events/{event_id}"
     body = {
         "name": params.name,
-        "scheduled_start_time": params.scheduled_start_time,
         "scheduled_end_time": params.scheduled_end_time,
         "entity_metadata": {"location": params.location},
     }
+    if not skip_start_time:
+        body["scheduled_start_time"] = params.scheduled_start_time
     if params.description:
         body["description"] = params.description
 
@@ -87,7 +97,17 @@ def update_scheduled_event(guild_id: str, event_id: str, params: ScheduledEventP
 
     if response.status_code == 200:
         return True
+
     print(f"Error updating scheduled event: status {response.status_code}, body: {response.text}")
+    try:
+        errors = response.json().get("errors", {})
+        start_time_errors = errors.get("scheduled_start_time", {}).get("_errors", [])
+        if any(e.get("code") == _START_TIME_LOCKED_CODE for e in start_time_errors):
+            raise EventAlreadyActiveError("Event is already active; start time cannot be changed.")
+    except EventAlreadyActiveError:
+        raise
+    except Exception:
+        pass
     return False
 
 
