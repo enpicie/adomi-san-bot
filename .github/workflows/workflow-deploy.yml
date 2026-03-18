@@ -11,8 +11,8 @@ on:
         description: Name of the application
         required: true
         type: string
-      event_poller_name:
-        description: Name of the event poller Lambda function
+      scheduled_job_name:
+        description: Name of the scheduled job Lambda function
         required: true
         type: string
       startgg_oauth_name:
@@ -100,12 +100,12 @@ jobs:
           s3_layer_bucket_name: ${{ inputs.artifact_s3_bucket }}
           aws_role_arn: ${{ secrets.AWS_ROLE_ARN_S3 }}
 
-      - name: Build and Upload Lambda Layer Artifact to S3 - Event Poller Lambda
-        id: build_layer_event_poller
+      - name: Build and Upload Lambda Layer Artifact to S3 - Scheduled Job Lambda
+        id: build_layer_scheduled_job
         uses: enpicie/gh-action-workflow-build-python-lambda-layer-zip@v2.0.4
         with:
-          requirements_path: ./jobs/event_poller/requirements.txt
-          app_name: ${{ inputs.event_poller_name }}
+          requirements_path: ./jobs/scheduled_job/requirements.txt
+          app_name: ${{ inputs.scheduled_job_name }}
           python_runtime: ${{ inputs.python_runtime }}
           s3_layer_bucket_name: ${{ inputs.artifact_s3_bucket }}
           aws_role_arn: ${{ secrets.AWS_ROLE_ARN_S3 }}
@@ -138,12 +138,12 @@ jobs:
           s3_bucket_name: ${{ inputs.artifact_s3_bucket }}
           aws_role_arn: ${{ secrets.AWS_ROLE_ARN_S3 }}
 
-      - name: Upload Latest Lambda Zip to S3 - Event Poller Lambda
+      - name: Upload Latest Lambda Zip to S3 - Scheduled Job Lambda
         uses: enpicie/gh-action-workflow-upload-lambda-zip@v0.3.0
         with:
-          source_directory: ./jobs/event_poller
-          app_name: ${{ inputs.event_poller_name }}
-          artifact_name: ${{ inputs.event_poller_name }}-latest
+          source_directory: ./jobs/scheduled_job
+          app_name: ${{ inputs.scheduled_job_name }}
+          artifact_name: ${{ inputs.scheduled_job_name }}-latest
           s3_bucket_name: ${{ inputs.artifact_s3_bucket }}
           aws_role_arn: ${{ secrets.AWS_ROLE_ARN_S3 }}
 
@@ -185,10 +185,10 @@ jobs:
           echo "worker_lambda_layer_s3_key=${WORKER_LAMBDA_LAYER_S3_KEY}"
           echo "worker_lambda_layer_hash_s3_key=${WORKER_LAMBDA_LAYER_HASH_S3_KEY}"
 
-          echo "=== Event Poller Lambda ==="
-          echo "event_poller_name=${EVENT_POLLER_NAME}"
-          echo "event_poller_layer_s3_key=${EVENT_POLLER_LAYER_S3_KEY}"
-          echo "event_poller_layer_hash_s3_key=${EVENT_POLLER_LAYER_HASH_S3_KEY}"
+          echo "=== Scheduled Job Lambda ==="
+          echo "scheduled_job_name=${SCHEDULED_JOB_NAME}"
+          echo "scheduled_job_layer_s3_key=${SCHEDULED_JOB_LAYER_S3_KEY}"
+          echo "scheduled_job_layer_hash_s3_key=${SCHEDULED_JOB_LAYER_HASH_S3_KEY}"
 
           echo "=== start.gg OAuth Lambda ==="
           echo "startgg_oauth_name=${STARTGG_OAUTH_NAME}"
@@ -205,9 +205,9 @@ jobs:
           SQS_WORKER_NAME: '${{ inputs.sqs_worker_name }}'
           WORKER_LAMBDA_LAYER_S3_KEY: '${{ steps.build_layer_worker.outputs.s3_artifact_key }}'
           WORKER_LAMBDA_LAYER_HASH_S3_KEY: '${{ steps.build_layer_worker.outputs.s3_artifact_hash_key }}'
-          EVENT_POLLER_NAME: '${{ inputs.event_poller_name }}'
-          EVENT_POLLER_LAYER_S3_KEY: '${{ steps.build_layer_event_poller.outputs.s3_artifact_key }}'
-          EVENT_POLLER_LAYER_HASH_S3_KEY: '${{ steps.build_layer_event_poller.outputs.s3_artifact_hash_key }}'
+          SCHEDULED_JOB_NAME: '${{ inputs.scheduled_job_name }}'
+          SCHEDULED_JOB_LAYER_S3_KEY: '${{ steps.build_layer_scheduled_job.outputs.s3_artifact_key }}'
+          SCHEDULED_JOB_LAYER_HASH_S3_KEY: '${{ steps.build_layer_scheduled_job.outputs.s3_artifact_hash_key }}'
           STARTGG_OAUTH_NAME: '${{ inputs.startgg_oauth_name }}'
           OAUTH_CALLBACK_LAMBDA_LAYER_S3_KEY: '${{ steps.build_layer_startgg_oauth.outputs.s3_artifact_key }}'
           OAUTH_CALLBACK_LAMBDA_LAYER_HASH_S3_KEY: '${{ steps.build_layer_startgg_oauth.outputs.s3_artifact_hash_key }}'
@@ -239,21 +239,21 @@ jobs:
             TF_VAR_startgg_oauth_client_id=${{ secrets.STARTGG_OAUTH_CLIENT_ID }}
             TF_VAR_startgg_oauth_client_secret=${{ secrets.STARTGG_OAUTH_CLIENT_SECRET }}
 
-      - name: Deploy Event Poller Config via Terraform
+      - name: Deploy Scheduled Job Config via Terraform
         uses: enpicie/gh-action-workflow-terraform-run@v0.3.1
         with:
           aws_role_arn: ${{ secrets.AWS_ROLE_ARN_EVENTBRIDGE_LAMBDA_DDB_SQS }}
-          state_key: projects/${{ inputs.app_name }}/${{ inputs.deployment_env }}/event-poller.tfstate
+          state_key: projects/${{ inputs.app_name }}/${{ inputs.deployment_env }}/scheduled-job.tfstate
           aws_region: us-east-2
-          tf_directory: ./terraform/event_poller
+          tf_directory: ./terraform/scheduled_job
           tf_vars: |
             TF_VAR_app_name=${{ inputs.app_name }}
-            TF_VAR_event_poller_name=${{ inputs.event_poller_name }}
+            TF_VAR_scheduled_job_name=${{ inputs.scheduled_job_name }}
             TF_VAR_sqs_worker_name=${{ inputs.sqs_worker_name }}
             TF_VAR_aws_region=${{ inputs.aws_region }}
             TF_VAR_python_runtime=${{ inputs.python_runtime }}
             TF_VAR_deployment_env=${{ inputs.deployment_env }}
             TF_VAR_bucket_name=${{ inputs.artifact_s3_bucket }}
-            TF_VAR_event_poller_layer_s3_key=${{ steps.build_layer_event_poller.outputs.s3_artifact_key }}
-            TF_VAR_event_poller_layer_hash_s3_key=${{ steps.build_layer_event_poller.outputs.s3_artifact_hash_key }}
+            TF_VAR_scheduled_job_layer_s3_key=${{ steps.build_layer_scheduled_job.outputs.s3_artifact_key }}
+            TF_VAR_scheduled_job_layer_hash_s3_key=${{ steps.build_layer_scheduled_job.outputs.s3_artifact_hash_key }}
             TF_VAR_discord_bot_token=${{ secrets.DISCORD_BOT_TOKEN }}

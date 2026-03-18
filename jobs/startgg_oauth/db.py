@@ -33,10 +33,18 @@ def get_server_config(table, server_id: str) -> dict | None:
     return response.get("Item")
 
 
-def update_server_oauth_token(table, server_id: str, access_token: str):
-    """Write the OAuth access token into the server's config record."""
+def update_server_oauth_token(table, server_id: str, access_token: str, refresh_token: str, expires_in: int):
+    """Write the OAuth access token, refresh token, and expiry into the server's config record."""
     table.update_item(
         Key={"PK": f"SERVER#{server_id}", "SK": "CONFIG"},
-        UpdateExpression="SET oauth_token_startgg = :token",
-        ExpressionAttributeValues={":token": access_token},
+        UpdateExpression=(
+            "SET oauth_token_startgg = :token, "
+            "startgg_refresh_token = :refresh_token, "
+            "startgg_token_expires_at = :expires_at"
+        ),
+        ExpressionAttributeValues={
+            ":token": access_token,
+            ":refresh_token": refresh_token,
+            ":expires_at": int(time.time()) + expires_in,
+        },
     )

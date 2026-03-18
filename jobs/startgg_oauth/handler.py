@@ -94,7 +94,7 @@ def handler(event, context):
     logger.info(f"Stored start.gg OAuth tokens for Discord user {discord_user_id}")
 
     if server_id:
-        update_server_oauth_token(table, server_id, access_token)
+        update_server_oauth_token(table, server_id, access_token, refresh_token, expires_in)
         logger.info(f"Updated start.gg OAuth token for Discord server {server_id}")
         try:
             server_config = get_server_config(table, server_id)
