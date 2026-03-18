@@ -58,6 +58,7 @@ resource "aws_iam_role_policy" "oauth_callback_dynamodb_policy" {
         "dynamodb:GetItem",
         "dynamodb:DeleteItem",
         "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
       ]
       Resource = aws_dynamodb_table.adomi_discord_server_table.arn
     }]
