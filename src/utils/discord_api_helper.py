@@ -22,11 +22,13 @@ def add_role_to_user(guild_id: str, user_id: str, role_id: str) -> bool:
     :return: True if successful (204 response), False otherwise
     """
     url = f"https://discord.com/api/v10/guilds/{guild_id}/members/{user_id}/roles/{role_id}"
+    print(f"[discord] PUT {url}")
     response = requests.put(url, headers=BOT_AUTH_HEADERS)
+    print(f"[discord] Response status: {response.status_code} | body: {response.text}")
 
     if response.status_code == 204:
         return True
-    print(f"Error adding role: status {response.status_code}, body: {response.text}")
+    print(f"[discord] Error adding role: status {response.status_code}, body: {response.text}")
     return False
 
 @dataclass
@@ -67,11 +69,13 @@ def create_scheduled_event(guild_id: str, params: ScheduledEventParams) -> Optio
     if params.description:
         body["description"] = params.description
 
+    print(f"[discord] POST {url} | body: {body}")
     response = requests.post(url, headers=BOT_AUTH_HEADERS, json=body)
+    print(f"[discord] Response status: {response.status_code} | body: {response.text}")
 
     if response.status_code == 200:
         return response.json()["id"]
-    print(f"Error creating scheduled event: status {response.status_code}, body: {response.text}")
+    print(f"[discord] Error creating scheduled event: status {response.status_code}, body: {response.text}")
     raise ValueError(_extract_discord_error(response))
 
 
@@ -93,12 +97,14 @@ def update_scheduled_event(guild_id: str, event_id: str, params: ScheduledEventP
     if params.description:
         body["description"] = params.description
 
+    print(f"[discord] PATCH {url} | body: {body}")
     response = requests.patch(url, headers=BOT_AUTH_HEADERS, json=body)
+    print(f"[discord] Response status: {response.status_code} | body: {response.text}")
 
     if response.status_code == 200:
         return True
 
-    print(f"Error updating scheduled event: status {response.status_code}, body: {response.text}")
+    print(f"[discord] Error updating scheduled event: status {response.status_code}, body: {response.text}")
     try:
         errors = response.json().get("errors", {})
         start_time_errors = errors.get("scheduled_start_time", {}).get("_errors", [])
@@ -117,9 +123,11 @@ def delete_scheduled_event(guild_id: str, event_id: str) -> bool:
     :return: True if successful (204 response), False otherwise
     """
     url = f"https://discord.com/api/v10/guilds/{guild_id}/scheduled-events/{event_id}"
+    print(f"[discord] DELETE {url}")
     response = requests.delete(url, headers=BOT_AUTH_HEADERS)
+    print(f"[discord] Response status: {response.status_code} | body: {response.text}")
 
     if response.status_code == 204:
         return True
-    print(f"Error deleting scheduled event: status {response.status_code}, body: {response.text}")
+    print(f"[discord] Error deleting scheduled event: status {response.status_code}, body: {response.text}")
     return False

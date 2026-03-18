@@ -4,6 +4,7 @@ from commands.models.response_message import ResponseMessage
 from commands.check_in.mapping import checkin_commands
 from commands.register.mapping import register_commands_mapping
 from commands.event.mapping import event_commands_mapping
+from commands.startgg.mapping import startgg_commands_mapping
 
 WIKI_LINK = "https://github.com/enpicie/adomi-san-bot/wiki/Adomi-is-here-to-help!"
 
@@ -36,4 +37,16 @@ def help_event(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessag
     lines = ["**Event Commands**"]
     for name, entry in event_commands_mapping.items():
         lines.append(f"`/{name}` — {entry['description']}")
+    return ResponseMessage(content="\n".join(lines))
+
+
+def help_startgg(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
+    lines = ["**start.gg Commands**"]
+    for name, entry in startgg_commands_mapping.items():
+        lines.append(f"`/{name}` — {entry['description']}")
+    lines.append(
+        "\n⚠️ **Note:** Participants must have their start.gg account linked to Discord "
+        "for these commands to work as expected. "
+        "This can be done in start.gg account settings under **Connections**."
+    )
     return ResponseMessage(content="\n".join(lines))

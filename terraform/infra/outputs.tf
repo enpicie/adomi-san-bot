@@ -17,3 +17,8 @@ output "remove_role_queue_url" {
 output "remove_role_queue_arn" {
   value = aws_sqs_queue.remove_role.arn
 }
+
+output "oauth_callback_url" {
+  description = "Register this as the redirect URI in your start.gg OAuth application settings"
+  value       = "${aws_apigatewayv2_stage.env_stage.invoke_url}/startgg/callback"
+}
