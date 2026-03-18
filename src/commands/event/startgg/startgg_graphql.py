@@ -1,13 +1,13 @@
 FIND_SET_QUERY = """
     query FindSetBetweenEntrants($eventSlug: String, $entrantIds: [ID]) {
         event(slug: $eventSlug) {
-            sets(query: {
+            sets(
                 page: 1
                 perPage: 50
                 filters: {
                     entrantIds: $entrantIds
                 }
-            }) {
+            ) {
                 nodes {
                     id
                     state
