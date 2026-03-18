@@ -215,6 +215,15 @@ def create_event_startgg(event: DiscordEvent, aws_services: AWSServices) -> Resp
                     "Please create the event manually with `/event-create`."
         )
 
+    past_time_warning = ""
+    start_time_utc = startgg_event.start_time_utc
+    if _is_past_time(start_time_utc):
+        start_time_utc = datetime.now(dt_timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        past_time_warning = (
+            f"\n⚠️ The start.gg event time (`{startgg_event.start_time_utc}`) is in the past. "
+            "The current time has been used instead."
+        )
+
     participant_role = (
         event.get_command_input_value("participant_role")
         or server_config.default_participant_role
@@ -233,7 +242,7 @@ def create_event_startgg(event: DiscordEvent, aws_services: AWSServices) -> Resp
         record=EventRecord(
             name=startgg_event.event_name,
             location=startgg_event.location or "Online",
-            start_time_utc=startgg_event.start_time_utc,
+            start_time_utc=start_time_utc,
             end_time_utc=end_time_utc,
             participant_role=participant_role
         ),
@@ -265,7 +274,7 @@ def create_event_startgg(event: DiscordEvent, aws_services: AWSServices) -> Resp
     no_discord_report = _build_no_discord_report(no_discord_names)
 
     return ResponseMessage(
-        content=f"✅ Event **{startgg_event.event_name}** created with {total_count} registered participants!{no_discord_report}{no_role_warning}"
+        content=f"✅ Event **{startgg_event.event_name}** created with {total_count} registered participants!{past_time_warning}{no_discord_report}{no_role_warning}"
     )
 
 
