@@ -15,12 +15,14 @@ class ServerConfig(SubscriptableMixin):
         DEFAULT_PARTICIPANT_ROLE = "default_participant_role"
         NOTIFICATION_CHANNEL_ID = "notification_channel_id"
         PING_ORGANIZERS = "ping_organizers"
+        STARTGG_OAUTH_TOKEN = "oauth_token_startgg"
 
     server_id: str = field(metadata={'db_key': Keys.SERVER_ID})
     organizer_role: str = field(metadata={'db_key': Keys.ORGANIZER_ROLE})
     default_participant_role: str = field(metadata={'db_key': Keys.DEFAULT_PARTICIPANT_ROLE})
     notification_channel_id: Optional[str] = field(default=None, metadata={'db_key': Keys.NOTIFICATION_CHANNEL_ID})
     ping_organizers: Optional[bool] = field(default=False, metadata={'db_key': Keys.PING_ORGANIZERS})
+    startgg_oauth_token: Optional[str] = field(default=None, metadata={'db_key': Keys.STARTGG_OAUTH_TOKEN})
 
     @classmethod
     def from_dynamodb(cls, record: Dict[str, Any]) -> 'ServerConfig':
@@ -29,5 +31,6 @@ class ServerConfig(SubscriptableMixin):
             organizer_role=record.get(cls.Keys.ORGANIZER_ROLE),
             default_participant_role=record.get(cls.Keys.DEFAULT_PARTICIPANT_ROLE),
             notification_channel_id=record.get(cls.Keys.NOTIFICATION_CHANNEL_ID),
-            ping_organizers=record.get(cls.Keys.PING_ORGANIZERS, False)
+            ping_organizers=record.get(cls.Keys.PING_ORGANIZERS, False),
+            startgg_oauth_token=record.get(cls.Keys.STARTGG_OAUTH_TOKEN)
         )

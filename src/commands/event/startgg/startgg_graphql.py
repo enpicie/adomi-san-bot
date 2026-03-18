@@ -10,6 +10,7 @@ FIND_SET_QUERY = """
             }) {
                 nodes {
                     id
+                    state
                     createdAt
                     slots {
                         entrant {

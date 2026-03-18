@@ -8,6 +8,12 @@ from commands.event.startgg.models.startgg_event import StartggEvent
 
 STARTGG_API_URL = "https://api.start.gg/gql/alpha"
 
+_SET_STATE_COMPLETED = 3
+
+
+class StartggAuthError(Exception):
+    """Raised when start.gg rejects a request due to invalid or expired OAuth token."""
+
 _startgg_api_token: str | None = None
 
 def _get_startgg_api_token() -> str:
@@ -57,10 +63,13 @@ def query_startgg_event(tourney_url: str) -> StartggEvent:
 
     return StartggEvent.from_dict(data["data"]["event"])
 
-def find_set_between_players(event_slug: str, player_ids: list[str]) -> tuple[str, dict[str, str]] | None:
+def find_set_between_players(
+    event_slug: str, player_ids: list[str]
+) -> tuple[str, dict[str, str], bool] | None:
     """
-    Finds a pending set on start.gg between two participants (by participant ID).
-    Returns (set_id, {participant_id: entrant_id}) for both players, or None if no set found.
+    Finds a set on start.gg between the given entrant IDs.
+    Returns (set_id, {entrant_id: entrant_id}, is_completed), or None if no set found.
+    is_completed is True when the set state is COMPLETED (3) — score already reported.
     """
     headers = {"Authorization": f"Bearer {_get_startgg_api_token()}"}
     request_body = {
@@ -105,14 +114,16 @@ def find_set_between_players(event_slug: str, player_ids: list[str]) -> tuple[st
         return None
 
     latest = max(matching_sets, key=lambda s: s.get("createdAt") or 0)
-    return str(latest["id"]), {eid: eid for eid in player_ids}
+    is_completed = latest.get("state") == _SET_STATE_COMPLETED
+    return str(latest["id"]), {eid: eid for eid in player_ids}, is_completed
 
-def report_set(set_id: str, winner_entrant_id: str, game_data: list[dict]) -> None:
+def report_set(set_id: str, winner_entrant_id: str, game_data: list[dict], oauth_token: str) -> None:
     """
-    Reports a set result on start.gg.
+    Reports a set result on start.gg using the server's OAuth token.
     game_data: list of {"winnerId": entrant_id, "gameNum": int}
+    Raises StartggAuthError if the token is invalid or expired.
     """
-    headers = {"Authorization": f"Bearer {_get_startgg_api_token()}"}
+    headers = {"Authorization": f"Bearer {oauth_token}"}
     request_body = {
         "query": startgg_graphql.REPORT_SET_MUTATION,
         "variables": {
@@ -129,6 +140,9 @@ def report_set(set_id: str, winner_entrant_id: str, game_data: list[dict]) -> No
         timeout=10
     )
 
+    if response.status_code == 401:
+        raise StartggAuthError("start.gg OAuth token is invalid or expired.")
+
     if not response.ok:
         print(f"Error reporting set on start.gg: status {response.status_code}, body: {response.text}")
     response.raise_for_status()
@@ -136,4 +150,4 @@ def report_set(set_id: str, winner_entrant_id: str, game_data: list[dict]) -> No
     data = response.json()
     if "errors" in data:
         print(f"start.gg GraphQL errors reporting set '{set_id}': {data['errors']}")
-        raise ValueError(f"start.gg returned an error while reporting the set. Please check that the set is still open.")
+        raise ValueError("start.gg returned an error while reporting the set. Please check that the set is still open.")
