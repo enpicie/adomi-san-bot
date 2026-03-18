@@ -244,6 +244,7 @@ def create_event_startgg(event: DiscordEvent, aws_services: AWSServices) -> Resp
             location=startgg_event.location or "Online",
             start_time_utc=start_time_utc,
             end_time_utc=end_time_utc,
+            description=f"Register here: {event_url}",
             participant_role=participant_role
         ),
         table=aws_services.dynamodb_table
@@ -345,6 +346,7 @@ def update_event_startgg(event: DiscordEvent, aws_services: AWSServices) -> Resp
             location=startgg_event.location or "Online",
             start_time_utc=start_time_for_update,
             end_time_utc=end_time_utc,
+            description=f"Register here: {event_url}",
             participant_role=participant_role
         ),
         table=aws_services.dynamodb_table
@@ -420,6 +422,7 @@ def event_refresh_startgg(event: DiscordEvent, aws_services: AWSServices) -> Res
                         location=event_data_result.event_location or "Online",
                         start_time_utc=startgg_event.start_time_utc,
                         end_time_utc=event_data_result.end_time,
+                        description=f"Register here: {event_data_result.startgg_url}",
                         participant_role=event_data_result.participant_role
                     ),
                     table=aws_services.dynamodb_table
