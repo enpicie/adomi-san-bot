@@ -31,6 +31,17 @@ class TestStartggEventFromDict(unittest.TestCase):
         data.update(overrides)
         return data
 
+    def _make_entrant(self, entrant_id, gamer_tag, discord_id=None):
+        return {
+            "id": entrant_id,
+            "participants": [{
+                "gamerTag": gamer_tag,
+                "user": {
+                    "authorizations": [{"externalId": discord_id}] if discord_id else None
+                }
+            }]
+        }
+
     def test_basic_fields_parsed(self):
         event = StartggEvent.from_dict(self._base_event_data())
         self.assertEqual(event.tourney_name, "Midweek Melting")
@@ -66,34 +77,22 @@ class TestStartggEventFromDict(unittest.TestCase):
 
     def test_participant_with_discord_added_to_registered(self):
         data = self._base_event_data()
-        data["entrants"]["nodes"] = [
-            {
-                "participants": [{
-                    "gamerTag": "Player1",
-                    "id": 42,
-                    "user": {
-                        "authorizations": [{"externalId": "U123"}]
-                    }
-                }]
-            }
-        ]
+        data["entrants"]["nodes"] = [self._make_entrant(101, "Player1", discord_id="U123")]
         event = StartggEvent.from_dict(data)
         self.assertEqual(len(event.participants), 1)
         self.assertEqual(event.participants[0].user_id, "U123")
         self.assertEqual(event.participants[0].display_name, "Player1")
         self.assertEqual(len(event.no_discord_participants), 0)
 
+    def test_participant_external_id_is_entrant_id(self):
+        data = self._base_event_data()
+        data["entrants"]["nodes"] = [self._make_entrant(101, "Player1", discord_id="U123")]
+        event = StartggEvent.from_dict(data)
+        self.assertEqual(event.participants[0].external_id, "101")
+
     def test_participant_without_discord_added_to_no_discord(self):
         data = self._base_event_data()
-        data["entrants"]["nodes"] = [
-            {
-                "participants": [{
-                    "gamerTag": "OfflinePlayer",
-                    "id": 99,
-                    "user": {"authorizations": None}
-                }]
-            }
-        ]
+        data["entrants"]["nodes"] = [self._make_entrant(99, "OfflinePlayer")]
         event = StartggEvent.from_dict(data)
         self.assertEqual(len(event.no_discord_participants), 1)
         self.assertEqual(event.no_discord_participants[0].display_name, "OfflinePlayer")
@@ -103,20 +102,8 @@ class TestStartggEventFromDict(unittest.TestCase):
     def test_mixed_participants_split_correctly(self):
         data = self._base_event_data()
         data["entrants"]["nodes"] = [
-            {
-                "participants": [{
-                    "gamerTag": "LinkedPlayer",
-                    "id": 1,
-                    "user": {"authorizations": [{"externalId": "U1"}]}
-                }]
-            },
-            {
-                "participants": [{
-                    "gamerTag": "NoDiscordPlayer",
-                    "id": 2,
-                    "user": {"authorizations": None}
-                }]
-            }
+            self._make_entrant(1, "LinkedPlayer", discord_id="U1"),
+            self._make_entrant(2, "NoDiscordPlayer"),
         ]
         event = StartggEvent.from_dict(data)
         self.assertEqual(len(event.participants), 1)
