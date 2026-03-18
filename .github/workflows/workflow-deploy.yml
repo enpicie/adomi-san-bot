@@ -68,6 +68,10 @@ on:
         required: true
       STARTGG_API_KEY:
         required: true
+      STARTGG_OAUTH_CLIENT_ID:
+        required: true
+      STARTGG_OAUTH_CLIENT_SECRET:
+        required: true
 
 jobs:
   deploy-via-hcp-terraform:
@@ -207,9 +211,13 @@ jobs:
             TF_VAR_app_lambda_layer_hash_s3_key=${{ steps.build_layer.outputs.s3_artifact_hash_key }}
             TF_VAR_worker_lambda_layer_s3_key=${{ steps.build_layer_worker.outputs.s3_artifact_key }}
             TF_VAR_worker_lambda_layer_hash_s3_key=${{ steps.build_layer_worker.outputs.s3_artifact_hash_key }}
+            TF_VAR_oauth_callback_lambda_s3_key=${{ steps.build_layer_startgg_oauth.outputs.s3_artifact_key }}
+            TF_VAR_oauth_callback_lambda_hash_s3_key=${{ steps.build_layer_startgg_oauth.outputs.s3_artifact_hash_key }}
             TF_VAR_discord_public_key=${{ inputs.discord_public_key }}
             TF_VAR_discord_bot_token=${{ secrets.DISCORD_BOT_TOKEN }}
             TF_VAR_startgg_api_key=${{ secrets.STARTGG_API_KEY }}
+            TF_VAR_startgg_oauth_client_id=${{ secrets.STARTGG_OAUTH_CLIENT_ID }}
+            TF_VAR_startgg_oauth_client_secret=${{ secrets.STARTGG_OAUTH_CLIENT_SECRET }}
 
       - name: Deploy Event Poller Config via Terraform
         uses: enpicie/gh-action-workflow-terraform-run@v0.3.1
