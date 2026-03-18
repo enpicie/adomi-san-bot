@@ -34,32 +34,34 @@ def extract_startgg_slug(startgg_link: str) -> str | None:
 def is_valid_startgg_url(startgg_link: str) -> bool:
     return extract_startgg_slug(startgg_link) is not None
 
+def _post_graphql(variables: dict, query: str, headers: dict) -> requests.Response:
+    """Executes a start.gg GraphQL request and returns the response."""
+    print(f"[startgg] POST {STARTGG_API_URL} | variables: {variables}")
+    response = requests.post(
+        url=STARTGG_API_URL,
+        json={"query": query, "variables": variables},
+        headers=headers,
+        timeout=10
+    )
+    print(f"[startgg] Response status: {response.status_code} | body: {response.text}")
+    return response
+
 def query_startgg_event(tourney_url: str) -> StartggEvent:
     """
     Executes the start.gg GraphQL query and returns a populated StartggEvent object.
     """
     headers = {"Authorization": f"Bearer {_get_startgg_api_token()}"}
-    request_body = {
-        "query": startgg_graphql.EVENT_PARTICIPANTS_QUERY,
-        "variables": {
-            "slug": extract_startgg_slug(tourney_url)
-        }
-    }
+    variables = {"slug": extract_startgg_slug(tourney_url)}
 
-    response = requests.post(
-        url=STARTGG_API_URL,
-        json=request_body,
-        headers=headers,
-        timeout=10
-    )
+    response = _post_graphql(variables, startgg_graphql.EVENT_PARTICIPANTS_QUERY, headers)
 
     if not response.ok:
-        print(f"Error querying start.gg: status {response.status_code}, body: {response.text}")
+        print(f"[startgg] Error querying event: status {response.status_code}, body: {response.text}")
     response.raise_for_status()
 
     data = response.json()
     if "errors" in data:
-        print(f"start.gg GraphQL errors for slug '{tourney_url}': {data['errors']}")
+        print(f"[startgg] GraphQL errors for slug '{tourney_url}': {data['errors']}")
 
     return StartggEvent.from_dict(data["data"]["event"])
 
@@ -72,28 +74,17 @@ def find_set_between_players(
     is_completed is True when the set state is COMPLETED (3) — score already reported.
     """
     headers = {"Authorization": f"Bearer {_get_startgg_api_token()}"}
-    request_body = {
-        "query": startgg_graphql.FIND_SET_QUERY,
-        "variables": {
-            "eventSlug": event_slug,
-            "entrantIds": player_ids
-        }
-    }
+    variables = {"eventSlug": event_slug, "entrantIds": player_ids}
 
-    response = requests.post(
-        url=STARTGG_API_URL,
-        json=request_body,
-        headers=headers,
-        timeout=10
-    )
+    response = _post_graphql(variables, startgg_graphql.FIND_SET_QUERY, headers)
 
     if not response.ok:
-        print(f"Error querying start.gg sets: status {response.status_code}, body: {response.text}")
+        print(f"[startgg] Error querying sets: status {response.status_code}, body: {response.text}")
     response.raise_for_status()
 
     data = response.json()
     if "errors" in data:
-        print(f"start.gg GraphQL errors for slug '{event_slug}': {data['errors']}")
+        print(f"[startgg] GraphQL errors for slug '{event_slug}': {data['errors']}")
 
     entrant_id_set = set(player_ids)
     sets = data["data"]["event"]["sets"]["nodes"]
@@ -124,30 +115,18 @@ def report_set(set_id: str, winner_entrant_id: str, game_data: list[dict], oauth
     Raises StartggAuthError if the token is invalid or expired.
     """
     headers = {"Authorization": f"Bearer {oauth_token}"}
-    request_body = {
-        "query": startgg_graphql.REPORT_SET_MUTATION,
-        "variables": {
-            "setId": set_id,
-            "winnerId": winner_entrant_id,
-            "gameData": game_data
-        }
-    }
+    variables = {"setId": set_id, "winnerId": winner_entrant_id, "gameData": game_data}
 
-    response = requests.post(
-        url=STARTGG_API_URL,
-        json=request_body,
-        headers=headers,
-        timeout=10
-    )
+    response = _post_graphql(variables, startgg_graphql.REPORT_SET_MUTATION, headers)
 
     if response.status_code == 401:
         raise StartggAuthError("start.gg OAuth token is invalid or expired.")
 
     if not response.ok:
-        print(f"Error reporting set on start.gg: status {response.status_code}, body: {response.text}")
+        print(f"[startgg] Error reporting set: status {response.status_code}, body: {response.text}")
     response.raise_for_status()
 
     data = response.json()
     if "errors" in data:
-        print(f"start.gg GraphQL errors reporting set '{set_id}': {data['errors']}")
+        print(f"[startgg] GraphQL errors reporting set '{set_id}': {data['errors']}")
         raise ValueError("start.gg returned an error while reporting the set. Please check that the set is still open.")
