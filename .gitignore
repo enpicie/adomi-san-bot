@@ -198,4 +198,5 @@ cython_debug/
 **/.terraform/
 
 # Example data used locally
+.claude/
 examples/

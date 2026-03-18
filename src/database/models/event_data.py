@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 from database.models.subscriptable_mixin import SubscriptableMixin
 
@@ -8,8 +8,14 @@ class EventData(SubscriptableMixin):
     class Keys:
         PK_FIELD = "pk"
         SK_FIELD = "sk"
-        SK_SERVER = "SERVER"
-        SK_CHANNEL_PREFIX = "CHANNEL#"
+        SK_EVENT_PREFIX = "EVENT#"
+        SERVER_ID = "server_id"
+        EVENT_ID = "event_id"
+
+        EVENT_NAME = "event_name"
+        EVENT_LOCATION = "event_location"
+        START_TIME = "start_time"
+        END_TIME = "end_time"
 
         CHECKED_IN = "checked_in"
         REGISTERED = "registered"
@@ -20,6 +26,7 @@ class EventData(SubscriptableMixin):
 
         START_MESSAGE = "start_message"
         END_MESSAGE = "end_message"
+        STARTGG_URL = "startgg_url"
 
 
     checked_in: dict = field(metadata={'db_key': Keys.CHECKED_IN})
@@ -30,6 +37,11 @@ class EventData(SubscriptableMixin):
     register_enabled: bool = field(metadata={'db_key': Keys.REGISTER_ENABLED})
     start_message: str = field(metadata={'db_key': Keys.START_MESSAGE})
     end_message: str = field(metadata={'db_key': Keys.END_MESSAGE})
+    start_time: Optional[str] = field(default=None, metadata={'db_key': Keys.START_TIME})
+    end_time: Optional[str] = field(default=None, metadata={'db_key': Keys.END_TIME})
+    event_location: Optional[str] = field(default=None, metadata={'db_key': Keys.EVENT_LOCATION})
+    event_name: Optional[str] = field(default=None, metadata={'db_key': Keys.EVENT_NAME})
+    startgg_url: Optional[str] = field(default=None, metadata={'db_key': Keys.STARTGG_URL})
 
     @classmethod
     def from_dynamodb(cls, record: Dict[str, Any]) -> 'EventData':
@@ -41,5 +53,10 @@ class EventData(SubscriptableMixin):
             check_in_enabled=record.get(cls.Keys.CHECK_IN_ENABLED),
             register_enabled=record.get(cls.Keys.REGISTER_ENABLED),
             start_message=record.get(cls.Keys.START_MESSAGE),
-            end_message=record.get(cls.Keys.END_MESSAGE)
+            end_message=record.get(cls.Keys.END_MESSAGE),
+            start_time=record.get(cls.Keys.START_TIME),
+            end_time=record.get(cls.Keys.END_TIME),
+            event_location=record.get(cls.Keys.EVENT_LOCATION),
+            event_name=record.get(cls.Keys.EVENT_NAME),
+            startgg_url=record.get(cls.Keys.STARTGG_URL)
         )

@@ -1,4 +1,4 @@
-name: 'Deploy Infrastructure via HCP Terraform'
+name: 'Deploy Infrastructure via Terraform'
 
 on:
   workflow_call:
@@ -9,6 +9,10 @@ on:
         type: string
       sqs_worker_name:
         description: Name of the application
+        required: true
+        type: string
+      event_poller_name:
+        description: Name of the event poller Lambda function
         required: true
         type: string
       deployment_env:
@@ -50,13 +54,15 @@ on:
     secrets:
       AWS_ROLE_ARN_LAMBDA_APIGW_DDB_SQS:
         required: true
-      AWS_S3_ARTIFACT_UPLOAD_ROLE_ARN:
+      AWS_ROLE_ARN_EVENTBRIDGE_LAMBDA_DDB_SQS:
+        required: true
+      AWS_ROLE_ARN_S3:
         required: true
       TF_API_TOKEN:
         required: true
-      STARTGG_API_TOKEN:
-        required: true
       DISCORD_BOT_TOKEN:
+        required: true
+      STARTGG_API_KEY:
         required: true
 
 jobs:
@@ -64,7 +70,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Build and Upload Lambda Layer Artifact to S3 - Main Lambda
         id: build_layer
@@ -74,7 +80,7 @@ jobs:
           app_name: ${{ inputs.app_name }}
           python_runtime: ${{ inputs.python_runtime }}
           s3_layer_bucket_name: ${{ inputs.artifact_s3_bucket }} # Store layer in same bucket for env as artifacts
-          aws_role_arn: ${{ secrets.AWS_S3_ARTIFACT_UPLOAD_ROLE_ARN }}
+          aws_role_arn: ${{ secrets.AWS_ROLE_ARN_S3 }}
 
       - name: Build and Upload Lambda Layer Artifact to S3 - SQS Worker Lambda
         id: build_layer_worker
@@ -84,7 +90,17 @@ jobs:
           app_name: ${{ inputs.sqs_worker_name }}
           python_runtime: ${{ inputs.python_runtime }}
           s3_layer_bucket_name: ${{ inputs.artifact_s3_bucket }}
-          aws_role_arn: ${{ secrets.AWS_S3_ARTIFACT_UPLOAD_ROLE_ARN }}
+          aws_role_arn: ${{ secrets.AWS_ROLE_ARN_S3 }}
+
+      - name: Build and Upload Lambda Layer Artifact to S3 - Event Poller Lambda
+        id: build_layer_event_poller
+        uses: enpicie/gh-action-workflow-build-python-lambda-layer-zip@v2.0.4
+        with:
+          requirements_path: ./jobs/event_poller/requirements.txt
+          app_name: ${{ inputs.event_poller_name }}
+          python_runtime: ${{ inputs.python_runtime }}
+          s3_layer_bucket_name: ${{ inputs.artifact_s3_bucket }}
+          aws_role_arn: ${{ secrets.AWS_ROLE_ARN_S3 }}
 
       - name: Upload Latest Lambda Zip to S3 - Main Lambda
         uses: enpicie/gh-action-workflow-upload-lambda-zip@v0.3.0
@@ -93,7 +109,7 @@ jobs:
           app_name: ${{ inputs.app_name }}
           artifact_name: ${{ inputs.app_name }}-latest
           s3_bucket_name: ${{ inputs.artifact_s3_bucket }}
-          aws_role_arn: ${{ secrets.AWS_S3_ARTIFACT_UPLOAD_ROLE_ARN }}
+          aws_role_arn: ${{ secrets.AWS_ROLE_ARN_S3 }}
 
       - name: Upload Version Lambda Zip to S3 - Main Lambda
         if: ${{ inputs.app_version != '' }}
@@ -103,16 +119,25 @@ jobs:
           app_name: ${{ inputs.app_name }}
           artifact_name: ${{ inputs.app_name }}-${{ inputs.app_version }}
           s3_bucket_name: ${{ inputs.artifact_s3_bucket }}
-          aws_role_arn: ${{ secrets.AWS_S3_ARTIFACT_UPLOAD_ROLE_ARN }}
+          aws_role_arn: ${{ secrets.AWS_ROLE_ARN_S3 }}
 
-      - name: Upload Latest Lambda Zip to S3 - SWS Worker Lambda
+      - name: Upload Latest Lambda Zip to S3 - SQS Worker Lambda
         uses: enpicie/gh-action-workflow-upload-lambda-zip@v0.3.0
         with:
           source_directory: ./jobs/remove_role
           app_name: ${{ inputs.sqs_worker_name }}
           artifact_name: ${{ inputs.sqs_worker_name }}-latest
           s3_bucket_name: ${{ inputs.artifact_s3_bucket }}
-          aws_role_arn: ${{ secrets.AWS_S3_ARTIFACT_UPLOAD_ROLE_ARN }}
+          aws_role_arn: ${{ secrets.AWS_ROLE_ARN_S3 }}
+
+      - name: Upload Latest Lambda Zip to S3 - Event Poller Lambda
+        uses: enpicie/gh-action-workflow-upload-lambda-zip@v0.3.0
+        with:
+          source_directory: ./jobs/event_poller
+          app_name: ${{ inputs.event_poller_name }}
+          artifact_name: ${{ inputs.event_poller_name }}-latest
+          s3_bucket_name: ${{ inputs.artifact_s3_bucket }}
+          aws_role_arn: ${{ secrets.AWS_ROLE_ARN_S3 }}
 
       - name: Log Terraform input variables
         shell: bash
@@ -147,7 +172,7 @@ jobs:
           aws_role_arn: ${{ secrets.AWS_ROLE_ARN_LAMBDA_APIGW_DDB_SQS }}
           state_key: projects/${{ inputs.app_name }}/${{ inputs.deployment_env }}/infra.tfstate
           aws_region: us-east-2
-          tf_directory: ./terraform
+          tf_directory: ./terraform/infra
           tf_vars: |
             TF_VAR_app_name=${{ inputs.app_name }}
             TF_VAR_sqs_worker_name=${{ inputs.sqs_worker_name }}
@@ -160,5 +185,24 @@ jobs:
             TF_VAR_worker_lambda_layer_s3_key=${{ steps.build_layer_worker.outputs.s3_artifact_key }}
             TF_VAR_worker_lambda_layer_hash_s3_key=${{ steps.build_layer_worker.outputs.s3_artifact_hash_key }}
             TF_VAR_discord_public_key=${{ inputs.discord_public_key }}
-            TF_VAR_startgg_api_token=${{ secrets.STARTGG_API_TOKEN }}
+            TF_VAR_discord_bot_token=${{ secrets.DISCORD_BOT_TOKEN }}
+            TF_VAR_startgg_api_key=${{ secrets.STARTGG_API_KEY }}
+
+      - name: Deploy Event Poller Config via Terraform
+        uses: enpicie/gh-action-workflow-terraform-run@v0.3.1
+        with:
+          aws_role_arn: ${{ secrets.AWS_ROLE_ARN_EVENTBRIDGE_LAMBDA_DDB_SQS }}
+          state_key: projects/${{ inputs.app_name }}/${{ inputs.deployment_env }}/event-poller.tfstate
+          aws_region: us-east-2
+          tf_directory: ./terraform/event_poller
+          tf_vars: |
+            TF_VAR_app_name=${{ inputs.app_name }}
+            TF_VAR_event_poller_name=${{ inputs.event_poller_name }}
+            TF_VAR_sqs_worker_name=${{ inputs.sqs_worker_name }}
+            TF_VAR_aws_region=${{ inputs.aws_region }}
+            TF_VAR_python_runtime=${{ inputs.python_runtime }}
+            TF_VAR_deployment_env=${{ inputs.deployment_env }}
+            TF_VAR_bucket_name=${{ inputs.artifact_s3_bucket }}
+            TF_VAR_event_poller_layer_s3_key=${{ steps.build_layer_event_poller.outputs.s3_artifact_key }}
+            TF_VAR_event_poller_layer_hash_s3_key=${{ steps.build_layer_event_poller.outputs.s3_artifact_hash_key }}
             TF_VAR_discord_bot_token=${{ secrets.DISCORD_BOT_TOKEN }}

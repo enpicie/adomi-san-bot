@@ -1,6 +1,8 @@
 from typing import Optional
 
+import database.dynamodb_utils as db_helper
 import utils.adomin_messages as adomin_messages
+from aws_services import AWSServices
 from commands.models.discord_event import DiscordEvent
 from commands.models.response_message import ResponseMessage
 from database.models.server_config import ServerConfig
@@ -28,3 +30,15 @@ def require_organizer_role(server_config: ServerConfig, event: DiscordEvent) -> 
         return ResponseMessage(
             content=adomin_messages.REQUIRE_ORGANIZER_ROLE
         )
+
+def verify_has_organizer_role(event: DiscordEvent, aws_services: AWSServices) -> Optional[ResponseMessage]:
+    """
+    Centralized check that the calling user has the Organizer role.
+    Returns a ResponseMessage on failure (missing config or missing role), otherwise returns None.
+    """
+    config_result = db_helper.get_server_config_or_fail(event.get_server_id(), aws_services.dynamodb_table)
+    if isinstance(config_result, ResponseMessage):
+        return config_result
+    needs_role_msg = require_organizer_role(config_result, event)
+    if needs_role_msg:
+        return needs_role_msg

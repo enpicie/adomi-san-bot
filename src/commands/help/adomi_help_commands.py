@@ -1,9 +1,12 @@
-
 from aws_services import AWSServices
 from commands.models.discord_event import DiscordEvent
 from commands.models.response_message import ResponseMessage
+from commands.check_in.mapping import checkin_commands
+from commands.register.mapping import register_commands_mapping
+from commands.event.mapping import event_commands_mapping
 
 WIKI_LINK = "https://github.com/enpicie/adomi-san-bot/wiki/Adomi-is-here-to-help!"
+
 
 def give_help(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
     return ResponseMessage(
@@ -13,3 +16,24 @@ def give_help(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage
             f"If you're an organizer, check [my wiki]({WIKI_LINK}) to see what commands you can use to get set up 🙇‍♀️"
         )
     ).with_suppressed_embeds()
+
+
+def help_check_in(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
+    lines = ["**Check-in Commands**"]
+    for name, entry in checkin_commands.items():
+        lines.append(f"`/{name}` — {entry['description']}")
+    return ResponseMessage(content="\n".join(lines))
+
+
+def help_register(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
+    lines = ["**Register Commands**"]
+    for name, entry in register_commands_mapping.items():
+        lines.append(f"`/{name}` — {entry['description']}")
+    return ResponseMessage(content="\n".join(lines))
+
+
+def help_event(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
+    lines = ["**Event Commands**"]
+    for name, entry in event_commands_mapping.items():
+        lines.append(f"`/{name}` — {entry['description']}")
+    return ResponseMessage(content="\n".join(lines))
