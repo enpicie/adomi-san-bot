@@ -8,9 +8,8 @@ resource "aws_secretsmanager_secret_version" "startgg_api_token" {
   secret_string = var.startgg_api_key
 }
 
-# Terraform creates the secret shell - value is key populated manually from local file or AWS CLI
-# Value is a JSON key in a file that cannot be tracked securely in .tfstate
-resource "aws_secretsmanager_secret" "sheets_credentials" {
+# Secret already exists and is populated manually - import as data source
+data "aws_secretsmanager_secret" "sheets_credentials" {
   name = "${var.app_name}/sheets-service-account"
 }
 
@@ -31,7 +30,7 @@ resource "aws_iam_role_policy" "lambda_secrets_policy" {
         Sid      = "GetSheetsCredentials",
         Effect   = "Allow",
         Action   = "secretsmanager:GetSecretValue",
-        Resource = aws_secretsmanager_secret.sheets_credentials.arn
+        Resource = data.aws_secretsmanager_secret.sheets_credentials.arn
       }
     ]
   })
