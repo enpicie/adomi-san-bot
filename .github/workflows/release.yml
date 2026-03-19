@@ -26,6 +26,7 @@ jobs:
       AWS_REGION: ${{ steps.set-vars.outputs.AWS_REGION }}
       PYTHON_RUNTIME: ${{ steps.set-vars.outputs.PYTHON_RUNTIME }}
       DISCORD_PUBLIC_KEY: ${{ steps.set-vars.outputs.DISCORD_PUBLIC_KEY }}
+      GOOGLE_SERVICE_ACCOUNT_EMAIL: ${{ steps.set-vars.outputs.GOOGLE_SERVICE_ACCOUNT_EMAIL }}
       APP_VERSION: ${{ steps.set-vars.outputs.APP_VERSION }}
     steps:
       - uses: actions/checkout@v5
@@ -56,6 +57,7 @@ jobs:
           echo "AWS_REGION=$AWS_REGION" >> $GITHUB_OUTPUT
           echo "PYTHON_RUNTIME=$PYTHON_RUNTIME" >> $GITHUB_OUTPUT
           echo "DISCORD_PUBLIC_KEY=$DISCORD_PUBLIC_KEY_PROD" >> $GITHUB_OUTPUT
+          echo "GOOGLE_SERVICE_ACCOUNT_EMAIL=$GOOGLE_SERVICE_ACCOUNT_EMAIL" >> $GITHUB_OUTPUT
           echo "APP_VERSION=$APP_VERSION" >> $GITHUB_OUTPUT
 
   unit-test:
@@ -79,6 +81,7 @@ jobs:
       python_runtime: ${{ needs.read-config.outputs.PYTHON_RUNTIME }}
       app_version: ${{ needs.read-config.outputs.APP_VERSION }}
       discord_public_key: ${{ needs.read-config.outputs.DISCORD_PUBLIC_KEY }}
+      google_service_account_email: ${{ needs.read-config.outputs.GOOGLE_SERVICE_ACCOUNT_EMAIL }}
       deployment_env: 'prod'
       artifact_s3_bucket: 'enpicie-prod-lambda-artifacts'
       google_sheets_secret_name: ${{ needs.read-config.outputs.GOOGLE_SHEETS_SECRET_NAME }}

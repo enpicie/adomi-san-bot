@@ -82,6 +82,11 @@ variable "startgg_oauth_client_secret" {
   sensitive   = true
 }
 
+variable "google_service_account_email" {
+  description = "Google service account email for Sheets API access"
+  type        = string
+}
+
 variable "startgg_oauth_name" {
   description = "Name of the start.gg OAuth callback Lambda function"
   type        = string

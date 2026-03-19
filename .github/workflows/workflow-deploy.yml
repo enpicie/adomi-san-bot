@@ -39,6 +39,10 @@ on:
         description: Name of the Google Sheets secret in AWS Secrets Manager
         required: true
         type: string
+      google_service_account_email:
+        description: Google service account email for Sheets API access
+        required: true
+        type: string
       app_version:
         description: Version of the application
         required: false
@@ -231,6 +235,7 @@ jobs:
             TF_VAR_startgg_api_key=${{ secrets.STARTGG_API_KEY }}
             TF_VAR_startgg_oauth_client_id=${{ secrets.STARTGG_OAUTH_CLIENT_ID }}
             TF_VAR_startgg_oauth_client_secret=${{ secrets.STARTGG_OAUTH_CLIENT_SECRET }}
+            TF_VAR_google_service_account_email=${{ inputs.google_service_account_email }}
 
       - name: Deploy Scheduled Job Config via Terraform
         uses: enpicie/gh-action-workflow-terraform-run@v0.3.1
