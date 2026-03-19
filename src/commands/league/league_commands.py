@@ -1,3 +1,4 @@
+import constants
 import database.dynamodb_utils as db_helper
 import utils.permissions_helper as permissions_helper
 import utils.google_sheets_helper as sheets_helper
@@ -9,11 +10,10 @@ from commands.models.response_message import ResponseMessage
 from database.models.league_data import LeagueData
 
 LEAGUE_ID_MAX_LENGTH = 4
-SERVICE_ACCOUNT_EMAIL = "TODO: replace with bot service account email"
 
 _SHEET_NOT_SHARED_MSG = (
     "📋 This league's Google Sheet hasn't been shared with the bot yet. "
-    f"Share it with the bot's service account: `{SERVICE_ACCOUNT_EMAIL}`"
+    f"Share it with the bot's service account: `{constants.GOOGLE_SERVICE_ACCOUNT_EMAIL}`"
 )
 
 
@@ -61,7 +61,7 @@ def create_league(event: DiscordEvent, aws_services: AWSServices) -> ResponseMes
         content=(
             f"✅ League **{league_name}** (`{league_id}`) created!\n"
             f"📊 To connect your Google Sheet, please share it with the bot's service account:\n"
-            f"`{SERVICE_ACCOUNT_EMAIL}`\n"
+            f"`{constants.GOOGLE_SERVICE_ACCOUNT_EMAIL}`\n"
             f"Then run `/league-setup` to initialize the Participants sheet."
         )
     )
