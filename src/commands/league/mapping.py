@@ -98,7 +98,7 @@ league_commands_mapping: CommandMapping = {
     },
     "league-sync-participants": {
         "function": league_commands.sync_active_participants,
-        "description": "Sync active participants from the league's Google Sheet, assigning/removing the active participant role",
+        "description": "Sync participants from the league's Google Sheet, assigning/removing the active participant role",
         "params": [LEAGUE_NAME_PARAM]
     },
 }
