@@ -219,16 +219,22 @@ def toggle_join_league(event: DiscordEvent, aws_services: AWSServices) -> Respon
     if isinstance(league_data, ResponseMessage):
         return league_data
 
-    new_state = not league_data.join_enabled
+    join_state = event.get_command_input_value("state")
+    should_enable = join_state == "Start"
+    print(f"{LeagueData.Keys.JOIN_ENABLED}: {should_enable} via input {join_state}")
 
     aws_services.dynamodb_table.update_item(
         Key={"PK": db_helper.build_server_pk(server_id), "SK": LeagueData.Keys.SK_LEAGUE_PREFIX + league_id},
         UpdateExpression=f"SET {LeagueData.Keys.JOIN_ENABLED} = :join_enabled",
-        ExpressionAttributeValues={":join_enabled": new_state}
+        ExpressionAttributeValues={":join_enabled": should_enable}
     )
 
-    status = "enabled ✅" if new_state else "disabled ❌"
-    return ResponseMessage(content=f"League **{league_data.league_name}** (`{league_id}`) joining is now {status}.")
+    content = (
+        f"🟢 Joining started! Participants can begin joining **{league_data.league_name}** with `/league-join`"
+        if should_enable
+        else f"🔴 Joining closed! **{league_data.league_name}** will no longer accept new participants."
+    )
+    return ResponseMessage(content=content)
 
 
 def sync_active_participants(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:

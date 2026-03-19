@@ -1,7 +1,7 @@
 from discord import AppCommandOptionType
 
 from commands.models.command_mapping import CommandMapping
-from commands.models.command_param import CommandParam
+from commands.models.command_param import CommandParam, ParamChoice
 import commands.league.league_commands as league_commands
 from commands.league.autocomplete_handlers import LEAGUE_NAME_PARAM
 
@@ -94,7 +94,19 @@ league_commands_mapping: CommandMapping = {
     "league-join-toggle": {
         "function": league_commands.toggle_join_league,
         "description": "Toggle whether joining is enabled for a league",
-        "params": [LEAGUE_NAME_PARAM]
+        "params": [
+            LEAGUE_NAME_PARAM,
+            CommandParam(
+                name="state",
+                description="Set to 'Start' to open joining, and set to 'End' to close joining",
+                param_type=AppCommandOptionType.string,
+                required=True,
+                choices=[
+                    ParamChoice(name="Start", value="Start"),
+                    ParamChoice(name="End", value="End")
+                ]
+            )
+        ]
     },
     "league-sync-participants": {
         "function": league_commands.sync_active_participants,
