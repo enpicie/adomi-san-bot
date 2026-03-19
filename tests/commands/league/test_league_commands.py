@@ -298,33 +298,33 @@ class TestJoinLeague(unittest.TestCase):
 class TestToggleJoinLeague(unittest.TestCase):
     @patch("commands.league.league_commands.permissions_helper")
     @patch("commands.league.league_commands.db_helper")
-    def test_enables_join_when_currently_disabled(self, mock_db, mock_perms):
+    def test_enables_join_when_state_is_start(self, mock_db, mock_perms):
         mock_perms.verify_has_organizer_role.return_value = None
         mock_db.get_server_league_data_or_fail.return_value = _make_league(join_enabled=False)
         mock_db.build_server_pk.return_value = "SERVER#server123"
         aws = _make_aws()
-        event = _make_event(inputs={"league_name": "TST"})
+        event = _make_event(inputs={"league_name": "TST", "state": "Start"})
 
         result = toggle_join_league(event, aws)
 
         update_kwargs = aws.dynamodb_table.update_item.call_args.kwargs
         self.assertTrue(update_kwargs["ExpressionAttributeValues"][":join_enabled"])
-        self.assertIn("enabled", result.content)
+        self.assertIn("started", result.content)
 
     @patch("commands.league.league_commands.permissions_helper")
     @patch("commands.league.league_commands.db_helper")
-    def test_disables_join_when_currently_enabled(self, mock_db, mock_perms):
+    def test_disables_join_when_state_is_not_start(self, mock_db, mock_perms):
         mock_perms.verify_has_organizer_role.return_value = None
         mock_db.get_server_league_data_or_fail.return_value = _make_league(join_enabled=True)
         mock_db.build_server_pk.return_value = "SERVER#server123"
         aws = _make_aws()
-        event = _make_event(inputs={"league_name": "TST"})
+        event = _make_event(inputs={"league_name": "TST", "state": "Stop"})
 
         result = toggle_join_league(event, aws)
 
         update_kwargs = aws.dynamodb_table.update_item.call_args.kwargs
         self.assertFalse(update_kwargs["ExpressionAttributeValues"][":join_enabled"])
-        self.assertIn("disabled", result.content)
+        self.assertIn("closed", result.content)
 
     @patch("commands.league.league_commands.permissions_helper")
     def test_missing_organizer_role_returns_error(self, mock_perms):
