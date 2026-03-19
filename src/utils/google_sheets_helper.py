@@ -51,14 +51,15 @@ def setup_league_participants_sheet(spreadsheet_url: str) -> None:
     if not spreadsheet_id:
         raise ValueError(f"Could not extract spreadsheet ID from URL: {spreadsheet_url}")
 
-    service = _get_sheets_service()
-
     try:
+        service = _get_sheets_service()
         metadata = service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
     except HttpError as e:
         if e.resp.status in (403, 404):
             raise PermissionError(SHEET_NOT_ACCESSIBLE_ERROR)
         raise
+    except json.JSONDecodeError:
+        raise PermissionError(SHEET_NOT_ACCESSIBLE_ERROR)
 
     sheets = metadata.get("sheets", [])
     existing_titles = [s["properties"]["title"] for s in sheets]
@@ -151,14 +152,13 @@ def append_league_participant(spreadsheet_url: str, discord_id: str, participant
     if not spreadsheet_id:
         raise ValueError(f"Could not extract spreadsheet ID from URL: {spreadsheet_url}")
 
-    service = _get_sheets_service()
-
     row = [""] * len(COLUMN_HEADERS)
     row[ParticipantsColumn.DISCORD_ID] = discord_id
     row[ParticipantsColumn.PARTICIPANT_NAME] = participant_name
     row[ParticipantsColumn.STATUS] = STATUS_QUEUED
 
     try:
+        service = _get_sheets_service()
         service.spreadsheets().values().append(
             spreadsheetId=spreadsheet_id,
             range=PARTICIPANTS_RANGE,
@@ -170,6 +170,8 @@ def append_league_participant(spreadsheet_url: str, discord_id: str, participant
         if e.resp.status in (403, 404):
             raise PermissionError(SHEET_NOT_ACCESSIBLE_ERROR)
         raise
+    except json.JSONDecodeError:
+        raise PermissionError(SHEET_NOT_ACCESSIBLE_ERROR)
 
 
 def get_active_participants(spreadsheet_url: str) -> dict:
@@ -178,9 +180,8 @@ def get_active_participants(spreadsheet_url: str) -> dict:
     if not spreadsheet_id:
         raise ValueError(f"Could not extract spreadsheet ID from URL: {spreadsheet_url}")
 
-    service = _get_sheets_service()
-
     try:
+        service = _get_sheets_service()
         result = service.spreadsheets().values().get(
             spreadsheetId=spreadsheet_id,
             range=PARTICIPANTS_RANGE,
@@ -189,6 +190,8 @@ def get_active_participants(spreadsheet_url: str) -> dict:
         if e.resp.status in (403, 404):
             raise PermissionError(SHEET_NOT_ACCESSIBLE_ERROR)
         raise
+    except json.JSONDecodeError:
+        raise PermissionError(SHEET_NOT_ACCESSIBLE_ERROR)
 
     rows = result.get("values", [])
     active = {}
