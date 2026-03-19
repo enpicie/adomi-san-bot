@@ -22,6 +22,7 @@ jobs:
       SQS_WORKER_NAME: ${{ steps.set-vars.outputs.SQS_WORKER_NAME }}
       SCHEDULED_JOB_NAME: ${{ steps.set-vars.outputs.SCHEDULED_JOB_NAME }}
       STARTGG_OAUTH_NAME: ${{ steps.set-vars.outputs.STARTGG_OAUTH_NAME }}
+      GOOGLE_SHEETS_SECRET_NAME: ${{ steps.set-vars.outputs.GOOGLE_SHEETS_SECRET_NAME }}
       AWS_REGION: ${{ steps.set-vars.outputs.AWS_REGION }}
       PYTHON_RUNTIME: ${{ steps.set-vars.outputs.PYTHON_RUNTIME }}
       HCP_TERRAFORM_ORG: ${{ steps.set-vars.outputs.HCP_TERRAFORM_ORG }}
@@ -54,6 +55,7 @@ jobs:
           echo "SQS_WORKER_NAME=$SQS_WORKER_NAME" >> $GITHUB_OUTPUT
           echo "SCHEDULED_JOB_NAME=$SCHEDULED_JOB_NAME" >> $GITHUB_OUTPUT
           echo "STARTGG_OAUTH_NAME=$STARTGG_OAUTH_NAME" >> $GITHUB_OUTPUT
+          echo "GOOGLE_SHEETS_SECRET_NAME=$GOOGLE_SHEETS_SECRET_NAME" >> $GITHUB_OUTPUT
           echo "AWS_REGION=$AWS_REGION" >> $GITHUB_OUTPUT
           echo "PYTHON_RUNTIME=$PYTHON_RUNTIME" >> $GITHUB_OUTPUT
           echo "HCP_TERRAFORM_ORG=$HCP_TERRAFORM_ORG" >> $GITHUB_OUTPUT
@@ -97,6 +99,7 @@ jobs:
       STARTGG_API_KEY: ${{ secrets.STARTGG_API_KEY }}
       STARTGG_OAUTH_CLIENT_ID: ${{ secrets.STARTGG_OAUTH_CLIENT_ID_PROD }}
       STARTGG_OAUTH_CLIENT_SECRET: ${{ secrets.STARTGG_OAUTH_CLIENT_SECRET_PROD }}
+      GOOGLE_SHEETS_SECRET_NAME: ${{ needs.read-config.outputs.GOOGLE_SHEETS_SECRET_NAME }}
 
   register-commands:
     needs: deploy

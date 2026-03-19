@@ -4,3 +4,5 @@ mypy-boto3-sqs
 pynacl
 discord.py>=2.3.0
 requests
+google-auth
+google-api-python-client
