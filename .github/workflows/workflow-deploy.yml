@@ -35,16 +35,8 @@ on:
         description: S3 bucket name for storing build artifacts
         required: true
         type: string
-      hcp_terraform_org:
-        description: HCP Terraform Organization name
-        required: true
-        type: string
-      hcp_terraform_workspace:
-        description: HCP Terraform Workspace name
-        required: true
-        type: string
-      hcp_terraform_project:
-        description: HCP Terraform Project name
+      google_sheets_secret_name:
+        description: Name of the Google Sheets secret in AWS Secrets Manager
         required: true
         type: string
       app_version:
@@ -61,8 +53,6 @@ on:
       AWS_ROLE_ARN_EVENTBRIDGE_LAMBDA_DDB_SQS:
         required: true
       AWS_ROLE_ARN_S3:
-        required: true
-      TF_API_TOKEN:
         required: true
       DISCORD_BOT_TOKEN:
         required: true
