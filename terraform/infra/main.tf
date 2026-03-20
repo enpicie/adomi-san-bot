@@ -58,6 +58,7 @@ resource "aws_lambda_function" "bot_lambda" {
 
       STARTGG_OAUTH_CLIENT_ID    = var.startgg_oauth_client_id
       STARTGG_OAUTH_REDIRECT_URI = "${aws_apigatewayv2_stage.env_stage.invoke_url}/startgg/callback"
+      SHEETS_AGENT_QUEUE_URL     = aws_sqs_queue.sheets_agent.url
     }
   }
 

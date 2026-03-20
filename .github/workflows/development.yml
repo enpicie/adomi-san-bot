@@ -26,6 +26,7 @@ jobs:
       SQS_WORKER_NAME: ${{ steps.set-vars.outputs.SQS_WORKER_NAME }}
       SCHEDULED_JOB_NAME: ${{ steps.set-vars.outputs.SCHEDULED_JOB_NAME }}
       STARTGG_OAUTH_NAME: ${{ steps.set-vars.outputs.STARTGG_OAUTH_NAME }}
+      SHEETS_AGENT_NAME: ${{ steps.set-vars.outputs.SHEETS_AGENT_NAME }}
       GOOGLE_SHEETS_SECRET_NAME: ${{ steps.set-vars.outputs.GOOGLE_SHEETS_SECRET_NAME }}
       AWS_REGION: ${{ steps.set-vars.outputs.AWS_REGION }}
       PYTHON_RUNTIME: ${{ steps.set-vars.outputs.PYTHON_RUNTIME }}
@@ -45,6 +46,7 @@ jobs:
           echo "SQS_WORKER_NAME=$SQS_WORKER_NAME" >> $GITHUB_OUTPUT
           echo "SCHEDULED_JOB_NAME=$SCHEDULED_JOB_NAME" >> $GITHUB_OUTPUT
           echo "STARTGG_OAUTH_NAME=$STARTGG_OAUTH_NAME" >> $GITHUB_OUTPUT
+          echo "SHEETS_AGENT_NAME=$SHEETS_AGENT_NAME" >> $GITHUB_OUTPUT
           echo "GOOGLE_SHEETS_SECRET_NAME=$GOOGLE_SHEETS_SECRET_NAME" >> $GITHUB_OUTPUT
           echo "AWS_REGION=$AWS_REGION" >> $GITHUB_OUTPUT
           echo "PYTHON_RUNTIME=$PYTHON_RUNTIME" >> $GITHUB_OUTPUT
@@ -69,6 +71,7 @@ jobs:
       sqs_worker_name: ${{ needs.read-config.outputs.SQS_WORKER_NAME }}
       scheduled_job_name: ${{ needs.read-config.outputs.SCHEDULED_JOB_NAME }}
       startgg_oauth_name: ${{ needs.read-config.outputs.STARTGG_OAUTH_NAME }}
+      sheets_agent_name: ${{ needs.read-config.outputs.SHEETS_AGENT_NAME }}
       aws_region: ${{ needs.read-config.outputs.AWS_REGION }}
       python_runtime: ${{ needs.read-config.outputs.PYTHON_RUNTIME }}
       discord_public_key: ${{ needs.read-config.outputs.DISCORD_PUBLIC_KEY }}

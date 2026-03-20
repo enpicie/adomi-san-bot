@@ -19,6 +19,10 @@ on:
         description: Name of the start.gg OAuth Lambda function
         required: true
         type: string
+      sheets_agent_name:
+        description: Name of the sheets agent Lambda function and SQS queue
+        required: true
+        type: string
       deployment_env:
         description: Environment to deploy to (e.g., dev, prod)
         required: true
@@ -154,12 +158,32 @@ jobs:
           s3_layer_bucket_name: ${{ inputs.artifact_s3_bucket }}
           aws_role_arn: ${{ secrets.AWS_ROLE_ARN_S3 }}
 
+      - name: Build and Upload Lambda Layer Artifact to S3 - Sheets Agent Lambda
+        id: build_layer_sheets_agent
+        uses: enpicie/gh-action-workflow-build-python-lambda-layer-zip@v2.1.1
+        with:
+          requirements_path: ./jobs/sheets_agent/requirements.txt
+          app_name: ${{ inputs.sheets_agent_name }}
+          python_runtime: ${{ inputs.python_runtime }}
+          architecture: x86_64
+          s3_layer_bucket_name: ${{ inputs.artifact_s3_bucket }}
+          aws_role_arn: ${{ secrets.AWS_ROLE_ARN_S3 }}
+
       - name: Upload Latest Lambda Zip to S3 - start.gg OAuth Lambda
         uses: enpicie/gh-action-workflow-upload-lambda-zip@v0.3.0
         with:
           source_directory: ./jobs/startgg_oauth
           app_name: ${{ inputs.startgg_oauth_name }}
           artifact_name: ${{ inputs.startgg_oauth_name }}-latest
+          s3_bucket_name: ${{ inputs.artifact_s3_bucket }}
+          aws_role_arn: ${{ secrets.AWS_ROLE_ARN_S3 }}
+
+      - name: Upload Latest Lambda Zip to S3 - Sheets Agent Lambda
+        uses: enpicie/gh-action-workflow-upload-lambda-zip@v0.3.0
+        with:
+          source_directory: ./jobs/sheets_agent
+          app_name: ${{ inputs.sheets_agent_name }}
+          artifact_name: ${{ inputs.sheets_agent_name }}-latest
           s3_bucket_name: ${{ inputs.artifact_s3_bucket }}
           aws_role_arn: ${{ secrets.AWS_ROLE_ARN_S3 }}
 
@@ -191,6 +215,11 @@ jobs:
           echo "startgg_oauth_name=${STARTGG_OAUTH_NAME}"
           echo "oauth_callback_lambda_layer_s3_key=${OAUTH_CALLBACK_LAMBDA_LAYER_S3_KEY}"
           echo "oauth_callback_lambda_layer_hash_s3_key=${OAUTH_CALLBACK_LAMBDA_LAYER_HASH_S3_KEY}"
+
+          echo "=== Sheets Agent Lambda ==="
+          echo "sheets_agent_name=${SHEETS_AGENT_NAME}"
+          echo "sheets_agent_lambda_layer_s3_key=${SHEETS_AGENT_LAMBDA_LAYER_S3_KEY}"
+          echo "sheets_agent_lambda_layer_hash_s3_key=${SHEETS_AGENT_LAMBDA_LAYER_HASH_S3_KEY}"
         env:
           APP_NAME: '${{ inputs.app_name }}'
           DEPLOYMENT_ENV: '${{ inputs.deployment_env }}'
@@ -208,6 +237,9 @@ jobs:
           STARTGG_OAUTH_NAME: '${{ inputs.startgg_oauth_name }}'
           OAUTH_CALLBACK_LAMBDA_LAYER_S3_KEY: '${{ steps.build_layer_startgg_oauth.outputs.s3_artifact_key }}'
           OAUTH_CALLBACK_LAMBDA_LAYER_HASH_S3_KEY: '${{ steps.build_layer_startgg_oauth.outputs.s3_requirements_key }}'
+          SHEETS_AGENT_NAME: '${{ inputs.sheets_agent_name }}'
+          SHEETS_AGENT_LAMBDA_LAYER_S3_KEY: '${{ steps.build_layer_sheets_agent.outputs.s3_artifact_key }}'
+          SHEETS_AGENT_LAMBDA_LAYER_HASH_S3_KEY: '${{ steps.build_layer_sheets_agent.outputs.s3_requirements_key }}'
 
       - name: Deploy Application Config via Terraform
         uses: enpicie/gh-action-workflow-terraform-run@v0.3.1
@@ -230,6 +262,9 @@ jobs:
             TF_VAR_startgg_oauth_name=${{ inputs.startgg_oauth_name }}
             TF_VAR_oauth_callback_lambda_layer_s3_key=${{ steps.build_layer_startgg_oauth.outputs.s3_artifact_key }}
             TF_VAR_oauth_callback_lambda_layer_hash_s3_key=${{ steps.build_layer_startgg_oauth.outputs.s3_requirements_key }}
+            TF_VAR_sheets_agent_name=${{ inputs.sheets_agent_name }}
+            TF_VAR_sheets_agent_lambda_layer_s3_key=${{ steps.build_layer_sheets_agent.outputs.s3_artifact_key }}
+            TF_VAR_sheets_agent_lambda_layer_hash_s3_key=${{ steps.build_layer_sheets_agent.outputs.s3_requirements_key }}
             TF_VAR_discord_public_key=${{ inputs.discord_public_key }}
             TF_VAR_discord_bot_token=${{ secrets.DISCORD_BOT_TOKEN }}
             TF_VAR_startgg_api_key=${{ secrets.STARTGG_API_KEY }}
