@@ -35,15 +35,27 @@ class SheetNotSetupError(Exception):
 def _get_sheets_service():
     global _sheets_service
     if _sheets_service is None:
-        print(f"[sheets] Loading service account credentials from secret: {constants.GOOGLE_SHEETS_SECRET_NAME}")
+        secret_name = constants.GOOGLE_SHEETS_SECRET_NAME
+        print(f"[sheets] _get_sheets_service: loading credentials from secret={secret_name!r}")
         client = boto3.client("secretsmanager", region_name=constants.AWS_REGION)
-        response = client.get_secret_value(SecretId=constants.GOOGLE_SHEETS_SECRET_NAME)
-        service_account_info = json.loads(response["SecretString"])
+        response = client.get_secret_value(SecretId=secret_name)
+        raw = response.get("SecretString", "")
+        if not raw:
+            raise RuntimeError(
+                f"[sheets] _get_sheets_service: secret {secret_name!r} is empty — "
+                "populate it with the service account JSON in AWS Secrets Manager"
+            )
+        try:
+            service_account_info = json.loads(raw)
+        except json.JSONDecodeError as e:
+            raise RuntimeError(
+                f"[sheets] _get_sheets_service: secret {secret_name!r} is not valid JSON — {e}"
+            )
         creds = service_account.Credentials.from_service_account_info(
             service_account_info, scopes=_SCOPES
         )
         _sheets_service = build("sheets", "v4", credentials=creds)
-        print("[sheets] Sheets service initialized")
+        print(f"[sheets] _get_sheets_service: service initialized OK")
     return _sheets_service
 
 
@@ -55,22 +67,19 @@ def extract_spreadsheet_id(url: str) -> str | None:
 def setup_league_participants_sheet(spreadsheet_url: str) -> None:
     """Creates the Participants sheet tab with bold headers. Raises PermissionError if not shared."""
     spreadsheet_id = extract_spreadsheet_id(spreadsheet_url)
-    print(f"[sheets] setup_league_participants_sheet: url={spreadsheet_url!r} spreadsheet_id={spreadsheet_id!r}")
+    print(f"[sheets] setup_league_participants_sheet: spreadsheet_id={spreadsheet_id!r}")
     if not spreadsheet_id:
-        raise ValueError(f"Could not extract spreadsheet ID from URL: {spreadsheet_url}")
+        raise ValueError(f"[sheets] setup_league_participants_sheet: could not extract ID from url={spreadsheet_url!r}")
 
     try:
         service = _get_sheets_service()
         metadata = service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
-        print(f"[sheets] spreadsheet accessible, title={metadata.get('properties', {}).get('title')!r}")
+        print(f"[sheets] setup_league_participants_sheet: accessible, title={metadata.get('properties', {}).get('title')!r}")
     except HttpError as e:
-        print(f"[sheets] HttpError accessing spreadsheet {spreadsheet_id!r}: status={e.resp.status} body={e.content}")
+        print(f"[sheets] setup_league_participants_sheet: HttpError status={e.resp.status} body={e.content}")
         if e.resp.status in (403, 404):
             raise PermissionError(SHEET_NOT_ACCESSIBLE_ERROR)
         raise
-    except json.JSONDecodeError as e:
-        print(f"[sheets] JSONDecodeError accessing spreadsheet {spreadsheet_id!r}: {e}")
-        raise PermissionError(SHEET_NOT_ACCESSIBLE_ERROR)
 
     sheets = metadata.get("sheets", [])
     existing_titles = [s["properties"]["title"] for s in sheets]
@@ -82,10 +91,12 @@ def setup_league_participants_sheet(spreadsheet_url: str) -> None:
         ).execute()
         sheet_id = result["replies"][0]["addSheet"]["properties"]["sheetId"]
         existing_rule_count = 0
+        print(f"[sheets] setup_league_participants_sheet: created Participants tab sheet_id={sheet_id}")
     else:
         sheet_data = next(s for s in sheets if s["properties"]["title"] == PARTICIPANTS_SHEET)
         sheet_id = sheet_data["properties"]["sheetId"]
         existing_rule_count = len(sheet_data.get("conditionalFormats", []))
+        print(f"[sheets] setup_league_participants_sheet: Participants tab exists sheet_id={sheet_id} existing_rules={existing_rule_count}")
 
     # Write header row
     service.spreadsheets().values().update(
@@ -155,15 +166,16 @@ def setup_league_participants_sheet(spreadsheet_url: str) -> None:
             ]
         }
     ).execute()
+    print(f"[sheets] setup_league_participants_sheet: headers and formatting applied OK")
 
 
 def append_league_participant(spreadsheet_url: str, discord_id: str, participant_name: str) -> None:
     """Appends a participant row to the Participants sheet. Raises PermissionError if not shared,
     SheetNotSetupError if the Participants tab doesn't exist."""
     spreadsheet_id = extract_spreadsheet_id(spreadsheet_url)
-    print(f"[sheets] append_league_participant: spreadsheet_id={spreadsheet_id!r} discord_id={discord_id!r}")
+    print(f"[sheets] append_league_participant: spreadsheet_id={spreadsheet_id!r} discord_id={discord_id!r} name={participant_name!r}")
     if not spreadsheet_id:
-        raise ValueError(f"Could not extract spreadsheet ID from URL: {spreadsheet_url}")
+        raise ValueError(f"[sheets] append_league_participant: could not extract ID from url={spreadsheet_url!r}")
 
     row = [""] * len(COLUMN_HEADERS)
     row[ParticipantsColumn.DISCORD_ID] = discord_id
@@ -179,17 +191,14 @@ def append_league_participant(spreadsheet_url: str, discord_id: str, participant
             insertDataOption="INSERT_ROWS",
             body={"values": [row]},
         ).execute()
-        print(f"[sheets] participant appended successfully: discord_id={discord_id!r}")
+        print(f"[sheets] append_league_participant: appended OK discord_id={discord_id!r}")
     except HttpError as e:
-        print(f"[sheets] HttpError appending participant {discord_id!r} to {spreadsheet_id!r}: status={e.resp.status} body={e.content}")
+        print(f"[sheets] append_league_participant: HttpError status={e.resp.status} body={e.content}")
         if e.resp.status in (403, 404):
             raise PermissionError(SHEET_NOT_ACCESSIBLE_ERROR)
         if e.resp.status == 400:
             raise SheetNotSetupError("Participants sheet tab not found or range is invalid.")
         raise
-    except json.JSONDecodeError as e:
-        print(f"[sheets] JSONDecodeError appending participant to {spreadsheet_id!r}: {e}")
-        raise PermissionError(SHEET_NOT_ACCESSIBLE_ERROR)
 
 
 def get_active_participants(spreadsheet_url: str) -> dict:
@@ -197,7 +206,7 @@ def get_active_participants(spreadsheet_url: str) -> dict:
     spreadsheet_id = extract_spreadsheet_id(spreadsheet_url)
     print(f"[sheets] get_active_participants: spreadsheet_id={spreadsheet_id!r}")
     if not spreadsheet_id:
-        raise ValueError(f"Could not extract spreadsheet ID from URL: {spreadsheet_url}")
+        raise ValueError(f"[sheets] get_active_participants: could not extract ID from url={spreadsheet_url!r}")
 
     try:
         service = _get_sheets_service()
@@ -206,15 +215,13 @@ def get_active_participants(spreadsheet_url: str) -> dict:
             range=PARTICIPANTS_RANGE,
         ).execute()
     except HttpError as e:
-        print(f"[sheets] HttpError reading participants from {spreadsheet_id!r}: status={e.resp.status} body={e.content}")
+        print(f"[sheets] get_active_participants: HttpError status={e.resp.status} body={e.content}")
         if e.resp.status in (403, 404):
             raise PermissionError(SHEET_NOT_ACCESSIBLE_ERROR)
         raise
-    except json.JSONDecodeError as e:
-        print(f"[sheets] JSONDecodeError reading participants from {spreadsheet_id!r}: {e}")
-        raise PermissionError(SHEET_NOT_ACCESSIBLE_ERROR)
 
     rows = result.get("values", [])
+    print(f"[sheets] get_active_participants: got {len(rows)} rows (including header)")
     active = {}
     for row in rows[1:]:  # skip header row
         status = row[ParticipantsColumn.STATUS] if len(row) > ParticipantsColumn.STATUS else ""
@@ -224,4 +231,5 @@ def get_active_participants(spreadsheet_url: str) -> dict:
         participant_name = row[ParticipantsColumn.PARTICIPANT_NAME] if len(row) > ParticipantsColumn.PARTICIPANT_NAME else ""
         if discord_id:
             active[discord_id] = participant_name
+    print(f"[sheets] get_active_participants: found {len(active)} ACTIVE participant(s)")
     return active

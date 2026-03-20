@@ -175,6 +175,9 @@ def setup_league(event: DiscordEvent, aws_services: AWSServices) -> ResponseMess
         sheets_helper.setup_league_participants_sheet(spreadsheet_url=league_data.google_sheets_link)
     except PermissionError:
         return ResponseMessage(content=_SHEET_NOT_SHARED_MSG)
+    except RuntimeError as e:
+        print(f"[league] setup_league: RuntimeError: {e}")
+        return ResponseMessage(content="❌ The bot's Google Sheets integration is misconfigured. Contact the bot administrator.")
 
     return ResponseMessage(
         content=f"✅ Participants sheet set up for **{league_data.league_name}** (`{league_id}`)!"
@@ -210,6 +213,9 @@ def join_league(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessa
         )
     except ValueError:
         return ResponseMessage(content="❌ This league's Google Sheets link is invalid. An organizer needs to update it with `/league-update`.")
+    except RuntimeError as e:
+        print(f"[league] join_league: RuntimeError: {e}")
+        return ResponseMessage(content="❌ The bot's Google Sheets integration is misconfigured. Contact the bot administrator.")
 
     return ResponseMessage(
         content=f"✅ You've been added to **{league_data.league_name}** (`{league_id}`) as **{participant_name}**!"
@@ -262,6 +268,9 @@ def sync_active_participants(event: DiscordEvent, aws_services: AWSServices) -> 
         current_active = sheets_helper.get_active_participants(league_data.google_sheets_link)
     except PermissionError:
         return ResponseMessage(content=_SHEET_NOT_SHARED_MSG)
+    except RuntimeError as e:
+        print(f"[league] sync_active_participants: RuntimeError: {e}")
+        return ResponseMessage(content="❌ The bot's Google Sheets integration is misconfigured. Contact the bot administrator.")
 
     old_player_ids = set(league_data.active_players.keys())
     new_player_ids = set(current_active.keys())
