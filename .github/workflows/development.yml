@@ -6,6 +6,9 @@ on:
       - main
     tags:
       - '!*'
+    paths-ignore:
+      - 'scripts/**'
+      - '.github/workflows/workflow-register-commands.yml'
   workflow_dispatch:
     inputs:
       run_register_commands:
