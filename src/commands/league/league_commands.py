@@ -147,7 +147,7 @@ def view_league(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessa
         return league_data
 
     player_count = len(league_data.active_players)
-    role_display = f"`{league_data.active_participant_role}`" if league_data.active_participant_role else "not set"
+    role_display = f"<@&{league_data.active_participant_role}>" if league_data.active_participant_role else "not set"
     return ResponseMessage(
         content=(
             f"📋 **{league_data.league_name}** (`{league_data.league_id}`)\n"
@@ -156,7 +156,7 @@ def view_league(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessa
             f"• Join Enabled: {'✅' if league_data.join_enabled else '❌'}\n"
             f"• Active Participant Role: {role_display}"
         )
-    )
+    ).with_silent_pings()
 
 
 def setup_league(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
