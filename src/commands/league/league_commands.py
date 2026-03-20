@@ -13,8 +13,9 @@ from database.models.league_data import LeagueData
 LEAGUE_ID_MAX_LENGTH = 4
 
 _SHEET_NOT_SHARED_MSG = (
-    "📋 This league's Google Sheet hasn't been shared with the bot yet. "
-    f"Share it with the bot's service account: `{constants.GOOGLE_SERVICE_ACCOUNT_EMAIL}`"
+    "📋 The bot cannot access this league's Google Sheet. "
+    f"Make sure it has been shared (with Editor access) to: `{constants.GOOGLE_SERVICE_ACCOUNT_EMAIL}`\n"
+    "If you already shared it, verify the email above matches what you used — then try again."
 )
 
 

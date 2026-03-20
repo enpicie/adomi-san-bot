@@ -105,16 +105,30 @@ def report_score(event: DiscordEvent, aws_services: AWSServices) -> ResponseMess
     winner_name = winner_info.get("display_name") if winner_info else f"<@{winner_id}>"
     loser_name = loser_info.get("display_name") if loser_info else f"<@{loser_id}>"
 
-    if not winner_info or not winner_info.get("external_id"):
+    if not winner_info:
         return ResponseMessage(
-            content=f"**{winner_name}** is not linked to a start.gg account in this event. "
-                    "They must be registered via start.gg to report scores."
+            content=f"**{winner_name}** is not registered for this event. "
+                    "If they are registered on start.gg, they need to link their Discord account on their start.gg profile, "
+                    "then an organizer can refresh with `/event-refresh-startgg`."
+        )
+    if not winner_info.get("external_id"):
+        return ResponseMessage(
+            content=f"**{winner_name}** does not have a start.gg entrant ID. "
+                    "Their Discord account was not linked on start.gg when the event was last imported. "
+                    "Have them link their Discord on start.gg, then an organizer can refresh with `/event-refresh-startgg`."
         )
 
-    if not loser_info or not loser_info.get("external_id"):
+    if not loser_info:
         return ResponseMessage(
-            content=f"**{loser_name}** is not linked to a start.gg account in this event. "
-                    "They must be registered via start.gg to report scores."
+            content=f"**{loser_name}** is not registered for this event. "
+                    "If they are registered on start.gg, they need to link their Discord account on their start.gg profile, "
+                    "then an organizer can refresh with `/event-refresh-startgg`."
+        )
+    if not loser_info.get("external_id"):
+        return ResponseMessage(
+            content=f"**{loser_name}** does not have a start.gg entrant ID. "
+                    "Their Discord account was not linked on start.gg when the event was last imported. "
+                    "Have them link their Discord on start.gg, then an organizer can refresh with `/event-refresh-startgg`."
         )
 
     winner_entrant_id = winner_info["external_id"]
@@ -126,7 +140,8 @@ def report_score(event: DiscordEvent, aws_services: AWSServices) -> ResponseMess
     )
     if result is None:
         return ResponseMessage(
-            content=f"Could not find a set between **{winner_name}** and **{loser_name}** on start.gg."
+            content=f"Could not find an open set between **{winner_name}** and **{loser_name}** on start.gg. "
+                    "The set may not have been called yet, or these players are not matched in the current bracket."
         )
 
     set_id, entrant_ids, is_completed = result
@@ -148,6 +163,8 @@ def report_score(event: DiscordEvent, aws_services: AWSServices) -> ResponseMess
         startgg_api.report_set(set_id, entrant_ids[winner_entrant_id], game_data, server_config.startgg_oauth_token)
     except StartggAuthError:
         return ResponseMessage(content=_AUTH_EXPIRED_MSG)
+    except ValueError as e:
+        return ResponseMessage(content=f"❌ {e}")
 
     return ResponseMessage(
         content=f"Score reported on start.gg: <@{winner_id}> def. <@{loser_id}> ({score_str})"
