@@ -33,19 +33,32 @@ def build_command_payload(name: str, entry: dict) -> dict:
     return payload
 
 
+def _matches(name: str, target: str) -> bool:
+    """
+    Returns True if the command name matches the target.
+    - Exact match: name == target
+    - Prefix match: name starts with target + "-" (e.g. "league" matches "league-join")
+    """
+    return name == target or name.startswith(target + "-")
+
+
 def main():
-    should_register_all = COMMAND_NAME.lower() == "all"
+    normalized = COMMAND_NAME.strip().lower()
+    should_register_all = normalized == "all"
+    # Prefix mode when input has no hyphen and isn't 'all' (e.g. "league", "startgg")
+    # but also supports exact names like "league-join" or prefixes like "check-in"
+    is_multi = should_register_all or not any(normalized == name for name in command_map)
     headers = {
         "Authorization": f"Bot {TOKEN}",
         "Content-Type": "application/json",
     }
 
     failed_commands = []
+    matched_any = False
 
     for name, entry in command_map.items():
-        print(f"Found command: {name}")
-        # Make API req when registering all or when found specific command to register
-        if should_register_all or name == COMMAND_NAME:
+        if should_register_all or _matches(name, normalized):
+            matched_any = True
             print(f"Registering command `{name}`")
             payload = build_command_payload(name, entry)
             response = requests.post(API_URL, headers=headers, json=payload)
@@ -58,13 +71,16 @@ def main():
                 print(f"RESPONSE: {response.text}")
                 failed_commands.append(name)
 
-            if should_register_all:
-                # Waits for 10 seconds to help avoid rate limits if need to continue
+            if is_multi:
+                # Rate limit gap when registering multiple commands
                 time.sleep(10)
             else:
-                break # Stop iterating if we do not nee do to others
+                break
         else:
-            print("Skipping...")
+            print(f"Skipping: {name}")
+
+    if not should_register_all and not matched_any:
+        raise RuntimeError(f"No commands found matching '{COMMAND_NAME}'")
 
     if failed_commands:
         failed_list = ', '.join(failed_commands)
