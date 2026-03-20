@@ -16,6 +16,7 @@ class LeagueData(SubscriptableMixin):
         LEAGUE_ID = "league_id"
 
         ACTIVE_PLAYERS = "active_players"
+        MEMBER_SNOWFLAKES = "member_snowflakes"
         ACTIVE_PARTICIPANT_ROLE = "active_participant_role"
         JOIN_ENABLED = "join_enabled"
 
@@ -26,6 +27,7 @@ class LeagueData(SubscriptableMixin):
     active_players: dict = field(metadata={'db_key': Keys.ACTIVE_PLAYERS})
     join_enabled: bool = field(metadata={'db_key': Keys.JOIN_ENABLED})
     active_participant_role: str | None = field(default=None, metadata={'db_key': Keys.ACTIVE_PARTICIPANT_ROLE})
+    member_snowflakes: dict = field(default_factory=dict, metadata={'db_key': Keys.MEMBER_SNOWFLAKES})
 
     @classmethod
     def from_dynamodb(cls, record: Dict[str, Any]) -> 'LeagueData':
@@ -36,4 +38,5 @@ class LeagueData(SubscriptableMixin):
             active_players=record.get(cls.Keys.ACTIVE_PLAYERS, {}),
             join_enabled=record.get(cls.Keys.JOIN_ENABLED, False),
             active_participant_role=record.get(cls.Keys.ACTIVE_PARTICIPANT_ROLE),
+            member_snowflakes=record.get(cls.Keys.MEMBER_SNOWFLAKES, {}),
         )

@@ -1,4 +1,5 @@
 import json
+import time
 
 import requests
 
@@ -61,7 +62,12 @@ def _get_command_input(event_body: dict, name: str) -> str | None:
 def _add_discord_role(guild_id: str, user_id: str, role_id: str) -> bool:
     url = f"{_DISCORD_API_BASE}/guilds/{guild_id}/members/{user_id}/roles/{role_id}"
     print(f"[discord] PUT {url}")
-    response = requests.put(url, headers=_BOT_AUTH_HEADERS)
+    response = requests.put(url, headers=_BOT_AUTH_HEADERS, timeout=10)
+    if response.status_code == 429:
+        retry_after = response.json().get("retry_after", 1.0)
+        print(f"[discord] rate limited, sleeping {retry_after}s before retry")
+        time.sleep(retry_after)
+        response = requests.put(url, headers=_BOT_AUTH_HEADERS, timeout=10)
     print(f"[discord] Response status: {response.status_code}")
     return response.status_code == 204
 
@@ -123,14 +129,16 @@ def handle_league_join(event_body: dict, aws_services: AWSServices) -> str:
     if not league_data.get("join_enabled", False):
         return f"❌ Joining is not currently enabled for league **{league_data['league_name']}** (`{league_id}`)."
 
-    # Username = user's "@" handle
+    # Username = user's "@" handle (sheet key); snowflake = actual Discord user ID for API calls
     # nick = server display name; global_name = user's global display name
     member = event_body.get("member", {})
-    discord_id = member.get("user", {}).get("username")
+    user = member.get("user", {})
+    discord_id = user.get("username")
+    snowflake = user.get("id")
     participant_name = (
         member.get("nick")
-        or member.get("user", {}).get("global_name")
-        or member.get("user", {}).get("username")
+        or user.get("global_name")
+        or user.get("username")
     )
     league_name = league_data["league_name"]
     sheets_url = league_data["google_sheets_link"]
@@ -174,6 +182,15 @@ def handle_league_join(event_body: dict, aws_services: AWSServices) -> str:
         print(f"[sheets_agent] league-join: RuntimeError: {e}")
         return "❌ The bot's Google Sheets integration is misconfigured. Contact the bot administrator."
 
+    # Store snowflake so sync can assign Discord roles by the correct user ID
+    if snowflake:
+        aws_services.dynamodb_table.update_item(
+            Key={"PK": f"{_SERVER_PK_PREFIX}{server_id}", "SK": f"{_LEAGUE_SK_PREFIX}{league_id}"},
+            UpdateExpression="SET member_snowflakes = if_not_exists(member_snowflakes, :empty), member_snowflakes.#u = :snowflake",
+            ExpressionAttributeNames={"#u": discord_id},
+            ExpressionAttributeValues={":empty": {}, ":snowflake": snowflake},
+        )
+
     config = _get_server_config(server_id, aws_services.dynamodb_table)
     notification_channel_id = config.get("notification_channel_id") if config else None
     if notification_channel_id:
@@ -206,19 +223,54 @@ def handle_league_sync_participants(event_body: dict, aws_services: AWSServices)
         print(f"[sheets_agent] league-sync-participants: RuntimeError: {e}")
         return "❌ The bot's Google Sheets integration is misconfigured. Contact the bot administrator."
 
-    old_player_ids = set(league_data.get("active_players", {}).keys())
-    new_player_ids = set(current_active.keys())
-    added_ids = new_player_ids - old_player_ids
-    removed_ids = old_player_ids - new_player_ids
+    # member_snowflakes: {username_handle -> discord_snowflake}, populated at join time
+    old_active_players = league_data.get("active_players", {})
+    member_snowflakes = league_data.get("member_snowflakes", {})
+
+    # Build enriched active_players: {handle -> {"discord_id": snowflake, "display_name": name}}
+    new_active_players = {
+        handle: {
+            "discord_id": member_snowflakes.get(handle),
+            "display_name": display_name,
+        }
+        for handle, display_name in current_active.items()
+    }
+
+    old_handles = set(old_active_players.keys())
+    new_handles = set(new_active_players.keys())
+    added_handles = new_handles - old_handles
+    removed_handles = old_handles - new_handles
 
     active_participant_role = league_data.get("active_participant_role")
+    no_snowflake_handles = []
+    remove_snowflakes = []
+
     if active_participant_role:
-        for user_id in added_ids:
-            _add_discord_role(guild_id=server_id, user_id=user_id, role_id=active_participant_role)
-        if removed_ids:
+        for handle in added_handles:
+            snowflake = new_active_players[handle]["discord_id"]
+            if snowflake:
+                _add_discord_role(guild_id=server_id, user_id=snowflake, role_id=active_participant_role)
+                time.sleep(0.5)  # ~2 req/s — safe for batches up to 200+ within Lambda timeout
+            else:
+                no_snowflake_handles.append(handle)
+                print(f"[sync] no snowflake for handle={handle!r}, skipping role assignment")
+
+        for handle in removed_handles:
+            old_player = old_active_players.get(handle, {})
+            # Support both old string-value format and new dict format
+            snowflake = (
+                old_player.get("discord_id") if isinstance(old_player, dict)
+                else member_snowflakes.get(handle)
+            )
+            if snowflake:
+                remove_snowflakes.append(snowflake)
+            else:
+                print(f"[sync] no snowflake for removed handle={handle!r}, skipping role removal")
+
+        if remove_snowflakes:
             _enqueue_remove_roles(
                 server_id=server_id,
-                user_ids=list(removed_ids),
+                user_ids=remove_snowflakes,
                 role_id=active_participant_role,
                 sqs_queue=aws_services.remove_role_sqs_queue,
             )
@@ -226,22 +278,28 @@ def handle_league_sync_participants(event_body: dict, aws_services: AWSServices)
     aws_services.dynamodb_table.update_item(
         Key={"PK": f"{_SERVER_PK_PREFIX}{server_id}", "SK": f"{_LEAGUE_SK_PREFIX}{league_id}"},
         UpdateExpression="SET active_players = :active_players",
-        ExpressionAttributeValues={":active_players": current_active},
+        ExpressionAttributeValues={":active_players": new_active_players},
     )
 
     lines = [f"✅ Synced active participants for **{league_data['league_name']}** (`{league_id}`):"]
-    lines.append(f"• Total active: {len(new_player_ids)}")
-    if added_ids:
-        lines.append(f"• Added: {len(added_ids)}")
-    if removed_ids:
-        lines.append(f"• Removed: {len(removed_ids)}")
-    if not added_ids and not removed_ids:
+    lines.append(f"• Total active: {len(new_handles)}")
+    if added_handles:
+        lines.append(f"• Added: {len(added_handles)}")
+    if removed_handles:
+        lines.append(f"• Removed: {len(removed_handles)}")
+    if not added_handles and not removed_handles:
         lines.append("• No changes")
     if active_participant_role:
-        if added_ids:
-            lines.append(f"• Role assigned to {len(added_ids)} new player(s)")
-        if removed_ids:
-            lines.append(f"• Role removal queued for {len(removed_ids)} player(s)")
+        assigned = len(added_handles) - len(no_snowflake_handles)
+        if assigned:
+            lines.append(f"• Role assigned to {assigned} new player(s)")
+        if remove_snowflakes:
+            lines.append(f"• Role removal queued for {len(remove_snowflakes)} player(s)")
+        if no_snowflake_handles:
+            lines.append(
+                f"• ⚠️ {len(no_snowflake_handles)} player(s) have no cached Discord ID (joined outside the bot) — "
+                f"role not assigned: {', '.join(f'`{h}`' for h in no_snowflake_handles)}"
+            )
     else:
         lines.append("• ℹ️ No active participant role configured — roles were not assigned/removed")
 
