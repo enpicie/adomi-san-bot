@@ -113,4 +113,25 @@ league_commands_mapping: CommandMapping = {
         "description": "Sync participants from the league's Google Sheet, assigning/removing the active participant role",
         "params": [LEAGUE_NAME_PARAM]
     },
+    "league-deactivate": {
+        "function": league_commands.deactivate_league_participant,
+        "description": "Mark yourself (or another player) as inactive in a league's participant sheet",
+        "params": [
+            LEAGUE_NAME_PARAM,
+            CommandParam(
+                name="dnf",
+                description="Set to True to mark as DNF instead of Inactive",
+                param_type=AppCommandOptionType.boolean,
+                required=False,
+                choices=None
+            ),
+            CommandParam(
+                name="player",
+                description="(Organizers only) The player to deactivate",
+                param_type=AppCommandOptionType.user,
+                required=False,
+                choices=None
+            ),
+        ]
+    },
 }

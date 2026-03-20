@@ -6,7 +6,7 @@ import constants
 import sheets_helper
 from sheets_helper import SheetNotSetupError
 from aws_services import AWSServices
-from participants_sheet import STATUS_ACTIVE, STATUS_QUEUED, STATUS_INACTIVE
+from participants_sheet import STATUS_ACTIVE, STATUS_QUEUED, STATUS_INACTIVE, STATUS_DNF
 
 _SHEET_NOT_SHARED_MSG = (
     "📋 The bot cannot access this league's Google Sheet. "
@@ -141,6 +141,9 @@ def handle_league_join(event_body: dict, aws_services: AWSServices) -> str:
             discord_id=discord_id,
         )
 
+        if current_status == STATUS_DNF:
+            return f"❌ You are marked as **DNF** in **{league_name}** (`{league_id}`). Contact an organizer to change your status."
+
         if current_status == STATUS_ACTIVE:
             return f"✅ You're already listed as an **ACTIVE** participant in **{league_name}** (`{league_id}`)!"
 
@@ -243,3 +246,61 @@ def handle_league_sync_participants(event_body: dict, aws_services: AWSServices)
         lines.append("• ℹ️ No active participant role configured — roles were not assigned/removed")
 
     return "\n".join(lines)
+
+
+def handle_league_deactivate(event_body: dict, aws_services: AWSServices) -> str:
+    server_id = event_body["guild_id"]
+    league_id = _get_command_input(event_body, "league_name")
+
+    league_data = _get_league_data(server_id, league_id, aws_services.dynamodb_table)
+    if not league_data:
+        return _LEAGUE_MISSING
+
+    # Resolve target: organizer may specify another player via the user option
+    player_snowflake = _get_command_input(event_body, "player")
+    if player_snowflake:
+        resolved_users = event_body.get("data", {}).get("resolved", {}).get("users", {})
+        target_discord_id = resolved_users.get(player_snowflake, {}).get("username")
+        if not target_discord_id:
+            return "❌ Could not resolve the specified player."
+    else:
+        member = event_body.get("member", {})
+        target_discord_id = member.get("user", {}).get("username")
+
+    dnf = _get_command_input(event_body, "dnf")
+    new_status = STATUS_DNF if dnf else STATUS_INACTIVE
+    status_label = "DNF" if new_status == STATUS_DNF else "INACTIVE"
+    league_name = league_data["league_name"]
+
+    try:
+        row_number, current_status = sheets_helper.find_participant(
+            spreadsheet_url=league_data["google_sheets_link"],
+            discord_id=target_discord_id,
+        )
+    except PermissionError:
+        return _SHEET_NOT_SHARED_MSG
+    except RuntimeError as e:
+        print(f"[sheets_agent] league-deactivate: RuntimeError: {e}")
+        return "❌ The bot's Google Sheets integration is misconfigured. Contact the bot administrator."
+
+    if row_number is None:
+        if player_snowflake:
+            return f"❌ **{target_discord_id}** is not listed in the Participants sheet for **{league_name}**."
+        return f"❌ You are not listed in the Participants sheet for **{league_name}**."
+
+    if current_status == new_status:
+        if player_snowflake:
+            return f"ℹ️ **{target_discord_id}** is already marked as **{status_label}** in **{league_name}**."
+        return f"ℹ️ You are already marked as **{status_label}** in **{league_name}**."
+
+    try:
+        sheets_helper.update_participant_status(league_data["google_sheets_link"], row_number, new_status)
+    except PermissionError:
+        return _SHEET_NOT_SHARED_MSG
+    except RuntimeError as e:
+        print(f"[sheets_agent] league-deactivate: RuntimeError: {e}")
+        return "❌ The bot's Google Sheets integration is misconfigured. Contact the bot administrator."
+
+    if player_snowflake:
+        return f"✅ **{target_discord_id}** has been marked as **{status_label}** in **{league_name}** (`{league_id}`)."
+    return f"✅ You have been marked as **{status_label}** in **{league_name}** (`{league_id}`)."

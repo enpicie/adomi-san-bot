@@ -335,3 +335,8 @@ def delete_league(event: DiscordEvent, aws_services: AWSServices) -> ResponseMes
     )
 
     return ResponseMessage(content=f"🗑️ League **{league_data.league_name}** (`{league_id}`) deleted.")
+
+
+def deactivate_league_participant(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
+    # Handled asynchronously by the sheets_agent Lambda — this stub exists for command registration only.
+    return ResponseMessage(content="⏳ Updating your participant status...")

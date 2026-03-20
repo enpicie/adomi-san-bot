@@ -3,7 +3,9 @@ import json
 import bot
 import constants
 import utils.discord_auth_helper as auth_helper
+import utils.permissions_helper as permissions_helper
 from aws_client import get_aws_services
+from commands.models.discord_event import DiscordEvent
 from enums import DiscordInteractionType, DiscordCallbackType
 
 # Commands whose full processing is handled by the sheets_agent Lambda.
@@ -12,12 +14,14 @@ _SHEETS_COMMANDS = {
     "league-setup",
     "league-join",
     "league-sync-participants",
+    "league-deactivate",
 }
 
 _SHEETS_COMMAND_ACK = {
     "league-setup":              "⏳ Setting up the Participants sheet...",
     "league-join":               "⏳ Adding you to the league...",
     "league-sync-participants":  "⏳ Syncing participants from the sheet...",
+    "league-deactivate":         "⏳ Updating your participant status...",
 }
 
 
@@ -58,6 +62,15 @@ def lambda_handler(event, context):
         if interaction_type == DiscordInteractionType.APPLICATION_COMMAND:
             command_name = body.get("data", {}).get("name", "")
             if command_name in _SHEETS_COMMANDS:
+                if command_name == "league-deactivate":
+                    options = body.get("data", {}).get("options", [])
+                    if any(o["name"] == "player" for o in options):
+                        error = permissions_helper.verify_has_organizer_role(DiscordEvent(body), get_aws_services())
+                        if error:
+                            return {
+                                "type": DiscordCallbackType.MESSAGE_WITH_SOURCE,
+                                "data": {"content": "🙅‍♀️ Only organizers can deactivate other players. To deactivate yourself, call `/league-deactivate` without the `player` parameter."},
+                            }
                 _dispatch_to_sheets_agent(body, command_name)
                 response = _sheets_ack_response(command_name)
             else:

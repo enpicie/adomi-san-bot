@@ -14,6 +14,7 @@ from participants_sheet import (
     STATUS_QUEUED,
     STATUS_ACTIVE,
     STATUS_INACTIVE,
+    STATUS_DNF,
     ParticipantsColumn,
 )
 
@@ -215,6 +216,7 @@ def setup_league_participants_sheet(spreadsheet_url: str) -> bool:
                 _status_rule(STATUS_ACTIVE,   red=0.820, green=0.894, blue=0.820),
                 _status_rule(STATUS_QUEUED,   red=0.957, green=0.941, blue=0.796),
                 _status_rule(STATUS_INACTIVE, red=0.878, green=0.878, blue=0.878),
+                _status_rule(STATUS_DNF,      red=0.957, green=0.816, blue=0.816),
             ]
         }
     ).execute()

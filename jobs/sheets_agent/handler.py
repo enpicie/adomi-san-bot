@@ -8,6 +8,7 @@ _COMMAND_HANDLERS = {
     "league-setup":             league_commands.handle_league_setup,
     "league-join":              league_commands.handle_league_join,
     "league-sync-participants": league_commands.handle_league_sync_participants,
+    "league-deactivate":        league_commands.handle_league_deactivate,
 }
 
 
