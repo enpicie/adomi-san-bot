@@ -290,6 +290,7 @@ These commands allow participants to report bracket set results directly to star
 |---------|-------------|-------------|
 | `/startgg-connect` | Organizer | Link a start.gg organizer account to this server via OAuth |
 | `/startgg-report-score` | Any participant | Report the result of a start.gg bracket set |
+| `/startgg-notify-unlinked` | Organizer | List start.gg participants who have not linked their Discord account |
 
 #### `/startgg-connect`
 
@@ -311,6 +312,16 @@ No parameters.
 | `score` | string | yes | Score in `<winner games>-<loser games>` format, e.g. `2-1` |
 
 The command finds the most recently created open set between the two players on start.gg and reports the result. Both players must be registered for the event via start.gg with Discord linked.
+
+#### `/startgg-notify-unlinked`
+
+**`/startgg-notify-unlinked` parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `event_name` | string | yes | Event to check (autocomplete) |
+
+Fetches the current entrant list from start.gg and returns all participants who do not have a Discord account linked. The response lists their start.gg gamerTags and instructs them to go to their start.gg profile → **Edit Profile** → **Connections** → connect Discord and enable **Display on profile**.
 
 ---
 

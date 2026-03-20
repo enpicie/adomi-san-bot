@@ -6,6 +6,11 @@ from commands.event.autocomplete_handlers import EVENT_NAME_PARAM
 import commands.startgg.startgg_commands as startgg_commands
 
 startgg_commands_mapping: CommandMapping = {
+    "startgg-notify-unlinked": {
+        "function": startgg_commands.notify_unlinked,
+        "description": "List start.gg participants who have not linked their Discord account",
+        "params": [EVENT_NAME_PARAM]
+    },
     "startgg-connect": {
         "function": startgg_commands.startgg_connect,
         "description": "Link your start.gg organizer account to this Discord server to enable score reporting",

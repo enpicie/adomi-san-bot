@@ -68,6 +68,42 @@ def startgg_connect(event: DiscordEvent, aws_services: AWSServices) -> ResponseM
     ).with_suppressed_embeds()
 
 
+def notify_unlinked(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
+    error_message = permissions_helper.verify_has_organizer_role(event, aws_services)
+    if error_message:
+        return error_message
+
+    server_id = event.get_server_id()
+    event_id = event.get_command_input_value("event_name")
+
+    event_data = db_helper.get_server_event_data_or_fail(server_id, event_id, aws_services.dynamodb_table)
+    if isinstance(event_data, ResponseMessage):
+        return event_data
+
+    if not event_data.startgg_url:
+        return ResponseMessage(content="❌ This event is not linked to a start.gg event.")
+
+    try:
+        startgg_event = startgg_api.query_startgg_event(event_data.startgg_url)
+    except Exception as e:
+        print(f"[startgg] notify_unlinked: error querying event: {e}")
+        return ResponseMessage(content="❌ Failed to fetch participant data from start.gg. Check the event link and try again.")
+
+    unlinked = startgg_event.no_discord_participants
+    if not unlinked:
+        return ResponseMessage(content="✅ All start.gg participants for this event have Discord linked!")
+
+    names = "\n".join(f"• {p.display_name}" for p in unlinked)
+    return ResponseMessage(
+        content=(
+            f"⚠️ **{len(unlinked)} participant(s) do not have Discord linked on start.gg:**\n"
+            f"{names}\n\n"
+            f"To link Discord: go to your start.gg profile → **Edit Profile** → **Connections** → connect Discord "
+            f"and ensure **Display on profile** is enabled."
+        )
+    )
+
+
 def report_score(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
     server_id = event.get_server_id()
     event_id = event.get_command_input_value("event_name")
