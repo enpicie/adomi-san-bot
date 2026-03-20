@@ -21,14 +21,20 @@ def discord_request(method: str, url: str, **kwargs) -> requests.Response:
         print(f"[discord] rate limited on {method} {url}, sleeping {retry_after}s")
         time.sleep(retry_after)
         response = requests.request(method, url, headers=_BOT_AUTH_HEADERS, timeout=10, **kwargs)
+    _log_response(method, url, response)
     return response
+
+
+def _log_response(method: str, url: str, response: requests.Response) -> None:
+    if response.ok:
+        print(f"[discord] {method} {url} -> {response.status_code}")
+    else:
+        print(f"[discord] {method} {url} -> {response.status_code} body={response.text}")
 
 
 def add_discord_role(guild_id: str, user_id: str, role_id: str) -> bool:
     url = f"{DISCORD_API_BASE}/guilds/{guild_id}/members/{user_id}/roles/{role_id}"
-    print(f"[discord] PUT {url}")
     response = discord_request("PUT", url)
-    print(f"[discord] Response status: {response.status_code} body={response.text}")
     return response.status_code == 204
 
 
@@ -37,7 +43,6 @@ def search_discord_member(guild_id: str, username: str) -> str | None:
     url = f"{DISCORD_API_BASE}/guilds/{guild_id}/members/search"
     response = discord_request("GET", url, params={"query": username, "limit": 10})
     if response.status_code != 200:
-        print(f"[discord] member search failed for {username!r}: status={response.status_code}")
         return None
     for member in response.json():
         if member.get("user", {}).get("username") == username:
@@ -47,8 +52,7 @@ def search_discord_member(guild_id: str, username: str) -> str | None:
 
 def send_channel_message(channel_id: str, content: str) -> None:
     url = f"{DISCORD_API_BASE}/channels/{channel_id}/messages"
-    response = discord_request("POST", url, json={"content": content})
-    print(f"[discord] POST {url} status={response.status_code}")
+    discord_request("POST", url, json={"content": content})
 
 
 def enqueue_remove_roles(server_id: str, user_ids: list, role_id: str, sqs_queue) -> None:
