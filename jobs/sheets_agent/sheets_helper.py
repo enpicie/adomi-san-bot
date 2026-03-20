@@ -75,7 +75,10 @@ def setup_league_participants_sheet(spreadsheet_url: str) -> bool:
 
     try:
         service = _get_sheets_service()
-        metadata = service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
+        metadata = service.spreadsheets().get(
+            spreadsheetId=spreadsheet_id,
+            fields="properties.title,sheets.properties,sheets.conditionalFormats",
+        ).execute()
         print(f"[sheets] setup_league_participants_sheet: accessible, title={metadata.get('properties', {}).get('title')!r}")
     except HttpError as e:
         print(f"[sheets] setup_league_participants_sheet: HttpError status={e.resp.status} body={e.content}")
@@ -109,7 +112,7 @@ def setup_league_participants_sheet(spreadsheet_url: str) -> bool:
     ).execute()
 
     num_cols = len(COLUMN_HEADERS)
-    status_col_range = {"sheetId": sheet_id, "startRowIndex": 1, "startColumnIndex": 0, "endColumnIndex": 1}
+    status_col_range = {"sheetId": sheet_id, "startRowIndex": 1, "endRowIndex": 10000, "startColumnIndex": 0, "endColumnIndex": 1}
 
     def _status_rule(status: str, red: float, green: float, blue: float) -> dict:
         return {
