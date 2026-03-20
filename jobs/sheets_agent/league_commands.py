@@ -93,14 +93,17 @@ def handle_league_setup(event_body: dict, aws_services: AWSServices) -> str:
         return _LEAGUE_MISSING
 
     try:
-        sheets_helper.setup_league_participants_sheet(spreadsheet_url=league_data["google_sheets_link"])
+        already_existed = sheets_helper.setup_league_participants_sheet(spreadsheet_url=league_data["google_sheets_link"])
     except PermissionError:
         return _SHEET_NOT_SHARED_MSG
     except RuntimeError as e:
         print(f"[sheets_agent] league-setup: RuntimeError: {e}")
         return "❌ The bot's Google Sheets integration is misconfigured. Contact the bot administrator."
 
-    return f"✅ Participants sheet set up for **{league_data['league_name']}** (`{league_id}`)!"
+    league_name = league_data["league_name"]
+    if already_existed:
+        return f"✅ Styling has been applied to the existing Participants sheet for **{league_name}** (`{league_id}`)."
+    return f"✅ Participants sheet created and set up for **{league_name}** (`{league_id}`)!"
 
 
 def _send_channel_message(channel_id: str, content: str) -> None:

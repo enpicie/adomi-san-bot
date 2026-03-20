@@ -64,7 +64,8 @@ def extract_spreadsheet_id(url: str) -> str | None:
     return match.group(1) if match else None
 
 
-def setup_league_participants_sheet(spreadsheet_url: str) -> None:
+def setup_league_participants_sheet(spreadsheet_url: str) -> bool:
+    """Returns True if the Participants tab already existed, False if it was newly created."""
     """Creates the Participants sheet tab with bold headers. Raises PermissionError if not shared."""
     spreadsheet_id = extract_spreadsheet_id(spreadsheet_url)
     print(f"[sheets] setup_league_participants_sheet: spreadsheet_id={spreadsheet_id!r}")
@@ -84,7 +85,8 @@ def setup_league_participants_sheet(spreadsheet_url: str) -> None:
     sheets = metadata.get("sheets", [])
     existing_titles = [s["properties"]["title"] for s in sheets]
 
-    if PARTICIPANTS_SHEET not in existing_titles:
+    already_existed = PARTICIPANTS_SHEET in existing_titles
+    if not already_existed:
         result = service.spreadsheets().batchUpdate(
             spreadsheetId=spreadsheet_id,
             body={"requests": [{"addSheet": {"properties": {"title": PARTICIPANTS_SHEET}}}]}
@@ -137,6 +139,33 @@ def setup_league_participants_sheet(spreadsheet_url: str) -> None:
         body={
             "requests": [
                 *delete_requests,
+                # Participant Name column (C, index 2): 2x default width (200px)
+                {
+                    "updateDimensionProperties": {
+                        "range": {
+                            "sheetId": sheet_id,
+                            "dimension": "COLUMNS",
+                            "startIndex": 2,
+                            "endIndex": 3,
+                        },
+                        "properties": {"pixelSize": 200},
+                        "fields": "pixelSize",
+                    }
+                },
+                # Status column (A): center all text
+                {
+                    "repeatCell": {
+                        "range": {
+                            "sheetId": sheet_id,
+                            "startColumnIndex": 0,
+                            "endColumnIndex": 1,
+                        },
+                        "cell": {
+                            "userEnteredFormat": {"horizontalAlignment": "CENTER"}
+                        },
+                        "fields": "userEnteredFormat.horizontalAlignment",
+                    }
+                },
                 # Freeze header row
                 {
                     "updateSheetProperties": {
@@ -189,7 +218,8 @@ def setup_league_participants_sheet(spreadsheet_url: str) -> None:
             ]
         }
     ).execute()
-    print(f"[sheets] setup_league_participants_sheet: headers and formatting applied OK")
+    print(f"[sheets] setup_league_participants_sheet: headers and formatting applied OK already_existed={already_existed}")
+    return already_existed
 
 
 def append_league_participant(spreadsheet_url: str, discord_id: str, participant_name: str) -> None:
