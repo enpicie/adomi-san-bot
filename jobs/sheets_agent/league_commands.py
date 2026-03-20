@@ -6,6 +6,7 @@ import constants
 import sheets_helper
 from sheets_helper import SheetNotSetupError
 from aws_services import AWSServices
+from participants_sheet import STATUS_ACTIVE, STATUS_QUEUED, STATUS_INACTIVE
 
 _SHEET_NOT_SHARED_MSG = (
     "📋 The bot cannot access this league's Google Sheet. "
@@ -102,6 +103,12 @@ def handle_league_setup(event_body: dict, aws_services: AWSServices) -> str:
     return f"✅ Participants sheet set up for **{league_data['league_name']}** (`{league_id}`)!"
 
 
+def _send_channel_message(channel_id: str, content: str) -> None:
+    url = f"{_DISCORD_API_BASE}/channels/{channel_id}/messages"
+    response = requests.post(url, headers=_BOT_AUTH_HEADERS, json={"content": content})
+    print(f"[discord] POST {url} status={response.status_code}")
+
+
 def handle_league_join(event_body: dict, aws_services: AWSServices) -> str:
     server_id = event_body["guild_id"]
     league_id = _get_command_input(event_body, "league_name")
@@ -122,18 +129,37 @@ def handle_league_join(event_body: dict, aws_services: AWSServices) -> str:
         or member.get("user", {}).get("global_name")
         or member.get("user", {}).get("username")
     )
+    league_name = league_data["league_name"]
+    sheets_url = league_data["google_sheets_link"]
 
     try:
-        sheets_helper.append_league_participant(
-            spreadsheet_url=league_data["google_sheets_link"],
+        row_number, current_status = sheets_helper.find_participant(
+            spreadsheet_url=sheets_url,
             discord_id=discord_id,
-            participant_name=participant_name,
         )
+
+        if current_status == STATUS_ACTIVE:
+            return f"✅ You're already listed as an **ACTIVE** participant in **{league_name}** (`{league_id}`)!"
+
+        if current_status == STATUS_QUEUED:
+            return f"✅ You're already **QUEUED** for **{league_name}** (`{league_id}`)!"
+
+        if current_status == STATUS_INACTIVE:
+            sheets_helper.update_participant_status(sheets_url, row_number, STATUS_QUEUED)
+            reply = f"✅ Your status in **{league_name}** (`{league_id}`) has been changed from **INACTIVE** to **QUEUED**!"
+        else:
+            sheets_helper.append_league_participant(
+                spreadsheet_url=sheets_url,
+                discord_id=discord_id,
+                participant_name=participant_name,
+            )
+            reply = f"✅ You've been added to **{league_name}** (`{league_id}`) as **{participant_name}**!"
+
     except PermissionError:
         return _SHEET_NOT_SHARED_MSG
     except SheetNotSetupError:
         return (
-            f"⚠️ The Participants sheet hasn't been set up for **{league_data['league_name']}** yet. "
+            f"⚠️ The Participants sheet hasn't been set up for **{league_name}** yet. "
             "An organizer needs to run `/league-setup` first."
         )
     except ValueError:
@@ -142,7 +168,16 @@ def handle_league_join(event_body: dict, aws_services: AWSServices) -> str:
         print(f"[sheets_agent] league-join: RuntimeError: {e}")
         return "❌ The bot's Google Sheets integration is misconfigured. Contact the bot administrator."
 
-    return f"✅ You've been added to **{league_data['league_name']}** (`{league_id}`) as **{participant_name}**!"
+    config = _get_server_config(server_id, aws_services.dynamodb_table)
+    notification_channel_id = config.get("notification_channel_id") if config else None
+    if notification_channel_id:
+        action = "re-queued" if current_status == STATUS_INACTIVE else "joined"
+        _send_channel_message(
+            notification_channel_id,
+            f"📋 **{participant_name}** (`@{discord_id}`) has {action} **{league_name}** (`{league_id}`).",
+        )
+
+    return reply
 
 
 def handle_league_sync_participants(event_body: dict, aws_services: AWSServices) -> str:

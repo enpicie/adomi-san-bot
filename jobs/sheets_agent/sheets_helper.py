@@ -224,6 +224,59 @@ def append_league_participant(spreadsheet_url: str, discord_id: str, participant
         raise
 
 
+def find_participant(spreadsheet_url: str, discord_id: str) -> tuple[int | None, str | None]:
+    """Returns (sheet_row_number, status) for a participant matched by discord_id, or (None, None) if not found.
+    sheet_row_number is 1-based (row 2 = first data row). Raises PermissionError if not shared."""
+    spreadsheet_id = extract_spreadsheet_id(spreadsheet_url)
+    print(f"[sheets] find_participant: spreadsheet_id={spreadsheet_id!r} discord_id={discord_id!r}")
+    if not spreadsheet_id:
+        raise ValueError(f"[sheets] find_participant: could not extract ID from url={spreadsheet_url!r}")
+
+    try:
+        service = _get_sheets_service()
+        result = service.spreadsheets().values().get(
+            spreadsheetId=spreadsheet_id,
+            range=PARTICIPANTS_RANGE,
+        ).execute()
+    except HttpError as e:
+        if e.resp.status in (403, 404):
+            raise PermissionError(SHEET_NOT_ACCESSIBLE_ERROR)
+        raise
+
+    rows = result.get("values", [])
+    for i, row in enumerate(rows[1:], start=2):
+        row_id = row[ParticipantsColumn.DISCORD_ID] if len(row) > ParticipantsColumn.DISCORD_ID else ""
+        if row_id == discord_id:
+            status = row[ParticipantsColumn.STATUS] if len(row) > ParticipantsColumn.STATUS else ""
+            print(f"[sheets] find_participant: found discord_id={discord_id!r} at row={i} status={status!r}")
+            return i, status
+
+    print(f"[sheets] find_participant: discord_id={discord_id!r} not found")
+    return None, None
+
+
+def update_participant_status(spreadsheet_url: str, row_number: int, new_status: str) -> None:
+    """Updates the Status cell of a participant row. Raises PermissionError if not shared."""
+    spreadsheet_id = extract_spreadsheet_id(spreadsheet_url)
+    print(f"[sheets] update_participant_status: spreadsheet_id={spreadsheet_id!r} row={row_number} status={new_status!r}")
+    if not spreadsheet_id:
+        raise ValueError(f"[sheets] update_participant_status: could not extract ID from url={spreadsheet_url!r}")
+
+    try:
+        service = _get_sheets_service()
+        service.spreadsheets().values().update(
+            spreadsheetId=spreadsheet_id,
+            range=f"{PARTICIPANTS_SHEET}!A{row_number}",
+            valueInputOption="USER_ENTERED",
+            body={"values": [[new_status]]},
+        ).execute()
+        print(f"[sheets] update_participant_status: updated OK row={row_number} status={new_status!r}")
+    except HttpError as e:
+        if e.resp.status in (403, 404):
+            raise PermissionError(SHEET_NOT_ACCESSIBLE_ERROR)
+        raise
+
+
 def get_active_participants(spreadsheet_url: str) -> dict:
     """Returns {discord_id: participant_name} for all ACTIVE participants. Raises PermissionError if not shared."""
     spreadsheet_id = extract_spreadsheet_id(spreadsheet_url)
