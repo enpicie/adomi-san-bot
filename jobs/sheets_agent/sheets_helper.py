@@ -1,5 +1,6 @@
 import json
 import re
+import socket
 
 import boto3
 import httplib2
@@ -7,6 +8,8 @@ from google.oauth2 import service_account
 from google_auth_httplib2 import AuthorizedHttp
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
+
+socket.setdefaulttimeout(20)
 
 import constants
 from participants_sheet import (
