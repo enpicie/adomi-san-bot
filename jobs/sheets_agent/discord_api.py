@@ -28,7 +28,7 @@ def add_discord_role(guild_id: str, user_id: str, role_id: str) -> bool:
     url = f"{DISCORD_API_BASE}/guilds/{guild_id}/members/{user_id}/roles/{role_id}"
     print(f"[discord] PUT {url}")
     response = discord_request("PUT", url)
-    print(f"[discord] Response status: {response.status_code}")
+    print(f"[discord] Response status: {response.status_code} body={response.text}")
     return response.status_code == 204
 
 
