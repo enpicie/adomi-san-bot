@@ -137,7 +137,7 @@ def view_league(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessa
         return league_data
 
     player_count = len(league_data.active_players)
-    role_display = f"<@&{league_data.active_participant_role}>" if league_data.active_participant_role else "not set"
+    role_display = f"{league_data.active_participant_role}" if league_data.active_participant_role else "not set"
     return ResponseMessage(
         content=(
             f"📋 **{league_data.league_name}** (`{league_data.league_id}`)\n"
