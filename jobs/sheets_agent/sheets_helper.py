@@ -2,7 +2,9 @@ import json
 import re
 
 import boto3
+import httplib2
 from google.oauth2 import service_account
+from google_auth_httplib2 import AuthorizedHttp
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
@@ -54,7 +56,8 @@ def _get_sheets_service():
         creds = service_account.Credentials.from_service_account_info(
             service_account_info, scopes=_SCOPES
         )
-        _sheets_service = build("sheets", "v4", credentials=creds)
+        authorized_http = AuthorizedHttp(creds, http=httplib2.Http(timeout=25))
+        _sheets_service = build("sheets", "v4", http=authorized_http)
         print(f"[sheets] _get_sheets_service: service initialized OK")
     return _sheets_service
 
