@@ -113,8 +113,10 @@ def handle_league_join(event_body: dict, aws_services: AWSServices) -> str:
     if not league_data.get("join_enabled", False):
         return f"❌ Joining is not currently enabled for league **{league_data['league_name']}** (`{league_id}`)."
 
-    discord_id = event_body["member"]["user"]["id"]
+    # Username = user's "@" handle
+    # nick = server display name; global_name = user's global display name
     member = event_body.get("member", {})
+    discord_id = member.get("user", {}).get("username")
     participant_name = (
         member.get("nick")
         or member.get("user", {}).get("global_name")

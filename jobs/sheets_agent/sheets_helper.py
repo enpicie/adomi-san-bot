@@ -106,13 +106,13 @@ def setup_league_participants_sheet(spreadsheet_url: str) -> None:
     ).execute()
 
     num_cols = len(COLUMN_HEADERS)
-    full_range = {"sheetId": sheet_id, "startRowIndex": 1, "startColumnIndex": 0, "endColumnIndex": num_cols}
+    status_col_range = {"sheetId": sheet_id, "startRowIndex": 1, "startColumnIndex": 0, "endColumnIndex": 1}
 
     def _status_rule(status: str, red: float, green: float, blue: float) -> dict:
         return {
             "addConditionalFormatRule": {
                 "rule": {
-                    "ranges": [full_range],
+                    "ranges": [status_col_range],
                     "booleanRule": {
                         "condition": {
                             "type": "TEXT_EQ",
@@ -137,6 +137,17 @@ def setup_league_participants_sheet(spreadsheet_url: str) -> None:
         body={
             "requests": [
                 *delete_requests,
+                # Freeze header row
+                {
+                    "updateSheetProperties": {
+                        "properties": {
+                            "sheetId": sheet_id,
+                            "gridProperties": {"frozenRowCount": 1},
+                        },
+                        "fields": "gridProperties.frozenRowCount",
+                    }
+                },
+                # Header row: black background, white bold text
                 {
                     "repeatCell": {
                         "range": {
@@ -148,15 +159,33 @@ def setup_league_participants_sheet(spreadsheet_url: str) -> None:
                         },
                         "cell": {
                             "userEnteredFormat": {
-                                "textFormat": {"bold": True}
+                                "backgroundColor": {"red": 0.0, "green": 0.0, "blue": 0.0},
+                                "textFormat": {"bold": True, "foregroundColor": {"red": 1.0, "green": 1.0, "blue": 1.0}},
+                            }
+                        },
+                        "fields": "userEnteredFormat.backgroundColor,userEnteredFormat.textFormat.bold,userEnteredFormat.textFormat.foregroundColor",
+                    }
+                },
+                # Data rows: explicitly not bold
+                {
+                    "repeatCell": {
+                        "range": {
+                            "sheetId": sheet_id,
+                            "startRowIndex": 1,
+                            "startColumnIndex": 0,
+                            "endColumnIndex": num_cols,
+                        },
+                        "cell": {
+                            "userEnteredFormat": {
+                                "textFormat": {"bold": False},
                             }
                         },
                         "fields": "userEnteredFormat.textFormat.bold",
                     }
                 },
-                _status_rule(STATUS_ACTIVE,   red=0.851, green=0.918, blue=0.827),
-                _status_rule(STATUS_QUEUED,   red=1.0,   green=0.949, blue=0.800),
-                _status_rule(STATUS_INACTIVE, red=0.937, green=0.937, blue=0.937),
+                _status_rule(STATUS_ACTIVE,   red=0.820, green=0.894, blue=0.820),
+                _status_rule(STATUS_QUEUED,   red=0.957, green=0.941, blue=0.796),
+                _status_rule(STATUS_INACTIVE, red=0.878, green=0.878, blue=0.878),
             ]
         }
     ).execute()
