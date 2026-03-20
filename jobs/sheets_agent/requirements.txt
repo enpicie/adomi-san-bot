@@ -1,7 +1,4 @@
 requests>=2.31.0
 boto3
-mypy-boto3-dynamodb
-mypy-boto3-sqs
-discord.py>=2.3.0
 google-auth>=2.0.0
 google-api-python-client>=2.0.0

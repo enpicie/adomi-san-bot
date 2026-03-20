@@ -178,53 +178,10 @@ jobs:
           s3_bucket_name: ${{ inputs.artifact_s3_bucket }}
           aws_role_arn: ${{ secrets.AWS_ROLE_ARN_S3 }}
 
-      - name: Prepare Sheets Agent Lambda Package
-        shell: bash
-        run: |
-          mkdir -p ./sheets_agent_pkg/utils \
-                   ./sheets_agent_pkg/database/models \
-                   ./sheets_agent_pkg/commands/models \
-                   ./sheets_agent_pkg/commands/league
-
-          cp ./jobs/sheets_agent/*.py ./sheets_agent_pkg/
-
-          cp ./src/aws_services.py ./src/enums.py ./sheets_agent_pkg/
-
-          cp ./src/utils/__init__.py \
-             ./src/utils/adomin_messages.py \
-             ./src/utils/permissions_helper.py \
-             ./src/utils/google_sheets_helper.py \
-             ./src/utils/discord_api_helper.py \
-             ./src/utils/queue_role_removal.py \
-             ./sheets_agent_pkg/utils/
-
-          cp ./src/database/__init__.py \
-             ./src/database/dynamodb_utils.py \
-             ./sheets_agent_pkg/database/
-
-          cp ./src/database/models/__init__.py \
-             ./src/database/models/subscriptable_mixin.py \
-             ./src/database/models/league_data.py \
-             ./src/database/models/server_config.py \
-             ./src/database/models/event_data.py \
-             ./sheets_agent_pkg/database/models/
-
-          cp ./src/commands/__init__.py ./sheets_agent_pkg/commands/
-
-          cp ./src/commands/models/__init__.py \
-             ./src/commands/models/discord_event.py \
-             ./src/commands/models/response_message.py \
-             ./src/commands/models/message_flags.py \
-             ./sheets_agent_pkg/commands/models/
-
-          cp ./src/commands/league/__init__.py \
-             ./src/commands/league/participants_sheet.py \
-             ./sheets_agent_pkg/commands/league/
-
       - name: Upload Latest Lambda Zip to S3 - Sheets Agent Lambda
         uses: enpicie/gh-action-workflow-upload-lambda-zip@v0.3.0
         with:
-          source_directory: ./sheets_agent_pkg
+          source_directory: ./jobs/sheets_agent
           app_name: ${{ inputs.sheets_agent_name }}
           artifact_name: ${{ inputs.sheets_agent_name }}-latest
           s3_bucket_name: ${{ inputs.artifact_s3_bucket }}

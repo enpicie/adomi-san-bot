@@ -3,7 +3,6 @@ import json
 from aws_client import get_aws_services
 from discord_followup import send_followup
 import league_commands
-from commands.models.discord_event import DiscordEvent
 
 _COMMAND_HANDLERS = {
     "league-setup":             league_commands.handle_league_setup,
@@ -26,9 +25,8 @@ def _process_record(payload: dict) -> None:
         send_followup(application_id, interaction_token, f"❌ Unknown sheets command: `{command_name}`")
         return
 
-    event = DiscordEvent(event_body)
     try:
-        content = handler_fn(event, get_aws_services())
+        content = handler_fn(event_body, get_aws_services())
     except Exception as e:
         print(f"[sheets_agent] unhandled error in {command_name!r}: {type(e).__name__}: {e}")
         content = "❌ An unexpected error occurred. Please try again."
