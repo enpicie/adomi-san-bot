@@ -2,6 +2,7 @@ import constants
 import database.dynamodb_utils as db_helper
 import utils.permissions_helper as permissions_helper
 import utils.google_sheets_helper as sheets_helper
+from utils.google_sheets_helper import SheetNotSetupError
 import utils.discord_api_helper as discord_helper
 import utils.queue_role_removal as role_removal_queue
 from aws_services import AWSServices
@@ -201,6 +202,13 @@ def join_league(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessa
         )
     except PermissionError:
         return ResponseMessage(content=_SHEET_NOT_SHARED_MSG)
+    except SheetNotSetupError:
+        return ResponseMessage(
+            content=f"⚠️ The Participants sheet hasn't been set up for **{league_data.league_name}** yet. "
+                    f"An organizer needs to run `/league-setup` first."
+        )
+    except ValueError:
+        return ResponseMessage(content="❌ This league's Google Sheets link is invalid. An organizer needs to update it with `/league-update`.")
 
     return ResponseMessage(
         content=f"✅ You've been added to **{league_data.league_name}** (`{league_id}`) as **{participant_name}**!"

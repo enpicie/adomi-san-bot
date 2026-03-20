@@ -27,9 +27,15 @@ SHEET_NOT_ACCESSIBLE_ERROR = (
 _sheets_service = None
 
 
+class SheetNotSetupError(Exception):
+    """Raised when the Participants sheet tab does not exist or its range is invalid."""
+    pass
+
+
 def _get_sheets_service():
     global _sheets_service
     if _sheets_service is None:
+        print(f"[sheets] Loading service account credentials from secret: {constants.GOOGLE_SHEETS_SECRET_NAME}")
         client = boto3.client("secretsmanager", region_name=constants.AWS_REGION)
         response = client.get_secret_value(SecretId=constants.GOOGLE_SHEETS_SECRET_NAME)
         service_account_info = json.loads(response["SecretString"])
@@ -37,6 +43,7 @@ def _get_sheets_service():
             service_account_info, scopes=_SCOPES
         )
         _sheets_service = build("sheets", "v4", credentials=creds)
+        print("[sheets] Sheets service initialized")
     return _sheets_service
 
 
@@ -48,17 +55,21 @@ def extract_spreadsheet_id(url: str) -> str | None:
 def setup_league_participants_sheet(spreadsheet_url: str) -> None:
     """Creates the Participants sheet tab with bold headers. Raises PermissionError if not shared."""
     spreadsheet_id = extract_spreadsheet_id(spreadsheet_url)
+    print(f"[sheets] setup_league_participants_sheet: url={spreadsheet_url!r} spreadsheet_id={spreadsheet_id!r}")
     if not spreadsheet_id:
         raise ValueError(f"Could not extract spreadsheet ID from URL: {spreadsheet_url}")
 
     try:
         service = _get_sheets_service()
         metadata = service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
+        print(f"[sheets] spreadsheet accessible, title={metadata.get('properties', {}).get('title')!r}")
     except HttpError as e:
+        print(f"[sheets] HttpError accessing spreadsheet {spreadsheet_id!r}: status={e.resp.status} body={e.content}")
         if e.resp.status in (403, 404):
             raise PermissionError(SHEET_NOT_ACCESSIBLE_ERROR)
         raise
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as e:
+        print(f"[sheets] JSONDecodeError accessing spreadsheet {spreadsheet_id!r}: {e}")
         raise PermissionError(SHEET_NOT_ACCESSIBLE_ERROR)
 
     sheets = metadata.get("sheets", [])
@@ -147,8 +158,10 @@ def setup_league_participants_sheet(spreadsheet_url: str) -> None:
 
 
 def append_league_participant(spreadsheet_url: str, discord_id: str, participant_name: str) -> None:
-    """Appends a participant row to the Participants sheet. Raises PermissionError if not shared."""
+    """Appends a participant row to the Participants sheet. Raises PermissionError if not shared,
+    SheetNotSetupError if the Participants tab doesn't exist."""
     spreadsheet_id = extract_spreadsheet_id(spreadsheet_url)
+    print(f"[sheets] append_league_participant: spreadsheet_id={spreadsheet_id!r} discord_id={discord_id!r}")
     if not spreadsheet_id:
         raise ValueError(f"Could not extract spreadsheet ID from URL: {spreadsheet_url}")
 
@@ -166,17 +179,23 @@ def append_league_participant(spreadsheet_url: str, discord_id: str, participant
             insertDataOption="INSERT_ROWS",
             body={"values": [row]},
         ).execute()
+        print(f"[sheets] participant appended successfully: discord_id={discord_id!r}")
     except HttpError as e:
+        print(f"[sheets] HttpError appending participant {discord_id!r} to {spreadsheet_id!r}: status={e.resp.status} body={e.content}")
         if e.resp.status in (403, 404):
             raise PermissionError(SHEET_NOT_ACCESSIBLE_ERROR)
+        if e.resp.status == 400:
+            raise SheetNotSetupError("Participants sheet tab not found or range is invalid.")
         raise
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as e:
+        print(f"[sheets] JSONDecodeError appending participant to {spreadsheet_id!r}: {e}")
         raise PermissionError(SHEET_NOT_ACCESSIBLE_ERROR)
 
 
 def get_active_participants(spreadsheet_url: str) -> dict:
     """Returns {discord_id: participant_name} for all ACTIVE participants. Raises PermissionError if not shared."""
     spreadsheet_id = extract_spreadsheet_id(spreadsheet_url)
+    print(f"[sheets] get_active_participants: spreadsheet_id={spreadsheet_id!r}")
     if not spreadsheet_id:
         raise ValueError(f"Could not extract spreadsheet ID from URL: {spreadsheet_url}")
 
@@ -187,10 +206,12 @@ def get_active_participants(spreadsheet_url: str) -> dict:
             range=PARTICIPANTS_RANGE,
         ).execute()
     except HttpError as e:
+        print(f"[sheets] HttpError reading participants from {spreadsheet_id!r}: status={e.resp.status} body={e.content}")
         if e.resp.status in (403, 404):
             raise PermissionError(SHEET_NOT_ACCESSIBLE_ERROR)
         raise
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as e:
+        print(f"[sheets] JSONDecodeError reading participants from {spreadsheet_id!r}: {e}")
         raise PermissionError(SHEET_NOT_ACCESSIBLE_ERROR)
 
     rows = result.get("values", [])
