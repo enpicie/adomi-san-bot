@@ -3,7 +3,7 @@ from unittest.mock import Mock, patch
 
 from commands.league.league_commands import (
     create_league, update_league, sync_active_participants,
-    join_league, toggle_join_league, LEAGUE_ID_MAX_LENGTH,
+    join_league, setup_league, toggle_join_league, LEAGUE_ID_MAX_LENGTH,
 )
 from commands.models.response_message import ResponseMessage
 from database.models.league_data import LeagueData
@@ -152,147 +152,31 @@ class TestUpdateLeague(unittest.TestCase):
         self.assertIn("no permission", result.content)
 
 
-class TestSyncActiveParticipants(unittest.TestCase):
-    @patch("commands.league.league_commands.permissions_helper")
-    @patch("commands.league.league_commands.db_helper")
-    @patch("commands.league.league_commands.sheets_helper")
-    @patch("commands.league.league_commands.discord_helper")
-    @patch("commands.league.league_commands.role_removal_queue")
-    def test_new_players_get_role_assigned(self, mock_queue, mock_discord, mock_sheets, mock_db, mock_perms):
-        mock_perms.verify_has_organizer_role.return_value = None
-        mock_db.get_server_league_data_or_fail.return_value = _make_league(
-            active_players={"old_user": "Bob"},
-            active_participant_role="role_123",
-        )
-        mock_db.build_server_pk.return_value = "SERVER#server123"
-        mock_sheets.get_active_participants.return_value = {"old_user": "Bob", "new_user": "Alice"}
-        aws = _make_aws()
-        event = _make_event(inputs={"league_name": "TST"})
+class TestSetupLeague(unittest.TestCase):
+    """league-setup is dispatched to sheets_agent; the main-bot stub just returns an ack."""
 
-        sync_active_participants(event, aws)
-
-        mock_discord.add_role_to_user.assert_called_once_with(
-            guild_id="server123", user_id="new_user", role_id="role_123"
-        )
-        mock_queue.enqueue_remove_role_jobs.assert_not_called()
-
-    @patch("commands.league.league_commands.permissions_helper")
-    @patch("commands.league.league_commands.db_helper")
-    @patch("commands.league.league_commands.sheets_helper")
-    @patch("commands.league.league_commands.discord_helper")
-    @patch("commands.league.league_commands.role_removal_queue")
-    def test_removed_players_queued_for_role_removal(self, mock_queue, mock_discord, mock_sheets, mock_db, mock_perms):
-        mock_perms.verify_has_organizer_role.return_value = None
-        mock_db.get_server_league_data_or_fail.return_value = _make_league(
-            active_players={"old_user": "Bob"},
-            active_participant_role="role_123",
-        )
-        mock_db.build_server_pk.return_value = "SERVER#server123"
-        mock_sheets.get_active_participants.return_value = {}
-        aws = _make_aws()
-        event = _make_event(inputs={"league_name": "TST"})
-
-        sync_active_participants(event, aws)
-
-        mock_queue.enqueue_remove_role_jobs.assert_called_once_with(
-            server_id="server123",
-            user_ids=["old_user"],
-            role_id="role_123",
-            sqs_queue=aws.remove_role_sqs_queue,
-        )
-        mock_discord.add_role_to_user.assert_not_called()
-
-    @patch("commands.league.league_commands.permissions_helper")
-    @patch("commands.league.league_commands.db_helper")
-    @patch("commands.league.league_commands.sheets_helper")
-    @patch("commands.league.league_commands.discord_helper")
-    @patch("commands.league.league_commands.role_removal_queue")
-    def test_no_role_configured_skips_discord_operations(self, mock_queue, mock_discord, mock_sheets, mock_db, mock_perms):
-        mock_perms.verify_has_organizer_role.return_value = None
-        mock_db.get_server_league_data_or_fail.return_value = _make_league(
-            active_players={"old_user": "Bob"},
-            active_participant_role=None,
-        )
-        mock_db.build_server_pk.return_value = "SERVER#server123"
-        mock_sheets.get_active_participants.return_value = {"new_user": "Alice"}
-        event = _make_event(inputs={"league_name": "TST"})
-
-        sync_active_participants(event, _make_aws())
-
-        mock_discord.add_role_to_user.assert_not_called()
-        mock_queue.enqueue_remove_role_jobs.assert_not_called()
-
-    @patch("commands.league.league_commands.permissions_helper")
-    @patch("commands.league.league_commands.db_helper")
-    @patch("commands.league.league_commands.sheets_helper")
-    @patch("commands.league.league_commands.discord_helper")
-    @patch("commands.league.league_commands.role_removal_queue")
-    def test_active_players_written_to_db(self, mock_queue, mock_discord, mock_sheets, mock_db, mock_perms):
-        mock_perms.verify_has_organizer_role.return_value = None
-        mock_db.get_server_league_data_or_fail.return_value = _make_league(active_players={})
-        mock_db.build_server_pk.return_value = "SERVER#server123"
-        mock_sheets.get_active_participants.return_value = {"u1": "Alice"}
-        aws = _make_aws()
-        event = _make_event(inputs={"league_name": "TST"})
-
-        sync_active_participants(event, aws)
-
-        aws.dynamodb_table.update_item.assert_called_once()
-        update_kwargs = aws.dynamodb_table.update_item.call_args.kwargs
-        self.assertEqual(update_kwargs["ExpressionAttributeValues"][":active_players"], {"u1": "Alice"})
-
-    @patch("commands.league.league_commands.permissions_helper")
-    @patch("commands.league.league_commands.db_helper")
-    @patch("commands.league.league_commands.sheets_helper")
-    @patch("commands.league.league_commands.discord_helper")
-    @patch("commands.league.league_commands.role_removal_queue")
-    def test_sheet_permission_error_returns_error_message(self, mock_queue, mock_discord, mock_sheets, mock_db, mock_perms):
-        mock_perms.verify_has_organizer_role.return_value = None
-        mock_db.get_server_league_data_or_fail.return_value = _make_league()
-        mock_sheets.get_active_participants.side_effect = PermissionError("no access")
-        event = _make_event(inputs={"league_name": "TST"})
-
-        result = sync_active_participants(event, _make_aws())
-
+    def test_returns_ack_response(self):
+        result = setup_league(_make_event(), _make_aws())
         self.assertIsInstance(result, ResponseMessage)
-        mock_queue.enqueue_remove_role_jobs.assert_not_called()
-
-    @patch("commands.league.league_commands.permissions_helper")
-    def test_missing_organizer_role_returns_error(self, mock_perms):
-        mock_perms.verify_has_organizer_role.return_value = ResponseMessage(content="no permission")
-        result = sync_active_participants(_make_event(), _make_aws())
-        self.assertIn("no permission", result.content)
+        self.assertIn("Setting up", result.content)
 
 
 class TestJoinLeague(unittest.TestCase):
-    @patch("commands.league.league_commands.db_helper")
-    @patch("commands.league.league_commands.sheets_helper")
-    def test_join_disabled_returns_error(self, mock_sheets, mock_db):
-        mock_db.get_server_league_data_or_fail.return_value = _make_league(join_enabled=False)
-        event = _make_event(inputs={"league_name": "TST"})
-        result = join_league(event, _make_aws())
-        self.assertIsInstance(result, ResponseMessage)
-        self.assertIn("not currently enabled", result.content)
-        mock_sheets.append_league_participant.assert_not_called()
+    """league-join is dispatched to sheets_agent; the main-bot stub just returns an ack."""
 
-    @patch("commands.league.league_commands.db_helper")
-    @patch("commands.league.league_commands.sheets_helper")
-    def test_join_enabled_appends_participant(self, mock_sheets, mock_db):
-        mock_db.get_server_league_data_or_fail.return_value = _make_league(join_enabled=True)
-        event = _make_event(user_id="u1", display_name="Alice", inputs={"league_name": "TST"})
-        result = join_league(event, _make_aws())
-        mock_sheets.append_league_participant.assert_called_once()
+    def test_returns_ack_response(self):
+        result = join_league(_make_event(), _make_aws())
         self.assertIsInstance(result, ResponseMessage)
-        self.assertIn("Alice", result.content)
+        self.assertIn("Adding you", result.content)
 
-    @patch("commands.league.league_commands.db_helper")
-    @patch("commands.league.league_commands.sheets_helper")
-    def test_sheet_permission_error_returns_error_message(self, mock_sheets, mock_db):
-        mock_db.get_server_league_data_or_fail.return_value = _make_league(join_enabled=True)
-        mock_sheets.append_league_participant.side_effect = PermissionError("no access")
-        event = _make_event(inputs={"league_name": "TST"})
-        result = join_league(event, _make_aws())
+
+class TestSyncActiveParticipants(unittest.TestCase):
+    """league-sync-participants is dispatched to sheets_agent; the main-bot stub just returns an ack."""
+
+    def test_returns_ack_response(self):
+        result = sync_active_participants(_make_event(), _make_aws())
         self.assertIsInstance(result, ResponseMessage)
+        self.assertIn("Syncing", result.content)
 
 
 class TestToggleJoinLeague(unittest.TestCase):
