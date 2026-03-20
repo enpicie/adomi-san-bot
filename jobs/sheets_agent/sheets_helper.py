@@ -211,7 +211,7 @@ def append_league_participant(spreadsheet_url: str, discord_id: str, participant
             spreadsheetId=spreadsheet_id,
             range=PARTICIPANTS_RANGE,
             valueInputOption="USER_ENTERED",
-            insertDataOption="INSERT_ROWS",
+            insertDataOption="OVERWRITE",
             body={"values": [row]},
         ).execute()
         print(f"[sheets] append_league_participant: appended OK discord_id={discord_id!r}")
