@@ -15,8 +15,8 @@ LEAGUE_ID_PARAM = CommandParam(
 
 ACTIVE_PARTICIPANT_ROLE_PARAM = CommandParam(
     name="active_participant_role",
-    description="Role ID to assign to active league participants",
-    param_type=AppCommandOptionType.string,
+    description="Role to assign to active league participants",
+    param_type=AppCommandOptionType.role,
     required=False,
     choices=None
 )
