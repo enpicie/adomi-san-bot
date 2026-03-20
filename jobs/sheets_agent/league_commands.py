@@ -313,10 +313,14 @@ def handle_league_sync_participants(event_body: dict, aws_services: AWSServices)
                 sqs_queue=aws_services.remove_role_sqs_queue,
             )
 
+    remaining_queued = {h: v for h, v in queued_participants.items() if h not in new_handles}
     aws_services.dynamodb_table.update_item(
         Key={"PK": f"{_SERVER_PK_PREFIX}{server_id}", "SK": f"{_LEAGUE_SK_PREFIX}{league_id}"},
-        UpdateExpression="SET active_players = :active_players",
-        ExpressionAttributeValues={":active_players": new_active_players},
+        UpdateExpression="SET active_players = :active_players, queued_participants = :queued_participants",
+        ExpressionAttributeValues={
+            ":active_players": new_active_players,
+            ":queued_participants": remaining_queued,
+        },
     )
 
     lines = [f"✅ Synced active participants for **{league_data['league_name']}** (`{league_id}`):"]
