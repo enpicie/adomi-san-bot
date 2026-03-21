@@ -191,12 +191,18 @@ def handle_league_sync_participants(event_body: dict, aws_services: AWSServices)
 
     active_participant_role = league_data.get("active_participant_role")
     remove_snowflakes = []
+    role_assigned_handles = []
+    role_failed_handles = []
 
     if active_participant_role:
         for handle in added_handles:
             snowflake = new_active_players[handle]["discord_id"]
             if snowflake:
-                discord_api.add_discord_role(guild_id=server_id, user_id=snowflake, role_id=active_participant_role)
+                success = discord_api.add_discord_role(guild_id=server_id, user_id=snowflake, role_id=active_participant_role)
+                if success:
+                    role_assigned_handles.append(handle)
+                else:
+                    role_failed_handles.append(handle)
                 time.sleep(0.5)
             else:
                 print(f"[sync] skipping role assignment for handle={handle!r}: no snowflake")
@@ -236,11 +242,15 @@ def handle_league_sync_participants(event_body: dict, aws_services: AWSServices)
     if not added_handles and not removed_handles:
         lines.append("• No changes")
     if active_participant_role:
-        assigned = sum(1 for h in added_handles if new_active_players[h]["discord_id"])
-        if assigned:
-            lines.append(f"• Role assigned to {assigned} new player(s)")
+        if role_assigned_handles:
+            lines.append(f"• Role assigned to {len(role_assigned_handles)} new player(s)")
         if remove_snowflakes:
             lines.append(f"• Role removal queued for {len(remove_snowflakes)} player(s)")
+        if role_failed_handles:
+            lines.append(
+                f"• ❌ Role assignment failed for {len(role_failed_handles)} player(s) — check bot permissions: "
+                f"{', '.join(f'`{h}`' for h in role_failed_handles)}"
+            )
         if api_unresolved:
             lines.append(
                 f"• ⚠️ {len(api_unresolved)} player(s) could not be found in this server — "
