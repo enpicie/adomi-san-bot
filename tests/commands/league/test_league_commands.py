@@ -98,7 +98,7 @@ class TestCreateLeague(unittest.TestCase):
 
     @patch("commands.league.league_commands.permissions_helper")
     @patch("commands.league.league_commands.db_helper")
-    def test_active_participant_role_stored_when_provided(self, mock_db, mock_perms):
+    def test_active_participant_role_stored_as_raw_id(self, mock_db, mock_perms):
         mock_perms.verify_has_organizer_role.return_value = None
         mock_db.get_server_league_data_or_fail.return_value = ResponseMessage(content="not found")
         mock_db.build_server_pk.return_value = "SERVER#server123"
@@ -107,7 +107,7 @@ class TestCreateLeague(unittest.TestCase):
             "league_id": "TST",
             "league_name": "Test League",
             "google_sheets_link": "https://docs.google.com/spreadsheets/d/abc/edit",
-            "active_participant_role": "role_999",
+            "active_participant_role": "<@&role_999>",
         })
         create_league(event, aws)
         item_stored = aws.dynamodb_table.put_item.call_args.kwargs["Item"]
@@ -127,7 +127,7 @@ class TestUpdateLeague(unittest.TestCase):
     def test_no_fields_provided_returns_no_changes(self, mock_db, mock_perms):
         mock_perms.verify_has_organizer_role.return_value = None
         mock_db.get_server_league_data_or_fail.return_value = _make_league()
-        event = _make_event(inputs={"league_id": "TST", "league_name": None, "google_sheets_link": None, "active_participant_role": None})
+        event = _make_event(inputs={"league_name": "TST", "new_name": None, "google_sheets_link": None, "active_participant_role": None})
         result = update_league(event, _make_aws())
         self.assertIsInstance(result, ResponseMessage)
         self.assertIn("No changes", result.content)
@@ -139,11 +139,23 @@ class TestUpdateLeague(unittest.TestCase):
         mock_db.get_server_league_data_or_fail.return_value = _make_league()
         mock_db.build_server_pk.return_value = "SERVER#server123"
         aws = _make_aws()
-        event = _make_event(inputs={"league_id": "TST", "league_name": "New Name", "google_sheets_link": None, "active_participant_role": None})
+        event = _make_event(inputs={"league_name": "TST", "new_name": "New Name", "google_sheets_link": None, "active_participant_role": None})
         result = update_league(event, aws)
         aws.dynamodb_table.update_item.assert_called_once()
         self.assertIsInstance(result, ResponseMessage)
         self.assertIn("TST", result.content)
+
+    @patch("commands.league.league_commands.permissions_helper")
+    @patch("commands.league.league_commands.db_helper")
+    def test_role_mention_format_is_stripped_before_storing(self, mock_db, mock_perms):
+        mock_perms.verify_has_organizer_role.return_value = None
+        mock_db.get_server_league_data_or_fail.return_value = _make_league()
+        mock_db.build_server_pk.return_value = "SERVER#server123"
+        aws = _make_aws()
+        event = _make_event(inputs={"league_name": "TST", "new_name": None, "google_sheets_link": None, "active_participant_role": "<@&999888777>"})
+        update_league(event, aws)
+        call_kwargs = aws.dynamodb_table.update_item.call_args.kwargs
+        self.assertEqual(call_kwargs["ExpressionAttributeValues"][":active_participant_role"], "999888777")
 
     @patch("commands.league.league_commands.permissions_helper")
     def test_missing_organizer_role_returns_error(self, mock_perms):
