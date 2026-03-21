@@ -113,6 +113,34 @@ league_commands_mapping: CommandMapping = {
         "description": "Sync participants from the league's Google Sheet, assigning/removing the active participant role",
         "params": [LEAGUE_NAME_PARAM]
     },
+    "league-report-score": {
+        "function": league_commands.report_score,
+        "description": "Report the result of a league match and update the score sheet",
+        "params": [
+            LEAGUE_NAME_PARAM,
+            CommandParam(
+                name="winner",
+                description="Player who won the match",
+                param_type=AppCommandOptionType.user,
+                required=True,
+                choices=None
+            ),
+            CommandParam(
+                name="loser",
+                description="Player who lost the match",
+                param_type=AppCommandOptionType.user,
+                required=True,
+                choices=None
+            ),
+            CommandParam(
+                name="score",
+                description="Score in '<winner games>-<loser games>' format, e.g. '3-2' (winner score first)",
+                param_type=AppCommandOptionType.string,
+                required=True,
+                choices=None
+            ),
+        ]
+    },
     "league-deactivate": {
         "function": league_commands.deactivate_league_participant,
         "description": "Mark yourself (or another player) as inactive in a league's participant sheet",

@@ -10,6 +10,8 @@ class ParticipantsColumn(IntEnum):
     GROUP_NUMBER = 4
     GROUP_RANK = 5
     NOTES = 6
+    WINS_ROW = 7
+    LOSSES_COL = 8
 
 
 COLUMN_HEADERS: List[str] = [
@@ -20,10 +22,18 @@ COLUMN_HEADERS: List[str] = [
     "Group #",
     "Group Rank",
     "Notes",
+    "Wins Row",
+    "Losses Col",
 ]
 
 SHEET_NAME = "Participants"
-SHEET_RANGE = f"{SHEET_NAME}!A:G"
+SHEET_RANGE = f"{SHEET_NAME}!A:I"
+
+# Metadata cells in row 1 only — not participant data columns
+CURRENT_ROTATION_LABEL = "Current Rotation:"
+CURRENT_ROTATION_LABEL_COL = 9   # Column J
+CURRENT_ROTATION_VALUE_COL = 10  # Column K
+
 STATUS_QUEUED = "QUEUED"
 STATUS_ACTIVE = "ACTIVE"
 STATUS_INACTIVE = "INACTIVE"

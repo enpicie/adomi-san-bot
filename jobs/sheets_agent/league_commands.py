@@ -318,3 +318,74 @@ def handle_league_deactivate(event_body: dict, aws_services: AWSServices) -> str
     if player_snowflake:
         return f"✅ **{target_discord_id}** has been marked as **{status_label}** in **{league_name}** (`{league_id}`)."
     return f"✅ You have been marked as **{status_label}** in **{league_name}** (`{league_id}`)."
+
+
+def handle_league_report_score(event_body: dict, aws_services: AWSServices) -> str:
+    server_id = event_body["guild_id"]
+    league_id = db_helper.get_command_input(event_body, "league_name")
+
+    league_data = db_helper.get_league_data(server_id, league_id, aws_services.dynamodb_table)
+    if not league_data:
+        return db_helper.LEAGUE_MISSING
+
+    winner_snowflake = db_helper.get_command_input(event_body, "winner")
+    loser_snowflake  = db_helper.get_command_input(event_body, "loser")
+    score_str        = db_helper.get_command_input(event_body, "score")
+
+    resolved_users = event_body.get("data", {}).get("resolved", {}).get("users", {})
+    winner_id = resolved_users.get(winner_snowflake, {}).get("username")
+    loser_id  = resolved_users.get(loser_snowflake,  {}).get("username")
+
+    if not winner_id or not loser_id:
+        return "❌ Could not resolve winner or loser."
+
+    try:
+        parts = (score_str or "").strip().split("-")
+        if len(parts) != 2:
+            raise ValueError()
+        winner_score = int(parts[0])
+        loser_score  = int(parts[1])
+    except ValueError:
+        return "❌ Invalid score format. Use `W-L` (e.g. `3-2`, winner score first)."
+
+    sheets_url = league_data["google_sheets_link"]
+
+    try:
+        score_data = sheets_helper.get_score_report_data(sheets_url, winner_id, loser_id)
+    except ValueError as e:
+        return f"❌ {e}"
+    except PermissionError:
+        return _SHEET_NOT_SHARED_MSG
+    except RuntimeError as e:
+        print(f"[sheets_agent] league-report-score: get_score_report_data error: {e}")
+        return "❌ The bot's Google Sheets integration is misconfigured. Contact the bot administrator."
+
+    try:
+        prev_winner, prev_loser = sheets_helper.update_score_cells(sheets_url, score_data, winner_score, loser_score)
+    except PermissionError:
+        return _SHEET_NOT_SHARED_MSG
+    except RuntimeError as e:
+        print(f"[sheets_agent] league-report-score: update_score_cells error: {e}")
+        return "❌ Failed to update score cells. Contact the bot administrator."
+
+    try:
+        sheets_helper.append_report_log(
+            sheets_url, league_id,
+            score_data["tier"], score_data["group"],
+            winner_id, loser_id, winner_score, loser_score,
+        )
+    except Exception as e:
+        # Non-fatal — score was already written; log and continue
+        print(f"[sheets_agent] league-report-score: append_report_log error: {e}")
+
+    league_name = league_data["league_name"]
+    lines = [f"✅ Score reported for **{league_name}** (`{league_id}`):"]
+    lines.append(f"• **@{winner_id}** def. **@{loser_id}** `{winner_score}-{loser_score}`")
+    lines.append(f"• Tier: {score_data['tier']} | Group: {score_data['group']}")
+
+    if prev_winner or prev_loser:
+        lines.append(
+            f"• ⚠️ Previous score was `{prev_winner or '?'}-{prev_loser or '?'}` — overwritten"
+        )
+
+    return "\n".join(lines)

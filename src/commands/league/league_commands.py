@@ -202,6 +202,11 @@ def sync_active_participants(event: DiscordEvent, aws_services: AWSServices) -> 
     return ResponseMessage(content="⏳ Syncing participants from the sheet...")
 
 
+def report_score(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
+    # Handled asynchronously by the sheets_agent Lambda — this stub exists for command registration only.
+    return ResponseMessage(content="⏳ Reporting score...")
+
+
 def delete_league(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
     error_message = permissions_helper.verify_has_organizer_role(event, aws_services)
     if error_message:
