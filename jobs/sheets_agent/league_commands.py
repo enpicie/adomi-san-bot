@@ -4,7 +4,7 @@ import constants
 import sheets_helper
 from sheets_helper import SheetNotSetupError
 from aws_services import AWSServices
-from participants_sheet import STATUS_ACTIVE, STATUS_QUEUED, STATUS_INACTIVE, STATUS_DNF
+import participants_sheet
 import db_helper
 import discord_api
 
@@ -72,17 +72,17 @@ def handle_league_join(event_body: dict, aws_services: AWSServices) -> str:
             discord_id=discord_id,
         )
 
-        if current_status == STATUS_DNF:
+        if current_status == participants_sheet.STATUS_DNF:
             return f"❌ You are marked as **DNF** in **{league_name}** (`{league_id}`). Contact an organizer to change your status."
 
-        if current_status == STATUS_ACTIVE:
+        if current_status == participants_sheet.STATUS_ACTIVE:
             return f"✅ You're already listed as an **ACTIVE** participant in **{league_name}** (`{league_id}`)!"
 
-        if current_status == STATUS_QUEUED:
+        if current_status == participants_sheet.STATUS_QUEUED:
             return f"✅ You're already **QUEUED** for **{league_name}** (`{league_id}`)!"
 
-        if current_status == STATUS_INACTIVE:
-            sheets_helper.update_participant_status(sheets_url, row_number, STATUS_QUEUED)
+        if current_status == participants_sheet.STATUS_INACTIVE:
+            sheets_helper.update_participant_status(sheets_url, row_number, participants_sheet.STATUS_QUEUED)
             reply = f"✅ Your status in **{league_name}** (`{league_id}`) has been changed from **INACTIVE** to **QUEUED**!"
         else:
             sheets_helper.append_league_participant(
@@ -118,7 +118,7 @@ def handle_league_join(event_body: dict, aws_services: AWSServices) -> str:
     config = db_helper.get_server_config(server_id, aws_services.dynamodb_table)
     notification_channel_id = config.get("notification_channel_id") if config else None
     if notification_channel_id:
-        action = "re-queued" if current_status == STATUS_INACTIVE else "joined"
+        action = "re-queued" if current_status == participants_sheet.STATUS_INACTIVE else "joined"
         discord_api.send_channel_message(
             notification_channel_id,
             f"📋 **{participant_name}** (`@{discord_id}`) has {action} **{league_name}** (`{league_id}`).",
@@ -282,8 +282,8 @@ def handle_league_deactivate(event_body: dict, aws_services: AWSServices) -> str
         target_discord_id = member.get("user", {}).get("username")
 
     dnf = db_helper.get_command_input(event_body, "dnf")
-    new_status = STATUS_DNF if dnf else STATUS_INACTIVE
-    status_label = "DNF" if new_status == STATUS_DNF else "INACTIVE"
+    new_status = participants_sheet.STATUS_DNF if dnf else participants_sheet.STATUS_INACTIVE
+    status_label = "DNF" if new_status == participants_sheet.STATUS_DNF else "INACTIVE"
     league_name = league_data["league_name"]
 
     try:

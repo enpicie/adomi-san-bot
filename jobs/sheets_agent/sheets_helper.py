@@ -7,14 +7,11 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
 import constants
+import participants_sheet
 from participants_sheet import (
     SHEET_NAME as PARTICIPANTS_SHEET,
     SHEET_RANGE as PARTICIPANTS_RANGE,
     COLUMN_HEADERS,
-    STATUS_QUEUED,
-    STATUS_ACTIVE,
-    STATUS_INACTIVE,
-    STATUS_DNF,
     ParticipantsColumn,
 )
 
@@ -216,10 +213,24 @@ def setup_league_participants_sheet(spreadsheet_url: str) -> bool:
                         "fields": "userEnteredFormat.textFormat.bold",
                     }
                 },
-                _status_rule(STATUS_ACTIVE,   red=0.820, green=0.894, blue=0.820),
-                _status_rule(STATUS_QUEUED,   red=0.957, green=0.941, blue=0.796),
-                _status_rule(STATUS_INACTIVE, red=0.878, green=0.878, blue=0.878),
-                _status_rule(STATUS_DNF,      red=0.957, green=0.816, blue=0.816),
+                _status_rule(participants_sheet.STATUS_ACTIVE,   red=0.820, green=0.894, blue=0.820),
+                _status_rule(participants_sheet.STATUS_QUEUED,   red=0.957, green=0.941, blue=0.796),
+                _status_rule(participants_sheet.STATUS_INACTIVE, red=0.878, green=0.878, blue=0.878),
+                _status_rule(participants_sheet.STATUS_DNF,      red=0.957, green=0.816, blue=0.816),
+                # Status column dropdown validation (rows 2+)
+                {
+                    "setDataValidation": {
+                        "range": status_col_range,
+                        "rule": {
+                            "condition": {
+                                "type": "ONE_OF_LIST",
+                                "values": [{"userEnteredValue": s} for s in participants_sheet.ALL_STATUSES],
+                            },
+                            "showCustomUi": True,
+                            "strict": False,
+                        },
+                    }
+                },
             ]
         }
     ).execute()
@@ -238,7 +249,7 @@ def append_league_participant(spreadsheet_url: str, discord_id: str, participant
     row = [""] * len(COLUMN_HEADERS)
     row[ParticipantsColumn.DISCORD_ID] = discord_id
     row[ParticipantsColumn.PARTICIPANT_NAME] = participant_name
-    row[ParticipantsColumn.STATUS] = STATUS_QUEUED
+    row[ParticipantsColumn.STATUS] = participants_sheet.STATUS_QUEUED
 
     try:
         service = _get_sheets_service()
@@ -336,7 +347,7 @@ def get_active_participants(spreadsheet_url: str) -> dict:
     active = {}
     for row in rows[1:]:
         status = row[ParticipantsColumn.STATUS] if len(row) > ParticipantsColumn.STATUS else ""
-        if status != STATUS_ACTIVE:
+        if status != participants_sheet.STATUS_ACTIVE:
             continue
         discord_id = row[ParticipantsColumn.DISCORD_ID] if len(row) > ParticipantsColumn.DISCORD_ID else ""
         participant_name = row[ParticipantsColumn.PARTICIPANT_NAME] if len(row) > ParticipantsColumn.PARTICIPANT_NAME else ""
