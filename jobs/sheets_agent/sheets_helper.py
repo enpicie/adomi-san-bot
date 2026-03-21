@@ -240,8 +240,8 @@ def setup_league_participants_sheet(spreadsheet_url: str) -> bool:
                             "endColumnIndex": ParticipantsColumn.NOTES + 1,
                         },
                         "right": {
-                            "style": "SOLID",
-                            "color": {"red": 0.8, "green": 0.8, "blue": 0.8},
+                            "style": "SOLID_MEDIUM",
+                            "color": {"red": 0.6, "green": 0.6, "blue": 0.6},
                         },
                     }
                 },
