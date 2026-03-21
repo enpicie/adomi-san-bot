@@ -1,5 +1,6 @@
 import constants
 import database.dynamodb_utils as db_helper
+import utils.message_helper as message_helper
 import utils.permissions_helper as permissions_helper
 from aws_services import AWSServices
 from commands.models.discord_event import DiscordEvent
@@ -7,6 +8,13 @@ from commands.models.response_message import ResponseMessage
 from database.models.league_data import LeagueData
 
 LEAGUE_ID_MAX_LENGTH = 4
+
+
+def _parse_role_id(role_input: str) -> str:
+    """Strip Discord mention format (<@&id>) if present, returning just the numeric snowflake."""
+    if role_input and role_input.startswith("<@&") and role_input.endswith(">"):
+        return role_input[3:-1]
+    return role_input
 
 
 def _validate_league_id(league_id: str) -> str | None:
@@ -25,7 +33,7 @@ def create_league(event: DiscordEvent, aws_services: AWSServices) -> ResponseMes
     league_id = event.get_command_input_value("league_id").upper()
     league_name = event.get_command_input_value("league_name")
     google_sheets_link = event.get_command_input_value("google_sheets_link")
-    active_participant_role = event.get_command_input_value("active_participant_role")
+    active_participant_role = _parse_role_id(event.get_command_input_value("active_participant_role") or "")
 
     validation_error = _validate_league_id(league_id)
     if validation_error:
@@ -65,15 +73,15 @@ def update_league(event: DiscordEvent, aws_services: AWSServices) -> ResponseMes
         return error_message
 
     server_id = event.get_server_id()
-    league_id = event.get_command_input_value("league_id").upper()
+    league_id = event.get_command_input_value("league_name")  # autocomplete value = league_id
 
     league_data = db_helper.get_server_league_data_or_fail(server_id, league_id, aws_services.dynamodb_table)
     if isinstance(league_data, ResponseMessage):
         return league_data
 
-    new_name = event.get_command_input_value("league_name")
+    new_name = event.get_command_input_value("new_name")
     new_link = event.get_command_input_value("google_sheets_link")
-    new_role = event.get_command_input_value("active_participant_role")
+    new_role = _parse_role_id(event.get_command_input_value("active_participant_role") or "")
 
     if not new_name and not new_link and not new_role:
         return ResponseMessage(content="ℹ️ No changes provided.")
@@ -137,7 +145,7 @@ def view_league(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessa
         return league_data
 
     player_count = len(league_data.active_players)
-    role_display = f"<@&{league_data.active_participant_role}>" if league_data.active_participant_role else "not set"
+    role_display = message_helper.get_role_ping(league_data.active_participant_role) if league_data.active_participant_role else "not set"
     return ResponseMessage(
         content=(
             f"📋 **{league_data.league_name}** (`{league_data.league_id}`)\n"

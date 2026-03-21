@@ -48,9 +48,9 @@ league_commands_mapping: CommandMapping = {
         "function": league_commands.update_league,
         "description": "Update an existing league's details",
         "params": [
-            LEAGUE_ID_PARAM,
+            LEAGUE_NAME_PARAM,
             CommandParam(
-                name="league_name",
+                name="new_name",
                 description="New name for the league",
                 param_type=AppCommandOptionType.string,
                 required=False,

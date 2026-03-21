@@ -32,8 +32,15 @@ def _log_response(method: str, url: str, response: requests.Response) -> None:
         print(f"[discord] {method} {url} -> {response.status_code} body={response.text}")
 
 
+def _extract_role_id(role_id: str) -> str:
+    """Strip Discord mention format (<@&id>) if present, returning just the numeric snowflake."""
+    if role_id and role_id.startswith("<@&") and role_id.endswith(">"):
+        return role_id[3:-1]
+    return role_id
+
+
 def add_discord_role(guild_id: str, user_id: str, role_id: str) -> bool:
-    url = f"{DISCORD_API_BASE}/guilds/{guild_id}/members/{user_id}/roles/{role_id}"
+    url = f"{DISCORD_API_BASE}/guilds/{guild_id}/members/{user_id}/roles/{_extract_role_id(role_id)}"
     response = discord_request("PUT", url)
     return response.status_code == 204
 
@@ -56,11 +63,12 @@ def send_channel_message(channel_id: str, content: str) -> None:
 
 
 def enqueue_remove_roles(server_id: str, user_ids: list, role_id: str, sqs_queue) -> None:
+    clean_role_id = _extract_role_id(role_id)
     batch = []
     for idx, uid in enumerate(user_ids):
         batch.append({
             "Id": str(idx),
-            "MessageBody": json.dumps({"guild_id": server_id, "user_id": uid, "role_id": role_id}),
+            "MessageBody": json.dumps({"guild_id": server_id, "user_id": uid, "role_id": clean_role_id}),
         })
         if len(batch) == 10:
             sqs_queue.send_messages(Entries=batch)
