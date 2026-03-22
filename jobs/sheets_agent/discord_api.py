@@ -57,6 +57,22 @@ def search_discord_member(guild_id: str, username: str) -> str | None:
     return None
 
 
+def search_member_by_display_name(guild_id: str, display_name: str) -> tuple[str, str] | None:
+    """Look up a guild member by server nick or global display name.
+    Returns (snowflake, username_handle) if exactly one member matches exactly, otherwise None."""
+    url = f"{DISCORD_API_BASE}/guilds/{guild_id}/members/search"
+    response = discord_request("GET", url, params={"query": display_name, "limit": 10})
+    if response.status_code != 200:
+        return None
+    matches = []
+    for member in response.json():
+        nick = member.get("nick") or ""
+        global_name = member.get("user", {}).get("global_name") or ""
+        if nick == display_name or global_name == display_name:
+            matches.append((member["user"]["id"], member["user"]["username"]))
+    return matches[0] if len(matches) == 1 else None
+
+
 def send_channel_message(channel_id: str, content: str) -> None:
     url = f"{DISCORD_API_BASE}/channels/{channel_id}/messages"
     discord_request("POST", url, json={"content": content})

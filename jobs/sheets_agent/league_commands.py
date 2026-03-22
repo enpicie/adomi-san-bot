@@ -140,12 +140,15 @@ def handle_league_sync_participants(event_body: dict, aws_services: AWSServices)
         return db_helper.LEAGUE_MISSING
 
     try:
-        current_active = sheets_helper.get_active_participants(league_data["google_sheets_link"])
+        participants_result = sheets_helper.get_active_participants(league_data["google_sheets_link"], server_id)
     except PermissionError:
         return _SHEET_NOT_SHARED_MSG
     except RuntimeError as e:
         print(f"[sheets_agent] league-sync-participants: RuntimeError: {e}")
         return "❌ The bot's Google Sheets integration is misconfigured. Contact the bot administrator."
+
+    current_active = participants_result["active"]
+    missing_id = participants_result["missing_id"]
 
     old_active_players = league_data.get("active_players", {})
     queued_participants = league_data.get("queued_participants", {})
@@ -258,6 +261,14 @@ def handle_league_sync_participants(event_body: dict, aws_services: AWSServices)
             )
     else:
         lines.append("• ℹ️ No active participant role configured — roles were not assigned/removed")
+
+    if missing_id:
+        lines.append(
+            f"• ⚠️ {len(missing_id)} ACTIVE participant(s) have no Discord ID and could not be resolved — "
+            "populate column B manually and re-sync:"
+        )
+        for p in missing_id:
+            lines.append(f"  — Row {p['row_number']}: {p['participant_name']}")
 
     return "\n".join(lines)
 

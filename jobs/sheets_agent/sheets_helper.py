@@ -1,6 +1,7 @@
 import datetime
 import json
 import re
+import time
 
 import boto3
 from google.oauth2 import service_account
@@ -8,6 +9,7 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
 import constants
+import discord_api
 import participants_sheet
 import report_log
 from participants_sheet import (
@@ -387,8 +389,16 @@ def update_participant_status(spreadsheet_url: str, row_number: int, new_status:
         raise
 
 
-def get_active_participants(spreadsheet_url: str) -> dict:
-    """Returns {discord_id: participant_name} for all ACTIVE participants. Raises PermissionError if not shared."""
+def get_active_participants(spreadsheet_url: str, guild_id: str) -> dict:
+    """Returns:
+      {
+        "active":     {discord_id: participant_name},
+        "missing_id": [{"participant_name": str, "row_number": int}],
+      }
+    For ACTIVE rows with no Discord ID, attempts to resolve via display name lookup.
+    If found (unique exact match on nick or global_name), writes the handle back to column B.
+    Raises PermissionError if not shared.
+    """
     spreadsheet_id = extract_spreadsheet_id(spreadsheet_url)
     print(f"[sheets] get_active_participants: spreadsheet_id={spreadsheet_id!r}")
     if not spreadsheet_id:
@@ -409,16 +419,43 @@ def get_active_participants(spreadsheet_url: str) -> dict:
     rows = result.get("values", [])
     print(f"[sheets] get_active_participants: got {len(rows)} rows (including header)")
     active = {}
-    for row in rows[1:]:
-        status = row[ParticipantsColumn.STATUS] if len(row) > ParticipantsColumn.STATUS else ""
+    missing_id = []
+
+    for i, row in enumerate(rows[1:], start=2):
+        status = _cell_value(row, ParticipantsColumn.STATUS)
         if status != participants_sheet.STATUS_ACTIVE:
             continue
-        discord_id = row[ParticipantsColumn.DISCORD_ID] if len(row) > ParticipantsColumn.DISCORD_ID else ""
-        participant_name = row[ParticipantsColumn.PARTICIPANT_NAME] if len(row) > ParticipantsColumn.PARTICIPANT_NAME else ""
+        discord_id = _cell_value(row, ParticipantsColumn.DISCORD_ID)
+        participant_name = _cell_value(row, ParticipantsColumn.PARTICIPANT_NAME)
+
         if discord_id:
             active[discord_id] = participant_name
-    print(f"[sheets] get_active_participants: found {len(active)} ACTIVE participant(s)")
-    return active
+            continue
+
+        # No Discord ID — attempt to resolve by display name
+        print(f"[sheets] get_active_participants: row {i} has no Discord ID, searching by display name={participant_name!r}")
+        match = discord_api.search_member_by_display_name(guild_id, participant_name)
+        time.sleep(0.5)
+
+        if match:
+            _, username_handle = match
+            print(f"[sheets] get_active_participants: resolved row {i} name={participant_name!r} -> handle={username_handle!r}")
+            try:
+                service.spreadsheets().values().update(
+                    spreadsheetId=spreadsheet_id,
+                    range=f"{PARTICIPANTS_SHEET}!B{i}",
+                    valueInputOption="USER_ENTERED",
+                    body={"values": [[username_handle]]},
+                ).execute()
+            except HttpError as e:
+                print(f"[sheets] get_active_participants: failed to write handle for row {i}: {e}")
+            active[username_handle] = participant_name
+        else:
+            print(f"[sheets] get_active_participants: could not resolve display name={participant_name!r} at row {i}")
+            missing_id.append({"participant_name": participant_name, "row_number": i})
+
+    print(f"[sheets] get_active_participants: {len(active)} resolved, {len(missing_id)} unresolvable")
+    return {"active": active, "missing_id": missing_id}
 
 
 def _cell_value(row: list, col: int) -> str:
