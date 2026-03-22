@@ -109,7 +109,7 @@ def setup_league_participants_sheet(spreadsheet_url: str) -> bool:
         spreadsheetId=spreadsheet_id,
         range=f"{PARTICIPANTS_SHEET}!A1",
         valueInputOption="USER_ENTERED",
-        body={"values": [COLUMN_HEADERS + [participants_sheet.CURRENT_ROTATION_LABEL, ""]]}
+        body={"values": [COLUMN_HEADERS + [participants_sheet.CURRENT_ROTATION_LABEL]]}
     ).execute()
 
     num_cols = len(COLUMN_HEADERS)
