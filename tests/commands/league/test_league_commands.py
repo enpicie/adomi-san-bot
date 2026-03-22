@@ -1,9 +1,11 @@
+import json
 import unittest
 from unittest.mock import Mock, patch
 
 from commands.league.league_commands import (
     create_league, update_league, sync_active_participants,
     join_league, setup_league, toggle_join_league, LEAGUE_ID_MAX_LENGTH,
+    deactivate_league_participant, report_score,
 )
 from commands.models.response_message import ResponseMessage
 from database.models.league_data import LeagueData
@@ -32,6 +34,7 @@ def _make_event(**kwargs):
     event.get_server_id.return_value = kwargs.get("server_id", "server123")
     event.get_user_id.return_value = kwargs.get("user_id", "user_abc")
     event.get_display_name.return_value = kwargs.get("display_name", "Alice")
+    event.event_body = kwargs.get("event_body", {})
     inputs = kwargs.get("inputs", {})
     event.get_command_input_value.side_effect = lambda key: inputs.get(key)
     return event
@@ -41,7 +44,14 @@ def _make_aws():
     aws = Mock()
     aws.dynamodb_table = Mock()
     aws.remove_role_sqs_queue = Mock()
+    aws.sheets_agent_sqs_queue = Mock()
     return aws
+
+
+def _get_dispatched_command(aws) -> str:
+    """Extract the command_name from the SQS message sent to sheets_agent."""
+    call_kwargs = aws.sheets_agent_sqs_queue.send_message.call_args.kwargs
+    return json.loads(call_kwargs["MessageBody"])["command_name"]
 
 
 class TestCreateLeague(unittest.TestCase):
@@ -165,30 +175,33 @@ class TestUpdateLeague(unittest.TestCase):
 
 
 class TestSetupLeague(unittest.TestCase):
-    """league-setup is dispatched to sheets_agent; the main-bot stub just returns an ack."""
-
-    def test_returns_ack_response(self):
-        result = setup_league(_make_event(), _make_aws())
+    def test_dispatches_to_sheets_agent_and_returns_ack(self):
+        aws = _make_aws()
+        result = setup_league(_make_event(), aws)
         self.assertIsInstance(result, ResponseMessage)
         self.assertIn("Setting up", result.content)
+        aws.sheets_agent_sqs_queue.send_message.assert_called_once()
+        self.assertEqual(_get_dispatched_command(aws), "league-setup")
 
 
 class TestJoinLeague(unittest.TestCase):
-    """league-join is dispatched to sheets_agent; the main-bot stub just returns an ack."""
-
-    def test_returns_ack_response(self):
-        result = join_league(_make_event(), _make_aws())
+    def test_dispatches_to_sheets_agent_and_returns_ack(self):
+        aws = _make_aws()
+        result = join_league(_make_event(), aws)
         self.assertIsInstance(result, ResponseMessage)
         self.assertIn("Adding you", result.content)
+        aws.sheets_agent_sqs_queue.send_message.assert_called_once()
+        self.assertEqual(_get_dispatched_command(aws), "league-join")
 
 
 class TestSyncActiveParticipants(unittest.TestCase):
-    """league-sync-participants is dispatched to sheets_agent; the main-bot stub just returns an ack."""
-
-    def test_returns_ack_response(self):
-        result = sync_active_participants(_make_event(), _make_aws())
+    def test_dispatches_to_sheets_agent_and_returns_ack(self):
+        aws = _make_aws()
+        result = sync_active_participants(_make_event(), aws)
         self.assertIsInstance(result, ResponseMessage)
         self.assertIn("Syncing", result.content)
+        aws.sheets_agent_sqs_queue.send_message.assert_called_once()
+        self.assertEqual(_get_dispatched_command(aws), "league-sync-participants")
 
 
 class TestToggleJoinLeague(unittest.TestCase):
@@ -227,6 +240,44 @@ class TestToggleJoinLeague(unittest.TestCase):
         mock_perms.verify_has_organizer_role.return_value = ResponseMessage(content="no permission")
         result = toggle_join_league(_make_event(), _make_aws())
         self.assertIn("no permission", result.content)
+
+
+class TestReportScore(unittest.TestCase):
+    def test_dispatches_to_sheets_agent_and_returns_ack(self):
+        aws = _make_aws()
+        result = report_score(_make_event(), aws)
+        self.assertIsInstance(result, ResponseMessage)
+        aws.sheets_agent_sqs_queue.send_message.assert_called_once()
+        self.assertEqual(_get_dispatched_command(aws), "league-report-score")
+
+
+class TestDeactivateLeagueParticipant(unittest.TestCase):
+    def test_dispatches_without_player_param_no_perm_check(self):
+        aws = _make_aws()
+        event = _make_event(inputs={"player": None})
+        result = deactivate_league_participant(event, aws)
+        self.assertIsInstance(result, ResponseMessage)
+        aws.sheets_agent_sqs_queue.send_message.assert_called_once()
+        self.assertEqual(_get_dispatched_command(aws), "league-deactivate")
+
+    @patch("commands.league.league_commands.permissions_helper")
+    def test_player_param_requires_organizer_role(self, mock_perms):
+        mock_perms.verify_has_organizer_role.return_value = ResponseMessage(content="no permission")
+        aws = _make_aws()
+        event = _make_event(inputs={"player": "some_user"})
+        result = deactivate_league_participant(event, aws)
+        self.assertIn("organizers", result.content)
+        aws.sheets_agent_sqs_queue.send_message.assert_not_called()
+
+    @patch("commands.league.league_commands.permissions_helper")
+    def test_player_param_with_organizer_role_dispatches(self, mock_perms):
+        mock_perms.verify_has_organizer_role.return_value = None
+        aws = _make_aws()
+        event = _make_event(inputs={"player": "some_user"})
+        result = deactivate_league_participant(event, aws)
+        self.assertIsInstance(result, ResponseMessage)
+        aws.sheets_agent_sqs_queue.send_message.assert_called_once()
+        self.assertEqual(_get_dispatched_command(aws), "league-deactivate")
 
 
 if __name__ == "__main__":
