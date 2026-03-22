@@ -1,8 +1,12 @@
 import json
+import traceback
 
 from aws_client import get_aws_services
 from discord_followup import send_followup
 import league_commands
+
+# Mirrors adomin_messages.GENERAL_ERROR from the main bot
+_GENERAL_ERROR = "🙀 AH! Something went wrong! Hang tight while I take a look. This might be a case for my supervisor `@enpicie`."
 
 _COMMAND_HANDLERS = {
     "league-setup":             league_commands.handle_league_setup,
@@ -31,7 +35,8 @@ def _process_record(payload: dict) -> None:
         content = handler_fn(event_body, get_aws_services())
     except Exception as e:
         print(f"[sheets_agent] unhandled error in {command_name!r}: {type(e).__name__}: {e}")
-        content = "❌ An unexpected error occurred. Please try again."
+        print(traceback.format_exc())
+        content = _GENERAL_ERROR
 
     send_followup(application_id, interaction_token, content)
 

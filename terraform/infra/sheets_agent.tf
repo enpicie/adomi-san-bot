@@ -1,6 +1,6 @@
 resource "aws_sqs_queue" "sheets_agent" {
   name                       = var.sheets_agent_name
-  visibility_timeout_seconds = 360
+  visibility_timeout_seconds = 540
   message_retention_seconds  = 86400
 }
 
@@ -36,7 +36,7 @@ resource "aws_lambda_function" "sheets_agent" {
   handler       = "handler.handler"
   runtime       = "python${var.python_runtime}"
   role          = aws_iam_role.sheets_agent_role.arn
-  timeout       = 300
+  timeout       = 480
   memory_size   = 512
 
   layers = [
