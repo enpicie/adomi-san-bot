@@ -1,3 +1,5 @@
+import json
+
 import constants
 import database.dynamodb_utils as db_helper
 import utils.message_helper as message_helper
@@ -8,6 +10,12 @@ from commands.models.response_message import ResponseMessage
 from database.models.league_data import LeagueData
 
 LEAGUE_ID_MAX_LENGTH = 4
+
+
+def _dispatch_to_sheets_agent(command_name: str, event: DiscordEvent, aws_services: AWSServices) -> None:
+    payload = json.dumps({"command_name": command_name, "event_body": event.event_body})
+    aws_services.sheets_agent_sqs_queue.send_message(MessageBody=payload)
+    print(f"[league_commands] dispatched {command_name!r} to sheets_agent")
 
 
 def _parse_role_id(role_input: str) -> str:
@@ -158,12 +166,12 @@ def view_league(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessa
 
 
 def setup_league(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
-    # Handled asynchronously by the sheets_agent Lambda — this stub exists for command registration only.
+    _dispatch_to_sheets_agent("league-setup", event, aws_services)
     return ResponseMessage(content="⏳ Setting up the Participants sheet...")
 
 
 def join_league(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
-    # Handled asynchronously by the sheets_agent Lambda — this stub exists for command registration only.
+    _dispatch_to_sheets_agent("league-join", event, aws_services)
     return ResponseMessage(content="⏳ Adding you to the league...")
 
 
@@ -198,12 +206,12 @@ def toggle_join_league(event: DiscordEvent, aws_services: AWSServices) -> Respon
 
 
 def sync_active_participants(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
-    # Handled asynchronously by the sheets_agent Lambda — this stub exists for command registration only.
-    return ResponseMessage(content="⏳ Syncing participants from the sheet...")
+    _dispatch_to_sheets_agent("league-sync-participants", event, aws_services)
+    return ResponseMessage(content="⏳ Syncing participants from the sheet... This may take a few minutes for larger leagues.")
 
 
 def report_score(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
-    # Handled asynchronously by the sheets_agent Lambda — this stub exists for command registration only.
+    _dispatch_to_sheets_agent("league-report-score", event, aws_services)
     return ResponseMessage(content="⏳ Reporting score...")
 
 
@@ -227,5 +235,9 @@ def delete_league(event: DiscordEvent, aws_services: AWSServices) -> ResponseMes
 
 
 def deactivate_league_participant(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
-    # Handled asynchronously by the sheets_agent Lambda — this stub exists for command registration only.
+    if event.get_command_input_value("player"):
+        error_message = permissions_helper.verify_has_organizer_role(event, aws_services)
+        if error_message:
+            return ResponseMessage(content="🙅‍♀️ Only organizers can deactivate other players. To deactivate yourself, call `/league-deactivate` without the `player` parameter.")
+    _dispatch_to_sheets_agent("league-deactivate", event, aws_services)
     return ResponseMessage(content="⏳ Updating your participant status...")
