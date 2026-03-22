@@ -207,7 +207,7 @@ def toggle_join_league(event: DiscordEvent, aws_services: AWSServices) -> Respon
 
 def sync_active_participants(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
     _dispatch_to_sheets_agent("league-sync-participants", event, aws_services)
-    return ResponseMessage(content="⏳ Syncing participants from the sheet... This may take a few minutes for larger leagues.")
+    return ResponseMessage(content="⏳ Syncing participants from the sheet... This may take a few minutes.")
 
 
 def report_score(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
