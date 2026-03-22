@@ -29,6 +29,25 @@ resource "aws_dynamodb_table" "adomi_discord_server_table" {
     type = "S"
   }
 
+  attribute {
+    name = "league_name"
+    type = "S"
+  }
+
+  global_secondary_index {
+    name = "LeagueNameIndex"
+    key_schema {
+      attribute_name = "server_id"
+      key_type       = "HASH"
+    }
+    key_schema {
+      attribute_name = "league_name"
+      key_type       = "RANGE"
+    }
+    projection_type    = "INCLUDE"
+    non_key_attributes = ["league_id"]
+  }
+
   global_secondary_index {
     name = "EventNameIndex"
     key_schema {

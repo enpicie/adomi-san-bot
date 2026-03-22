@@ -11,7 +11,7 @@ on:
           - dev
           - prod
       command_name:
-        description: Name of command to register/update (or 'all' for all commands)
+        description: "Command name ('league-join'), prefix ('league' = all league-* commands), or 'all'"
         required: true
         type: string
 
@@ -22,7 +22,7 @@ on:
         required: true
         type: string
       command_name:
-        description: Name of command to register/update
+        description: "Command name, prefix (e.g. 'league'), or 'all'"
         required: true
         type: string
     secrets:

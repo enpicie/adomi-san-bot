@@ -8,6 +8,11 @@ resource "aws_secretsmanager_secret_version" "startgg_api_token" {
   secret_string = var.startgg_api_key
 }
 
+# Secret already exists and is populated manually - import as data source
+data "aws_secretsmanager_secret" "sheets_credentials" {
+  name = "${var.app_name}/sheets-service-account"
+}
+
 resource "aws_iam_role_policy" "lambda_secrets_policy" {
   name = "LambdaSecretsPolicy-${var.app_name}-${var.deployment_env}"
   role = aws_iam_role.lambda_exec_role.id
@@ -16,10 +21,16 @@ resource "aws_iam_role_policy" "lambda_secrets_policy" {
     Version = "2012-10-17",
     Statement = [
       {
-        Sid    = "GetStartggApiToken",
-        Effect = "Allow",
-        Action = "secretsmanager:GetSecretValue",
+        Sid      = "GetStartggApiToken",
+        Effect   = "Allow",
+        Action   = "secretsmanager:GetSecretValue",
         Resource = aws_secretsmanager_secret.startgg_api_token.arn
+      },
+      {
+        Sid      = "GetSheetsCredentials",
+        Effect   = "Allow",
+        Action   = "secretsmanager:GetSecretValue",
+        Resource = data.aws_secretsmanager_secret.sheets_credentials.arn
       }
     ]
   })

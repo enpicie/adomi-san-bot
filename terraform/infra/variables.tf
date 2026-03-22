@@ -9,6 +9,21 @@ variable "sqs_worker_name" {
   type        = string
 }
 
+variable "sheets_agent_name" {
+  description = "The name of the sheets agent Lambda and SQS queue"
+  type        = string
+}
+
+variable "sheets_agent_lambda_layer_s3_key" {
+  description = "S3 key for .zip of Lambda layer built for the sheets agent"
+  type        = string
+}
+
+variable "sheets_agent_lambda_layer_hash_s3_key" {
+  description = "S3 key for .hash file for Lambda layer built for the sheets agent"
+  type        = string
+}
+
 variable "aws_region" {
   description = "AWS region to deploy resources into"
   type        = string
@@ -22,7 +37,7 @@ variable "python_runtime" {
 variable "architecture" {
   description = "Architecture for Lambda (e.g., x86_64, arm64)"
   type        = string
-  default     = "arm64"
+  default     = "x86_64"
 }
 
 variable "deployment_env" {
@@ -80,6 +95,11 @@ variable "startgg_oauth_client_secret" {
   description = "start.gg OAuth application client secret"
   type        = string
   sensitive   = true
+}
+
+variable "google_service_account_email" {
+  description = "Google service account email for Sheets API access"
+  type        = string
 }
 
 variable "startgg_oauth_name" {

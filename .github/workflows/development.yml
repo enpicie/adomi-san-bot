@@ -6,6 +6,9 @@ on:
       - main
     tags:
       - '!*'
+    paths-ignore:
+      - 'scripts/**'
+      - '.github/workflows/workflow-register-commands.yml'
   workflow_dispatch:
     inputs:
       run_register_commands:
@@ -26,12 +29,12 @@ jobs:
       SQS_WORKER_NAME: ${{ steps.set-vars.outputs.SQS_WORKER_NAME }}
       SCHEDULED_JOB_NAME: ${{ steps.set-vars.outputs.SCHEDULED_JOB_NAME }}
       STARTGG_OAUTH_NAME: ${{ steps.set-vars.outputs.STARTGG_OAUTH_NAME }}
+      SHEETS_AGENT_NAME: ${{ steps.set-vars.outputs.SHEETS_AGENT_NAME }}
+      GOOGLE_SHEETS_SECRET_NAME: ${{ steps.set-vars.outputs.GOOGLE_SHEETS_SECRET_NAME }}
       AWS_REGION: ${{ steps.set-vars.outputs.AWS_REGION }}
       PYTHON_RUNTIME: ${{ steps.set-vars.outputs.PYTHON_RUNTIME }}
-      HCP_TERRAFORM_ORG: ${{ steps.set-vars.outputs.HCP_TERRAFORM_ORG }}
-      HCP_TERRAFORM_PROJECT: ${{ steps.set-vars.outputs.HCP_TERRAFORM_PROJECT }}
-      HCP_TERRAFORM_WORKSPACE: ${{ steps.set-vars.outputs.HCP_TERRAFORM_WORKSPACE }}
       DISCORD_PUBLIC_KEY: ${{ steps.set-vars.outputs.DISCORD_PUBLIC_KEY }}
+      GOOGLE_SERVICE_ACCOUNT_EMAIL: ${{ steps.set-vars.outputs.GOOGLE_SERVICE_ACCOUNT_EMAIL }}
       BRANCH_NAME: ${{ steps.set-vars.outputs.BRANCH_NAME }}
     steps:
       - uses: actions/checkout@v5
@@ -46,12 +49,12 @@ jobs:
           echo "SQS_WORKER_NAME=$SQS_WORKER_NAME" >> $GITHUB_OUTPUT
           echo "SCHEDULED_JOB_NAME=$SCHEDULED_JOB_NAME" >> $GITHUB_OUTPUT
           echo "STARTGG_OAUTH_NAME=$STARTGG_OAUTH_NAME" >> $GITHUB_OUTPUT
+          echo "SHEETS_AGENT_NAME=$SHEETS_AGENT_NAME" >> $GITHUB_OUTPUT
+          echo "GOOGLE_SHEETS_SECRET_NAME=$GOOGLE_SHEETS_SECRET_NAME" >> $GITHUB_OUTPUT
           echo "AWS_REGION=$AWS_REGION" >> $GITHUB_OUTPUT
           echo "PYTHON_RUNTIME=$PYTHON_RUNTIME" >> $GITHUB_OUTPUT
-          echo "HCP_TERRAFORM_ORG=$HCP_TERRAFORM_ORG" >> $GITHUB_OUTPUT
-          echo "HCP_TERRAFORM_PROJECT=$HCP_TERRAFORM_PROJECT" >> $GITHUB_OUTPUT
-          echo "HCP_TERRAFORM_WORKSPACE=$HCP_TERRAFORM_WORKSPACE_DEV" >> $GITHUB_OUTPUT
           echo "DISCORD_PUBLIC_KEY=$DISCORD_PUBLIC_KEY_DEV" >> $GITHUB_OUTPUT
+          echo "GOOGLE_SERVICE_ACCOUNT_EMAIL=$GOOGLE_SERVICE_ACCOUNT_EMAIL" >> $GITHUB_OUTPUT
           echo "BRANCH_NAME=$SHORT_BRANCH_NAME" >> $GITHUB_OUTPUT
 
   unit-test:
@@ -71,20 +74,19 @@ jobs:
       sqs_worker_name: ${{ needs.read-config.outputs.SQS_WORKER_NAME }}
       scheduled_job_name: ${{ needs.read-config.outputs.SCHEDULED_JOB_NAME }}
       startgg_oauth_name: ${{ needs.read-config.outputs.STARTGG_OAUTH_NAME }}
+      sheets_agent_name: ${{ needs.read-config.outputs.SHEETS_AGENT_NAME }}
       aws_region: ${{ needs.read-config.outputs.AWS_REGION }}
       python_runtime: ${{ needs.read-config.outputs.PYTHON_RUNTIME }}
-      hcp_terraform_org: ${{ needs.read-config.outputs.HCP_TERRAFORM_ORG }}
-      hcp_terraform_project: ${{ needs.read-config.outputs.HCP_TERRAFORM_PROJECT }}
-      hcp_terraform_workspace: ${{ needs.read-config.outputs.HCP_TERRAFORM_WORKSPACE }}
       discord_public_key: ${{ needs.read-config.outputs.DISCORD_PUBLIC_KEY }}
+      google_service_account_email: ${{ needs.read-config.outputs.GOOGLE_SERVICE_ACCOUNT_EMAIL }}
       app_version: ${{ needs.read-config.outputs.BRANCH_NAME }}
       deployment_env: 'dev'
       artifact_s3_bucket: 'enpicie-dev-lambda-artifacts'
+      google_sheets_secret_name: ${{ needs.read-config.outputs.GOOGLE_SHEETS_SECRET_NAME }}
     secrets:
       AWS_ROLE_ARN_LAMBDA_APIGW_DDB_SQS: ${{ secrets.AWS_ROLE_ARN_LAMBDA_APIGW_DDB_SQS }}
       AWS_ROLE_ARN_EVENTBRIDGE_LAMBDA_DDB_SQS: ${{ secrets.AWS_ROLE_ARN_EVENTBRIDGE_LAMBDA_DDB_SQS }}
       AWS_ROLE_ARN_S3: ${{ secrets.AWS_ROLE_ARN_S3 }}
-      TF_API_TOKEN: ${{ secrets.TF_API_TOKEN }}
       DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN_DEV }}
       STARTGG_API_KEY: ${{ secrets.STARTGG_API_KEY }}
       STARTGG_OAUTH_CLIENT_ID: ${{ secrets.STARTGG_OAUTH_CLIENT_ID_DEV }}

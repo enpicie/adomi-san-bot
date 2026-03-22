@@ -47,14 +47,18 @@ resource "aws_lambda_function" "bot_lambda" {
   ]
   environment {
     variables = {
-      REGION                   = var.aws_region
-      PUBLIC_KEY               = var.discord_public_key
-      DISCORD_BOT_TOKEN        = var.discord_bot_token
-      DYNAMODB_TABLE_NAME      = aws_dynamodb_table.adomi_discord_server_table.name
-      REMOVE_ROLE_QUEUE_URL    = aws_sqs_queue.remove_role.url
-      STARTGG_SECRET_NAME      = aws_secretsmanager_secret.startgg_api_token.name
-      STARTGG_OAUTH_CLIENT_ID  = var.startgg_oauth_client_id
+      REGION                    = var.aws_region
+      PUBLIC_KEY                = var.discord_public_key
+      DISCORD_BOT_TOKEN         = var.discord_bot_token
+      DYNAMODB_TABLE_NAME       = aws_dynamodb_table.adomi_discord_server_table.name
+      REMOVE_ROLE_QUEUE_URL     = aws_sqs_queue.remove_role.url
+      STARTGG_SECRET_NAME       = aws_secretsmanager_secret.startgg_api_token.name
+      GOOGLE_SHEETS_SECRET_NAME    = data.aws_secretsmanager_secret.sheets_credentials.name
+      GOOGLE_SERVICE_ACCOUNT_EMAIL = var.google_service_account_email
+
+      STARTGG_OAUTH_CLIENT_ID    = var.startgg_oauth_client_id
       STARTGG_OAUTH_REDIRECT_URI = "${aws_apigatewayv2_stage.env_stage.invoke_url}/startgg/callback"
+      SHEETS_AGENT_QUEUE_URL     = aws_sqs_queue.sheets_agent.url
     }
   }
 

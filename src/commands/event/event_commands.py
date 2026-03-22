@@ -20,32 +20,6 @@ def _is_past_time(utc_iso: str) -> bool:
         return False
 
 
-def _resolve_participant_role(event: DiscordEvent, aws_services: AWSServices) -> tuple:
-    """
-    Returns (server_config, participant_role, no_role_warning).
-    server_config may be a ResponseMessage on failure.
-    participant_role is the resolved role (input or server default), or None if unset.
-    no_role_warning is a string to append to the response if no role is set, or "".
-    """
-    server_id = event.get_server_id()
-    server_config = db_helper.get_server_config_or_fail(server_id, aws_services.dynamodb_table)
-    if isinstance(server_config, ResponseMessage):
-        return server_config, None, ""
-
-    participant_role = (
-        event.get_command_input_value("participant_role")
-        or server_config.default_participant_role
-    )
-
-    no_role_warning = (
-        "\n⚠️ No participant role is set for this event. "
-        "Use `/event-update` or `/set-default-participant-role` to add one."
-        if not participant_role else ""
-    )
-
-    return server_config, participant_role, no_role_warning
-
-
 def create_event(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
     server_id = event.get_server_id()
     server_config = db_helper.get_server_config_or_fail(server_id, aws_services.dynamodb_table)

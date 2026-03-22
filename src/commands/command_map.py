@@ -6,6 +6,7 @@ from commands.setup.mapping import setup_commands
 from commands.register.mapping import register_commands_mapping
 from commands.event.mapping import event_commands_mapping
 from commands.startgg.mapping import startgg_commands_mapping
+from commands.league.mapping import league_commands_mapping
 
 command_map: CommandMapping = {
 } | (
@@ -14,5 +15,6 @@ command_map: CommandMapping = {
     setup_commands |
     register_commands_mapping |
     event_commands_mapping |
-    startgg_commands_mapping
+    startgg_commands_mapping |
+    league_commands_mapping
 )

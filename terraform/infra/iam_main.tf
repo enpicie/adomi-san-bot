@@ -51,7 +51,10 @@ resource "aws_iam_role_policy" "lambda_dynamodb_policy" {
         Sid      = "SQSAccess",
         Effect   = "Allow"
         Action   = ["sqs:SendMessage", "sqs:SendMessageBatch"]
-        Resource = aws_sqs_queue.remove_role.arn
+        Resource = [
+          aws_sqs_queue.remove_role.arn,
+          aws_sqs_queue.sheets_agent.arn
+        ]
       }
     ]
   })

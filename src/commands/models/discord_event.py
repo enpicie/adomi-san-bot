@@ -62,3 +62,14 @@ class DiscordEvent:
 
     def get_user_roles(self) -> List[str]:
         return self._get_event_field("member", "roles")
+
+    def get_user_nick(self) -> str | None:
+        member = self.event_body.get("member", {})
+        return member.get("nick")
+
+    def get_user_global_name(self) -> str | None:
+        user = self.event_body.get("member", {}).get("user", {})
+        return user.get("global_name")
+
+    def get_display_name(self) -> str:
+        return self.get_user_nick() or self.get_user_global_name() or self.get_username()

@@ -26,5 +26,10 @@ help_commands: CommandMapping = {
         "function": adomi_help_commands.help_startgg,
         "description": "List all start.gg commands with descriptions",
         "params": []
+    },
+    "help-league": {
+        "function": adomi_help_commands.help_league,
+        "description": "List all league management commands with descriptions",
+        "params": []
     }
 }

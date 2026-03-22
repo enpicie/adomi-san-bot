@@ -5,6 +5,7 @@ from commands.check_in.mapping import checkin_commands
 from commands.register.mapping import register_commands_mapping
 from commands.event.mapping import event_commands_mapping
 from commands.startgg.mapping import startgg_commands_mapping
+from commands.league.mapping import league_commands_mapping
 
 WIKI_LINK = "https://github.com/enpicie/adomi-san-bot/wiki/Adomi-is-here-to-help!"
 
@@ -37,6 +38,18 @@ def help_event(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessag
     lines = ["**Event Commands**"]
     for name, entry in event_commands_mapping.items():
         lines.append(f"`/{name}` — {entry['description']}")
+    return ResponseMessage(content="\n".join(lines))
+
+
+def help_league(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
+    lines = ["**League Commands**"]
+    for name, entry in league_commands_mapping.items():
+        lines.append(f"`/{name}` — {entry['description']}")
+    lines.append(
+        "\n⚠️ **Note:** League commands that interact with Google Sheets require the sheet to be shared "
+        "(with Editor access) to the bot's service account email. "
+        "Use `/league-view` to see the configured service account address."
+    )
     return ResponseMessage(content="\n".join(lines))
 
 

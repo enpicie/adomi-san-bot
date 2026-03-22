@@ -19,6 +19,10 @@ on:
         description: Name of the start.gg OAuth Lambda function
         required: true
         type: string
+      sheets_agent_name:
+        description: Name of the sheets agent Lambda function and SQS queue
+        required: true
+        type: string
       deployment_env:
         description: Environment to deploy to (e.g., dev, prod)
         required: true
@@ -35,16 +39,12 @@ on:
         description: S3 bucket name for storing build artifacts
         required: true
         type: string
-      hcp_terraform_org:
-        description: HCP Terraform Organization name
+      google_sheets_secret_name:
+        description: Name of the Google Sheets secret in AWS Secrets Manager
         required: true
         type: string
-      hcp_terraform_workspace:
-        description: HCP Terraform Workspace name
-        required: true
-        type: string
-      hcp_terraform_project:
-        description: HCP Terraform Project name
+      google_service_account_email:
+        description: Google service account email for Sheets API access
         required: true
         type: string
       app_version:
@@ -61,8 +61,6 @@ on:
       AWS_ROLE_ARN_EVENTBRIDGE_LAMBDA_DDB_SQS:
         required: true
       AWS_ROLE_ARN_S3:
-        required: true
-      TF_API_TOKEN:
         required: true
       DISCORD_BOT_TOKEN:
         required: true
@@ -82,31 +80,34 @@ jobs:
 
       - name: Build and Upload Lambda Layer Artifact to S3 - Main Lambda
         id: build_layer
-        uses: enpicie/gh-action-workflow-build-python-lambda-layer-zip@v2.0.4
+        uses: enpicie/gh-action-workflow-build-python-lambda-layer-zip@v2.1.1
         with:
           requirements_path: ./requirements.txt # Path relative the repository root
           app_name: ${{ inputs.app_name }}
           python_runtime: ${{ inputs.python_runtime }}
+          architecture: x86_64
           s3_layer_bucket_name: ${{ inputs.artifact_s3_bucket }} # Store layer in same bucket for env as artifacts
           aws_role_arn: ${{ secrets.AWS_ROLE_ARN_S3 }}
 
       - name: Build and Upload Lambda Layer Artifact to S3 - SQS Worker Lambda
         id: build_layer_worker
-        uses: enpicie/gh-action-workflow-build-python-lambda-layer-zip@v2.0.4
+        uses: enpicie/gh-action-workflow-build-python-lambda-layer-zip@v2.1.1
         with:
           requirements_path: ./jobs/remove_role/requirements.txt # Path relative the repository root
           app_name: ${{ inputs.sqs_worker_name }}
           python_runtime: ${{ inputs.python_runtime }}
+          architecture: x86_64
           s3_layer_bucket_name: ${{ inputs.artifact_s3_bucket }}
           aws_role_arn: ${{ secrets.AWS_ROLE_ARN_S3 }}
 
       - name: Build and Upload Lambda Layer Artifact to S3 - Scheduled Job Lambda
         id: build_layer_scheduled_job
-        uses: enpicie/gh-action-workflow-build-python-lambda-layer-zip@v2.0.4
+        uses: enpicie/gh-action-workflow-build-python-lambda-layer-zip@v2.1.1
         with:
           requirements_path: ./jobs/scheduled_job/requirements.txt
           app_name: ${{ inputs.scheduled_job_name }}
           python_runtime: ${{ inputs.python_runtime }}
+          architecture: x86_64
           s3_layer_bucket_name: ${{ inputs.artifact_s3_bucket }}
           aws_role_arn: ${{ secrets.AWS_ROLE_ARN_S3 }}
 
@@ -149,11 +150,22 @@ jobs:
 
       - name: Build and Upload Lambda Layer Artifact to S3 - start.gg OAuth Lambda
         id: build_layer_startgg_oauth
-        uses: enpicie/gh-action-workflow-build-python-lambda-layer-zip@v2.0.4
+        uses: enpicie/gh-action-workflow-build-python-lambda-layer-zip@v2.1.1
         with:
           requirements_path: ./jobs/startgg_oauth/requirements.txt
           app_name: ${{ inputs.startgg_oauth_name }}
           python_runtime: ${{ inputs.python_runtime }}
+          s3_layer_bucket_name: ${{ inputs.artifact_s3_bucket }}
+          aws_role_arn: ${{ secrets.AWS_ROLE_ARN_S3 }}
+
+      - name: Build and Upload Lambda Layer Artifact to S3 - Sheets Agent Lambda
+        id: build_layer_sheets_agent
+        uses: enpicie/gh-action-workflow-build-python-lambda-layer-zip@v2.1.1
+        with:
+          requirements_path: ./jobs/sheets_agent/requirements.txt
+          app_name: ${{ inputs.sheets_agent_name }}
+          python_runtime: ${{ inputs.python_runtime }}
+          architecture: x86_64
           s3_layer_bucket_name: ${{ inputs.artifact_s3_bucket }}
           aws_role_arn: ${{ secrets.AWS_ROLE_ARN_S3 }}
 
@@ -163,6 +175,15 @@ jobs:
           source_directory: ./jobs/startgg_oauth
           app_name: ${{ inputs.startgg_oauth_name }}
           artifact_name: ${{ inputs.startgg_oauth_name }}-latest
+          s3_bucket_name: ${{ inputs.artifact_s3_bucket }}
+          aws_role_arn: ${{ secrets.AWS_ROLE_ARN_S3 }}
+
+      - name: Upload Latest Lambda Zip to S3 - Sheets Agent Lambda
+        uses: enpicie/gh-action-workflow-upload-lambda-zip@v0.3.0
+        with:
+          source_directory: ./jobs/sheets_agent
+          app_name: ${{ inputs.sheets_agent_name }}
+          artifact_name: ${{ inputs.sheets_agent_name }}-latest
           s3_bucket_name: ${{ inputs.artifact_s3_bucket }}
           aws_role_arn: ${{ secrets.AWS_ROLE_ARN_S3 }}
 
@@ -194,6 +215,11 @@ jobs:
           echo "startgg_oauth_name=${STARTGG_OAUTH_NAME}"
           echo "oauth_callback_lambda_layer_s3_key=${OAUTH_CALLBACK_LAMBDA_LAYER_S3_KEY}"
           echo "oauth_callback_lambda_layer_hash_s3_key=${OAUTH_CALLBACK_LAMBDA_LAYER_HASH_S3_KEY}"
+
+          echo "=== Sheets Agent Lambda ==="
+          echo "sheets_agent_name=${SHEETS_AGENT_NAME}"
+          echo "sheets_agent_lambda_layer_s3_key=${SHEETS_AGENT_LAMBDA_LAYER_S3_KEY}"
+          echo "sheets_agent_lambda_layer_hash_s3_key=${SHEETS_AGENT_LAMBDA_LAYER_HASH_S3_KEY}"
         env:
           APP_NAME: '${{ inputs.app_name }}'
           DEPLOYMENT_ENV: '${{ inputs.deployment_env }}'
@@ -201,16 +227,19 @@ jobs:
           PYTHON_RUNTIME: '${{ inputs.python_runtime }}'
           ARTIFACT_S3_BUCKET: '${{ inputs.artifact_s3_bucket }}'
           APP_LAMBDA_LAYER_S3_KEY: '${{ steps.build_layer.outputs.s3_artifact_key }}'
-          APP_LAMBDA_LAYER_HASH_S3_KEY: '${{ steps.build_layer.outputs.s3_artifact_hash_key }}'
+          APP_LAMBDA_LAYER_HASH_S3_KEY: '${{ steps.build_layer.outputs.s3_requirements_key }}'
           SQS_WORKER_NAME: '${{ inputs.sqs_worker_name }}'
           WORKER_LAMBDA_LAYER_S3_KEY: '${{ steps.build_layer_worker.outputs.s3_artifact_key }}'
-          WORKER_LAMBDA_LAYER_HASH_S3_KEY: '${{ steps.build_layer_worker.outputs.s3_artifact_hash_key }}'
+          WORKER_LAMBDA_LAYER_HASH_S3_KEY: '${{ steps.build_layer_worker.outputs.s3_requirements_key }}'
           SCHEDULED_JOB_NAME: '${{ inputs.scheduled_job_name }}'
           SCHEDULED_JOB_LAYER_S3_KEY: '${{ steps.build_layer_scheduled_job.outputs.s3_artifact_key }}'
-          SCHEDULED_JOB_LAYER_HASH_S3_KEY: '${{ steps.build_layer_scheduled_job.outputs.s3_artifact_hash_key }}'
+          SCHEDULED_JOB_LAYER_HASH_S3_KEY: '${{ steps.build_layer_scheduled_job.outputs.s3_requirements_key }}'
           STARTGG_OAUTH_NAME: '${{ inputs.startgg_oauth_name }}'
           OAUTH_CALLBACK_LAMBDA_LAYER_S3_KEY: '${{ steps.build_layer_startgg_oauth.outputs.s3_artifact_key }}'
-          OAUTH_CALLBACK_LAMBDA_LAYER_HASH_S3_KEY: '${{ steps.build_layer_startgg_oauth.outputs.s3_artifact_hash_key }}'
+          OAUTH_CALLBACK_LAMBDA_LAYER_HASH_S3_KEY: '${{ steps.build_layer_startgg_oauth.outputs.s3_requirements_key }}'
+          SHEETS_AGENT_NAME: '${{ inputs.sheets_agent_name }}'
+          SHEETS_AGENT_LAMBDA_LAYER_S3_KEY: '${{ steps.build_layer_sheets_agent.outputs.s3_artifact_key }}'
+          SHEETS_AGENT_LAMBDA_LAYER_HASH_S3_KEY: '${{ steps.build_layer_sheets_agent.outputs.s3_requirements_key }}'
 
       - name: Deploy Application Config via Terraform
         uses: enpicie/gh-action-workflow-terraform-run@v0.3.1
@@ -227,17 +256,21 @@ jobs:
             TF_VAR_deployment_env=${{ inputs.deployment_env }}
             TF_VAR_bucket_name=${{ inputs.artifact_s3_bucket }}
             TF_VAR_app_lambda_layer_s3_key=${{ steps.build_layer.outputs.s3_artifact_key }}
-            TF_VAR_app_lambda_layer_hash_s3_key=${{ steps.build_layer.outputs.s3_artifact_hash_key }}
+            TF_VAR_app_lambda_layer_hash_s3_key=${{ steps.build_layer.outputs.s3_requirements_key }}
             TF_VAR_worker_lambda_layer_s3_key=${{ steps.build_layer_worker.outputs.s3_artifact_key }}
-            TF_VAR_worker_lambda_layer_hash_s3_key=${{ steps.build_layer_worker.outputs.s3_artifact_hash_key }}
+            TF_VAR_worker_lambda_layer_hash_s3_key=${{ steps.build_layer_worker.outputs.s3_requirements_key }}
             TF_VAR_startgg_oauth_name=${{ inputs.startgg_oauth_name }}
             TF_VAR_oauth_callback_lambda_layer_s3_key=${{ steps.build_layer_startgg_oauth.outputs.s3_artifact_key }}
-            TF_VAR_oauth_callback_lambda_layer_hash_s3_key=${{ steps.build_layer_startgg_oauth.outputs.s3_artifact_hash_key }}
+            TF_VAR_oauth_callback_lambda_layer_hash_s3_key=${{ steps.build_layer_startgg_oauth.outputs.s3_requirements_key }}
+            TF_VAR_sheets_agent_name=${{ inputs.sheets_agent_name }}
+            TF_VAR_sheets_agent_lambda_layer_s3_key=${{ steps.build_layer_sheets_agent.outputs.s3_artifact_key }}
+            TF_VAR_sheets_agent_lambda_layer_hash_s3_key=${{ steps.build_layer_sheets_agent.outputs.s3_requirements_key }}
             TF_VAR_discord_public_key=${{ inputs.discord_public_key }}
             TF_VAR_discord_bot_token=${{ secrets.DISCORD_BOT_TOKEN }}
             TF_VAR_startgg_api_key=${{ secrets.STARTGG_API_KEY }}
             TF_VAR_startgg_oauth_client_id=${{ secrets.STARTGG_OAUTH_CLIENT_ID }}
             TF_VAR_startgg_oauth_client_secret=${{ secrets.STARTGG_OAUTH_CLIENT_SECRET }}
+            TF_VAR_google_service_account_email=${{ inputs.google_service_account_email }}
 
       - name: Deploy Scheduled Job Config via Terraform
         uses: enpicie/gh-action-workflow-terraform-run@v0.3.1
@@ -255,5 +288,5 @@ jobs:
             TF_VAR_deployment_env=${{ inputs.deployment_env }}
             TF_VAR_bucket_name=${{ inputs.artifact_s3_bucket }}
             TF_VAR_scheduled_job_layer_s3_key=${{ steps.build_layer_scheduled_job.outputs.s3_artifact_key }}
-            TF_VAR_scheduled_job_layer_hash_s3_key=${{ steps.build_layer_scheduled_job.outputs.s3_artifact_hash_key }}
+            TF_VAR_scheduled_job_layer_hash_s3_key=${{ steps.build_layer_scheduled_job.outputs.s3_requirements_key }}
             TF_VAR_discord_bot_token=${{ secrets.DISCORD_BOT_TOKEN }}

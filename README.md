@@ -16,6 +16,7 @@ But you can call her Adomin ~☆！
   - [Check-In Commands](#check-in-commands)
   - [Setup Commands](#setup-commands)
   - [Score Reporting Commands](#score-reporting-commands)
+  - [League Commands](#league-commands)
   - [Help Commands](#help-commands)
 - [Database Schema](#database-schema)
 - [Configuration](#configuration)
@@ -289,6 +290,7 @@ These commands allow participants to report bracket set results directly to star
 |---------|-------------|-------------|
 | `/startgg-connect` | Organizer | Link a start.gg organizer account to this server via OAuth |
 | `/startgg-report-score` | Any participant | Report the result of a start.gg bracket set |
+| `/startgg-notify-unlinked` | Organizer | List start.gg participants who have not linked their Discord account |
 
 #### `/startgg-connect`
 
@@ -311,6 +313,80 @@ No parameters.
 
 The command finds the most recently created open set between the two players on start.gg and reports the result. Both players must be registered for the event via start.gg with Discord linked.
 
+#### `/startgg-notify-unlinked`
+
+**`/startgg-notify-unlinked` parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `event_name` | string | yes | Event to check (autocomplete) |
+
+Fetches the current entrant list from start.gg and returns all participants who do not have a Discord account linked. The response lists their start.gg gamerTags and instructs them to go to their start.gg profile → **Edit Profile** → **Connections** → connect Discord and enable **Display on profile**.
+
+---
+
+### League Commands
+
+League commands manage long-running competitive leagues tracked via Google Sheets. Participant data (status, name, Discord ID) lives in a Google Sheet tab that the bot reads and writes.
+
+> **Prerequisite:** The league's Google Sheet must be shared (with **Editor** access) to the bot's service account email. Run `/league-view` to see the configured service account address.
+
+| Command | Who can use | Description |
+|---------|-------------|-------------|
+| `/league-create` | Organizer | Create a new league record |
+| `/league-update` | Organizer | Update an existing league's name, sheet link, or participant role |
+| `/league-list` | Organizer | List all leagues for this server |
+| `/league-view` | Organizer | View details of a specific league |
+| `/league-setup` | Organizer | Initialize (or re-apply styling to) the Participants sheet |
+| `/league-delete` | Organizer | Delete a league record |
+| `/league-join-toggle` | Organizer | Open or close joining for a league |
+| `/league-sync-participants` | Organizer | Sync active participants from the sheet, assigning/removing Discord roles |
+| `/league-join` | Any user | Join a league — adds you to the Participants sheet |
+| `/league-deactivate` | Any user (organizer to target others) | Mark yourself (or another player) as inactive or DNF |
+
+**`/league-create` parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `league_name` | string | yes | Display name for the league |
+| `league_id` | string | yes | Short unique identifier (max 4 characters, e.g. `S1`) |
+| `google_sheets_link` | string | yes | Link to the Google Sheet tracking this league |
+| `active_participant_role` | string | no | Role ID to assign to active participants |
+
+**`/league-update` parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `league_id` | string | yes | ID of the league to update |
+| `league_name` | string | no | New display name |
+| `google_sheets_link` | string | no | New Google Sheets link |
+| `active_participant_role` | string | no | New active participant role ID |
+
+**`/league-view` / `/league-setup` / `/league-delete` / `/league-join` / `/league-sync-participants` parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `league_name` | string | yes | League to target (autocomplete) |
+
+**`/league-join-toggle` parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `league_name` | string | yes | League to target (autocomplete) |
+| `state` | choice | yes | `Start` (open joining) or `End` (close joining) |
+
+**`/league-deactivate` parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `league_name` | string | yes | League to target (autocomplete) |
+| `dnf` | boolean | no | Set `True` to mark as **DNF** instead of **INACTIVE** |
+| `player` | user | no | (Organizers only) Target player to deactivate |
+
+Participant statuses in the sheet: **QUEUED** (joined, pending), **ACTIVE** (active participant), **INACTIVE** (stepped down, can re-queue), **DNF** (did not finish — cannot re-join without organizer intervention).
+
+When `/league-sync-participants` is run, any players newly marked **ACTIVE** in the sheet receive the configured Discord role; players no longer **ACTIVE** have the role queued for removal.
+
 ---
 
 ### Help Commands
@@ -322,6 +398,7 @@ The command finds the most recently created open set between the two players on 
 | `/help-register` | Help for registration commands |
 | `/help-check-in` | Help for check-in commands |
 | `/help-startgg` | Help for start.gg score reporting commands |
+| `/help-league` | Help for league management commands |
 
 ---
 
