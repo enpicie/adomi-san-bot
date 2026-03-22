@@ -616,17 +616,56 @@ def append_report_log(
         existing_titles = [s["properties"]["title"] for s in metadata.get("sheets", [])]
 
         if report_log.SHEET_NAME not in existing_titles:
-            service.spreadsheets().batchUpdate(
+            add_result = service.spreadsheets().batchUpdate(
                 spreadsheetId=spreadsheet_id,
                 body={"requests": [{"addSheet": {"properties": {"title": report_log.SHEET_NAME}}}]},
             ).execute()
+            report_log_sheet_id = add_result["replies"][0]["addSheet"]["properties"]["sheetId"]
             service.spreadsheets().values().update(
                 spreadsheetId=spreadsheet_id,
                 range=f"{report_log.SHEET_NAME}!A1",
                 valueInputOption="USER_ENTERED",
                 body={"values": [report_log.COLUMN_HEADERS]},
             ).execute()
-            print(f"[sheets] append_report_log: created {report_log.SHEET_NAME} tab with headers")
+            num_log_cols = len(report_log.COLUMN_HEADERS)
+            service.spreadsheets().batchUpdate(
+                spreadsheetId=spreadsheet_id,
+                body={
+                    "requests": [
+                        {
+                            "updateSheetProperties": {
+                                "properties": {
+                                    "sheetId": report_log_sheet_id,
+                                    "gridProperties": {"frozenRowCount": 1},
+                                },
+                                "fields": "gridProperties.frozenRowCount",
+                            }
+                        },
+                        {
+                            "repeatCell": {
+                                "range": {
+                                    "sheetId": report_log_sheet_id,
+                                    "startRowIndex": 0,
+                                    "endRowIndex": 1,
+                                    "startColumnIndex": 0,
+                                    "endColumnIndex": num_log_cols,
+                                },
+                                "cell": {
+                                    "userEnteredFormat": {
+                                        "backgroundColor": {"red": 0.0, "green": 0.0, "blue": 0.0},
+                                        "textFormat": {
+                                            "bold": True,
+                                            "foregroundColor": {"red": 1.0, "green": 1.0, "blue": 1.0},
+                                        },
+                                    }
+                                },
+                                "fields": "userEnteredFormat.backgroundColor,userEnteredFormat.textFormat.bold,userEnteredFormat.textFormat.foregroundColor",
+                            }
+                        },
+                    ]
+                },
+            ).execute()
+            print(f"[sheets] append_report_log: created {report_log.SHEET_NAME} tab with headers and styling")
 
         timestamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
         row = [""] * len(report_log.COLUMN_HEADERS)
