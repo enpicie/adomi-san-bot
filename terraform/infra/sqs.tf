@@ -1,5 +1,5 @@
 resource "aws_sqs_queue" "remove_role" {
-  name                       = var.sqs_worker_name
+  name                       = "${var.sqs_worker_name}-${var.deployment_env}"
   visibility_timeout_seconds = 60
   message_retention_seconds  = 86400
 }

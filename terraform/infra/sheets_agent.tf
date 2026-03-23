@@ -1,5 +1,5 @@
 resource "aws_sqs_queue" "sheets_agent" {
-  name                       = var.sheets_agent_name
+  name                       = "${var.sheets_agent_name}-${var.deployment_env}"
   visibility_timeout_seconds = 540
   message_retention_seconds  = 86400
 }
