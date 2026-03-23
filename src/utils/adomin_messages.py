@@ -6,6 +6,7 @@
 #############################
 SERVER_CONFIG_MISSING = "🙀 This server is not set up! Run `/setup-server` first to get started."
 SERVER_EVENT_DATA_MISSING = "🙀 There is no server event data set up! Run `/setup-server` first to get started."
+SERVER_LEAGUE_DATA_MISSING = "🙀 No league found! Use `/league-list` to see existing leagues."
 
 #############################
 # Error Messages           #

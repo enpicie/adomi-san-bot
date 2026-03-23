@@ -1,5 +1,3 @@
-from typing import Optional
-
 import commands.check_in.check_in_constants as check_in_constants
 import database.dynamodb_utils as db_helper
 import utils.discord_api_helper as discord_helper
@@ -12,26 +10,16 @@ from database.models.participant import Participant
 from commands.models.discord_event import DiscordEvent
 from commands.models.response_message import ResponseMessage
 
-def _verify_has_organizer_role(event: DiscordEvent, aws_services: AWSServices) -> Optional[ResponseMessage]:
-    """
-    Wrapper to check if the calling user has the Organizer role to run relevant commands.
-    Returns a ResponseMessage on failure (missing config or missing role), otherwise returns None.
-    """
-    config_result = db_helper.get_server_config_or_fail(event.get_server_id(), aws_services.dynamodb_table)
-    if isinstance(config_result, ResponseMessage):
-        return config_result
-    needs_role_msg = permissions_helper.require_organizer_role(config_result, event)
-    if needs_role_msg:
-        return needs_role_msg
-    # Implicit return None on success
-
 def check_in_user(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
     """
-    Adds the user who invoked the command to the 'checked_in' map for the server's event record in DynamoDB.
+    Adds the user who invoked the command to the 'checked_in' map for the event record in DynamoDB.
     Assigns the participant role if configured.
     Returns a ResponseMessage indicating success or failure.
     """
-    event_data_result = db_helper.get_server_event_data_or_fail(event.get_server_id(), aws_services.dynamodb_table)
+    server_id = event.get_server_id()
+    event_id = event.get_command_input_value("event_name")
+
+    event_data_result = db_helper.get_server_event_data_or_fail(server_id, event_id, aws_services.dynamodb_table)
     if isinstance(event_data_result, ResponseMessage):
         return event_data_result
 
@@ -54,7 +42,7 @@ def check_in_user(event: DiscordEvent, aws_services: AWSServices) -> ResponseMes
     )
 
     aws_services.dynamodb_table.update_item(
-        Key={"PK": db_helper.build_server_pk(event.get_server_id()), "SK": EventData.Keys.SK_SERVER},
+        Key={"PK": db_helper.build_server_pk(server_id), "SK": EventData.Keys.SK_EVENT_PREFIX + event_id},
         UpdateExpression=f"SET {EventData.Keys.CHECKED_IN}.#uid = :participant_info",
         ExpressionAttributeNames={"#uid": user_id},
         ExpressionAttributeValues={":participant_info": checked_in_user.to_dict()}
@@ -62,27 +50,28 @@ def check_in_user(event: DiscordEvent, aws_services: AWSServices) -> ResponseMes
     if event_data_result.participant_role:
         print(f"Assigning participant role {event_data_result.participant_role} to user {user_id}")
         discord_helper.add_role_to_user(
-            guild_id=event.get_server_id(),
+            guild_id=server_id,
             user_id=user_id,
             role_id=event_data_result.participant_role
         )
     return ResponseMessage(
         content=f"✅ Checked in {message_helper.get_user_ping(user_id)}!"
-    )
+    ).with_silent_pings()
 
 def show_checked_in(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
     """
-    Retrieves and displays a list of all currently checked-in users for the server event.
+    Retrieves and displays a list of all currently checked-in users for the event.
     Requires the calling user to have the organizer role.
     Returns a ResponseMessage with the list or an error/empty message.
     """
-    error_message = _verify_has_organizer_role(event, aws_services)
+    error_message = permissions_helper.verify_has_organizer_role(event, aws_services)
     if error_message:
         return error_message
 
     server_id = event.get_server_id()
+    event_id = event.get_command_input_value("event_name")
 
-    event_data_result = db_helper.get_server_event_data_or_fail(server_id, aws_services.dynamodb_table)
+    event_data_result = db_helper.get_server_event_data_or_fail(server_id, event_id, aws_services.dynamodb_table)
     if isinstance(event_data_result, ResponseMessage):
         return event_data_result
 
@@ -100,18 +89,19 @@ def show_checked_in(event: DiscordEvent, aws_services: AWSServices) -> ResponseM
 
 def clear_checked_in(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
     """
-    Clears all checked-in users from the server event record in DynamoDB.
+    Clears all checked-in users from the event record in DynamoDB.
     Queues jobs to remove the participant role from all cleared users.
     Requires the calling user to have the organizer role.
     Returns a ResponseMessage indicating success or failure.
     """
-    error_message = _verify_has_organizer_role(event, aws_services)
+    error_message = permissions_helper.verify_has_organizer_role(event, aws_services)
     if error_message:
         return error_message
 
     server_id = event.get_server_id()
+    event_id = event.get_command_input_value("event_name")
 
-    event_data_result = db_helper.get_server_event_data_or_fail(server_id, aws_services.dynamodb_table)
+    event_data_result = db_helper.get_server_event_data_or_fail(server_id, event_id, aws_services.dynamodb_table)
     if isinstance(event_data_result, ResponseMessage):
         return event_data_result
 
@@ -121,7 +111,7 @@ def clear_checked_in(event: DiscordEvent, aws_services: AWSServices) -> Response
         )
 
     aws_services.dynamodb_table.update_item(
-        Key={"PK": db_helper.build_server_pk(server_id), "SK": EventData.Keys.SK_SERVER},
+        Key={"PK": db_helper.build_server_pk(server_id), "SK": EventData.Keys.SK_EVENT_PREFIX + event_id},
         UpdateExpression=f"SET {EventData.Keys.CHECKED_IN} = :empty_map",
         ExpressionAttributeValues={":empty_map": {}}
     )
@@ -161,11 +151,12 @@ def _generate_participant_message(search_ids, source_dict, header, default_messa
         return default_message
 
 def show_not_checked_in(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
-    error_message = _verify_has_organizer_role(event, aws_services)
+    error_message = permissions_helper.verify_has_organizer_role(event, aws_services)
     if error_message:
         return error_message
 
-    event_data_result = db_helper.get_server_event_data_or_fail(event.get_server_id(), aws_services.dynamodb_table)
+    event_id = event.get_command_input_value("event_name")
+    event_data_result = db_helper.get_server_event_data_or_fail(event.get_server_id(), event_id, aws_services.dynamodb_table)
     if isinstance(event_data_result, ResponseMessage):
         return event_data_result
 
@@ -198,13 +189,14 @@ def show_not_checked_in(event: DiscordEvent, aws_services: AWSServices) -> Respo
     return response if should_ping_users else response.with_silent_pings()
 
 def toggle_check_in(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
-    error_message = _verify_has_organizer_role(event, aws_services)
+    error_message = permissions_helper.verify_has_organizer_role(event, aws_services)
     if error_message:
         return error_message
 
     server_id = event.get_server_id()
+    event_id = event.get_command_input_value("event_name")
 
-    event_data_result = db_helper.get_server_event_data_or_fail(server_id, aws_services.dynamodb_table)
+    event_data_result = db_helper.get_server_event_data_or_fail(server_id, event_id, aws_services.dynamodb_table)
     if isinstance(event_data_result, ResponseMessage):
         return event_data_result
 
@@ -213,7 +205,7 @@ def toggle_check_in(event: DiscordEvent, aws_services: AWSServices) -> ResponseM
     print(f"{EventData.Keys.CHECK_IN_ENABLED}: {should_enable} via input {check_in_state}")
 
     aws_services.dynamodb_table.update_item(
-        Key={"PK": db_helper.build_server_pk(event.get_server_id()), "SK": EventData.Keys.SK_SERVER},
+        Key={"PK": db_helper.build_server_pk(server_id), "SK": EventData.Keys.SK_EVENT_PREFIX + event_id},
         UpdateExpression=f"SET {EventData.Keys.CHECK_IN_ENABLED} = :enable",
         ExpressionAttributeValues={":enable": should_enable}
     )

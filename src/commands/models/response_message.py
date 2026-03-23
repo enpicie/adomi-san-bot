@@ -1,8 +1,8 @@
 from typing import Dict, List, Optional
 from discord import Embed
 
-import constants
 import utils.adomin_messages as adomin_messages
+from enums import DiscordCallbackType
 import commands.models.message_flags as message_flags
 
 class ResponseMessage:
@@ -38,7 +38,7 @@ class ResponseMessage:
             data["flags"] = self.flags
 
         return {
-            "type": constants.DISCORD_CALLBACK_TYPES["MESSAGE_WITH_SOURCE"],
+            "type": DiscordCallbackType.MESSAGE_WITH_SOURCE,
             "data": data
         }
 

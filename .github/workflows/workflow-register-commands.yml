@@ -11,7 +11,7 @@ on:
           - dev
           - prod
       command_name:
-        description: Name of command to register/update
+        description: "Command name ('league-join'), prefix ('league' = all league-* commands), or 'all'"
         required: true
         type: string
 
@@ -22,7 +22,7 @@ on:
         required: true
         type: string
       command_name:
-        description: Name of command to register/update
+        description: "Command name, prefix (e.g. 'league'), or 'all'"
         required: true
         type: string
     secrets:
@@ -37,7 +37,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Log Inputs
         shell: bash

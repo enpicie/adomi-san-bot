@@ -35,7 +35,7 @@ def build_participants_list(list_header: str, participants: List[Dict]) -> str:
         display_name = p[Participant.Keys.DISPLAY_NAME]
 
         if user_id == Participant.DEFAULT_ID_PLACEHOLDER:
-            line = f"{i}. {display_name}"
+            line = f"{i}. {display_name} *(no Discord linked)*"
         else:
             line = f"{i}. {get_user_ping(user_id)}: {display_name}"
         list_lines.append(line)
