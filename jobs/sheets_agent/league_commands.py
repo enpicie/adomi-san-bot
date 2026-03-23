@@ -105,14 +105,25 @@ def handle_league_join(event_body: dict, aws_services: AWSServices) -> str:
         print(f"[sheets_agent] league-join: RuntimeError: {e}")
         return "❌ The bot's Google Sheets integration is misconfigured. Contact the bot administrator."
 
-    # Cache participant data so sync can assign Discord roles before their sheet status becomes ACTIVE
+    # Cache participant data so sync can assign Discord roles before their sheet status becomes ACTIVE.
+    # DynamoDB rejects overlapping paths in one expression (parent map + nested key), so we init the
+    # map first (no-op if it already exists), then write the nested key separately.
     if snowflake:
         queued_entry = {"discord_id": snowflake, "display_name": participant_name}
+        try:
+            aws_services.dynamodb_table.update_item(
+                Key=db_helper.league_key(server_id, league_id),
+                UpdateExpression="SET queued_participants = :empty",
+                ConditionExpression="attribute_not_exists(queued_participants)",
+                ExpressionAttributeValues={":empty": {}},
+            )
+        except aws_services.dynamodb_table.meta.client.exceptions.ConditionalCheckFailedException:
+            pass  # map already exists — nothing to do
         aws_services.dynamodb_table.update_item(
             Key=db_helper.league_key(server_id, league_id),
-            UpdateExpression="SET queued_participants = if_not_exists(queued_participants, :empty), queued_participants.#u = :entry",
+            UpdateExpression="SET queued_participants.#u = :entry",
             ExpressionAttributeNames={"#u": discord_id},
-            ExpressionAttributeValues={":empty": {}, ":entry": queued_entry},
+            ExpressionAttributeValues={":entry": queued_entry},
         )
 
     config = db_helper.get_server_config(server_id, aws_services.dynamodb_table)
