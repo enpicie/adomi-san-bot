@@ -3,7 +3,7 @@ data "aws_dynamodb_table" "adomi_table" {
 }
 
 data "aws_sqs_queue" "remove_role" {
-  name = var.sqs_worker_name
+  name = "${var.sqs_worker_name}-${var.deployment_env}"
 }
 
 data "aws_secretsmanager_secret" "startgg_oauth_credentials" {
