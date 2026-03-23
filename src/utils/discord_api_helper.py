@@ -1,8 +1,16 @@
 from dataclasses import dataclass
 from typing import Optional
 
+from enum import Enum
+
 import requests
 import constants
+
+
+class RoleAssignmentResult(Enum):
+    OK = "ok"
+    FORBIDDEN = "forbidden"
+    ERROR = "error"
 
 BOT_AUTH_HEADERS = {
     "Authorization": f"Bot {constants.DISCORD_BOT_TOKEN}",
@@ -16,10 +24,10 @@ class EventAlreadyActiveError(Exception):
     """Raised when Discord rejects a start_time update because the event is already active."""
     pass
 
-def add_role_to_user(guild_id: str, user_id: str, role_id: str) -> bool:
+def add_role_to_user(guild_id: str, user_id: str, role_id: str) -> RoleAssignmentResult:
     """
     Adds a role to a Discord guild member using the Discord REST API.
-    :return: True if successful (204 response), False otherwise
+    :return: RoleAssignmentResult.OK on success, .FORBIDDEN on 403, .ERROR otherwise
     """
     url = f"https://discord.com/api/v10/guilds/{guild_id}/members/{user_id}/roles/{role_id}"
     print(f"[discord] PUT {url}")
@@ -27,9 +35,11 @@ def add_role_to_user(guild_id: str, user_id: str, role_id: str) -> bool:
     print(f"[discord] Response status: {response.status_code} | body: {response.text}")
 
     if response.status_code == 204:
-        return True
+        return RoleAssignmentResult.OK
+    if response.status_code == 403:
+        return RoleAssignmentResult.FORBIDDEN
     print(f"[discord] Error adding role: status {response.status_code}, body: {response.text}")
-    return False
+    return RoleAssignmentResult.ERROR
 
 @dataclass
 class ScheduledEventParams:

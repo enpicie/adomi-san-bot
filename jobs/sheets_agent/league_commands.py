@@ -7,6 +7,7 @@ from aws_services import AWSServices
 import participants_sheet
 import db_helper
 import discord_api
+from discord_api import RoleAssignmentResult
 
 _SHEET_NOT_SHARED_MSG = (
     "📋 The bot cannot access this league's Google Sheet. "
@@ -207,14 +208,18 @@ def handle_league_sync_participants(event_body: dict, aws_services: AWSServices)
     remove_snowflakes = []
     role_assigned_handles = []
     role_failed_handles = []
+    role_forbidden = False
 
     if active_participant_role:
         for handle in added_handles:
             snowflake = new_active_players[handle]["discord_id"]
             if snowflake:
-                success = discord_api.add_discord_role(guild_id=server_id, user_id=snowflake, role_id=active_participant_role)
-                if success:
+                result = discord_api.add_discord_role(guild_id=server_id, user_id=snowflake, role_id=active_participant_role)
+                if result == RoleAssignmentResult.OK:
                     role_assigned_handles.append(handle)
+                elif result == RoleAssignmentResult.FORBIDDEN:
+                    role_forbidden = True
+                    role_failed_handles.append(handle)
                 else:
                     role_failed_handles.append(handle)
                 time.sleep(0.5)
@@ -260,7 +265,13 @@ def handle_league_sync_participants(event_body: dict, aws_services: AWSServices)
             lines.append(f"• Role assigned to {len(role_assigned_handles)} new player(s)")
         if remove_snowflakes:
             lines.append(f"• Role removal queued for {len(remove_snowflakes)} player(s)")
-        if role_failed_handles:
+        if role_forbidden:
+            lines.append(
+                "• ❌ Adomin does not have permission to assign the participant role. "
+                "Ensure the participant role is lower in priority than Adomin's role "
+                "(we recommend making Adomin's role high priority)."
+            )
+        elif role_failed_handles:
             lines.append(
                 f"• ❌ Role assignment failed for {len(role_failed_handles)} player(s) — check bot permissions: "
                 f"{', '.join(f'`{h}`' for h in role_failed_handles)}"
