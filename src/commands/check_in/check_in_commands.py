@@ -58,8 +58,7 @@ def check_in_user(event: DiscordEvent, aws_services: AWSServices) -> ResponseMes
         if role_result == RoleAssignmentResult.FORBIDDEN:
             return ResponseMessage(
                 content=(
-                    f"✅ Checked in {message_helper.get_user_ping(user_id)}!
-"
+                    f"✅ Checked in {message_helper.get_user_ping(user_id)}!"
                     "⚠️ Adomin does not have permission to assign the participant role. "
                     "Ensure the participant role is lower in priority than Adomin's role "
                     "(we recommend making Adomin's role high priority)."
