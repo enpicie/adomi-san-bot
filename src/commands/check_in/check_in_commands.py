@@ -1,6 +1,7 @@
 import commands.check_in.check_in_constants as check_in_constants
 import database.dynamodb_utils as db_helper
 import utils.discord_api_helper as discord_helper
+from utils.discord_api_helper import RoleAssignmentResult
 import utils.message_helper as message_helper
 import utils.permissions_helper as permissions_helper
 import commands.check_in.queue_role_removal as role_removal_queue
@@ -49,11 +50,21 @@ def check_in_user(event: DiscordEvent, aws_services: AWSServices) -> ResponseMes
     )
     if event_data_result.participant_role:
         print(f"Assigning participant role {event_data_result.participant_role} to user {user_id}")
-        discord_helper.add_role_to_user(
+        role_result = discord_helper.add_role_to_user(
             guild_id=server_id,
             user_id=user_id,
             role_id=event_data_result.participant_role
         )
+        if role_result == RoleAssignmentResult.FORBIDDEN:
+            return ResponseMessage(
+                content=(
+                    f"✅ Checked in {message_helper.get_user_ping(user_id)}!
+"
+                    "⚠️ Adomin does not have permission to assign the participant role. "
+                    "Ensure the participant role is lower in priority than Adomin's role "
+                    "(we recommend making Adomin's role high priority)."
+                )
+            ).with_silent_pings()
     return ResponseMessage(
         content=f"✅ Checked in {message_helper.get_user_ping(user_id)}!"
     ).with_silent_pings()

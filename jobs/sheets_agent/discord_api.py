@@ -3,7 +3,16 @@ import time
 
 import requests
 
+from enum import Enum
+
 import constants
+
+
+class RoleAssignmentResult(Enum):
+    OK = "ok"
+    FORBIDDEN = "forbidden"
+    ERROR = "error"
+
 
 DISCORD_API_BASE = "https://discord.com/api/v10"
 
@@ -39,10 +48,15 @@ def _extract_role_id(role_id: str) -> str:
     return role_id
 
 
-def add_discord_role(guild_id: str, user_id: str, role_id: str) -> bool:
+def add_discord_role(guild_id: str, user_id: str, role_id: str) -> RoleAssignmentResult:
+    """Returns RoleAssignmentResult.OK on success, .FORBIDDEN on 403, .ERROR otherwise."""
     url = f"{DISCORD_API_BASE}/guilds/{guild_id}/members/{user_id}/roles/{_extract_role_id(role_id)}"
     response = discord_request("PUT", url)
-    return response.status_code == 204
+    if response.status_code == 204:
+        return RoleAssignmentResult.OK
+    if response.status_code == 403:
+        return RoleAssignmentResult.FORBIDDEN
+    return RoleAssignmentResult.ERROR
 
 
 def search_discord_member(guild_id: str, username: str) -> str | None:
@@ -65,10 +79,11 @@ def search_member_by_display_name(guild_id: str, display_name: str) -> tuple[str
     if response.status_code != 200:
         return None
     matches = []
+    display_name_lower = display_name.lower()
     for member in response.json():
         nick = member.get("nick") or ""
         global_name = member.get("user", {}).get("global_name") or ""
-        if nick == display_name or global_name == display_name:
+        if nick.lower() == display_name_lower or global_name.lower() == display_name_lower:
             matches.append((member["user"]["id"], member["user"]["username"]))
     return matches[0] if len(matches) == 1 else None
 
