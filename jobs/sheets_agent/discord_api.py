@@ -59,15 +59,27 @@ def add_discord_role(guild_id: str, user_id: str, role_id: str) -> RoleAssignmen
     return RoleAssignmentResult.ERROR
 
 
-def search_discord_member(guild_id: str, username: str) -> str | None:
-    """Look up a Discord snowflake by exact username handle via guild member search."""
-    url = f"{DISCORD_API_BASE}/guilds/{guild_id}/members/search"
-    response = discord_request("GET", url, params={"query": username, "limit": 10})
-    if response.status_code != 200:
-        return None
-    for member in response.json():
-        if member.get("user", {}).get("username") == username:
-            return member["user"]["id"]
+def search_discord_member(guild_id: str, username: str, participant_name: str | None = None) -> str | None:
+    """Look up a Discord snowflake by username handle, with case-insensitive fallback matching
+    against username, nick, and global_name. If not found and participant_name is provided (and
+    differs from the handle), retries the search using participant_name as the query."""
+    queries = [username]
+    if participant_name and participant_name.strip().lower() != username.strip().lower():
+        queries.append(participant_name)
+
+    for query in queries:
+        url = f"{DISCORD_API_BASE}/guilds/{guild_id}/members/search"
+        response = discord_request("GET", url, params={"query": query, "limit": 10})
+        if response.status_code != 200:
+            continue
+        query_lower = query.strip().lower()
+        for member in response.json():
+            user = member.get("user", {})
+            if any(
+                (user.get(field) or "").strip().lower() == query_lower
+                for field in ("username", "global_name")
+            ) or (member.get("nick") or "").strip().lower() == query_lower:
+                return user["id"]
     return None
 
 

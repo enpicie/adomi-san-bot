@@ -181,7 +181,7 @@ def handle_league_sync_participants(event_body: dict, aws_services: AWSServices)
     # Phase 2: API lookup for handles with no cached snowflake (manually added to sheet)
     api_unresolved = []
     for handle in needs_api_lookup:
-        snowflake = discord_api.search_discord_member(server_id, handle)
+        snowflake = discord_api.search_discord_member(server_id, handle, participant_name=current_active.get(handle))
         if snowflake:
             resolved_snowflakes[handle] = snowflake
             print(f"[sync] resolved snowflake via API for handle={handle!r}")
@@ -211,7 +211,7 @@ def handle_league_sync_participants(event_body: dict, aws_services: AWSServices)
     role_forbidden = False
 
     if active_participant_role:
-        for handle in added_handles:
+        for handle in new_handles:
             snowflake = new_active_players[handle]["discord_id"]
             if snowflake:
                 result = discord_api.add_discord_role(guild_id=server_id, user_id=snowflake, role_id=active_participant_role)
@@ -262,7 +262,7 @@ def handle_league_sync_participants(event_body: dict, aws_services: AWSServices)
         lines.append("• No changes")
     if active_participant_role:
         if role_assigned_handles:
-            lines.append(f"• Role assigned to {len(role_assigned_handles)} new player(s)")
+            lines.append(f"• Role assigned to {len(role_assigned_handles)} player(s)")
         if remove_snowflakes:
             lines.append(f"• Role removal queued for {len(remove_snowflakes)} player(s)")
         if role_forbidden:
