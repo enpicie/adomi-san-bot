@@ -100,15 +100,21 @@ def handler(event, context):
             server_config = db.get_server_config(table, server_id)
             if server_config:
                 discord.send_oauth_notification(server_config, discord_user_id)
+            else:
+                logger.warning(f"[oauth:handler] No server config found for server_id={server_id!r}, skipping notification")
         except Exception as e:
             logger.error(f"Failed to send OAuth notification for server {server_id}: {e}")
     else:
         logger.warning(f"No server_id in state for Discord user {discord_user_id}; server config not updated")
 
+    logger.info(f"[oauth:handler] Redirect — server_id={server_id!r}, channel_id={channel_id!r}")
     if server_id and channel_id:
+        redirect_url = f"https://discord.com/channels/{server_id}/{channel_id}"
+        logger.info(f"[oauth:handler] Redirecting to {redirect_url!r}")
         return {
             "statusCode": 302,
-            "headers": {"Location": f"https://discord.com/channels/{server_id}/{channel_id}"},
+            "headers": {"Location": redirect_url},
             "body": "",
         }
+    logger.warning(f"[oauth:handler] Missing server_id or channel_id, returning HTML success page")
     return _html_response(200, "Connected!", "Your start.gg account has been linked to Discord. You can close this window.")
