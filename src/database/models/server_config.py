@@ -11,6 +11,7 @@ class ServerConfig(SubscriptableMixin):
         SK_CONFIG = "CONFIG"
 
         SERVER_ID = "server_id"
+        SERVER_NAME = "server_name"
         ORGANIZER_ROLE = "organizer_role"
         DEFAULT_PARTICIPANT_ROLE = "default_participant_role"
         NOTIFICATION_CHANNEL_ID = "notification_channel_id"
@@ -18,6 +19,7 @@ class ServerConfig(SubscriptableMixin):
         STARTGG_OAUTH_TOKEN = "oauth_token_startgg"
 
     server_id: str = field(metadata={'db_key': Keys.SERVER_ID})
+    server_name: str = field(metadata={'db_key': Keys.SERVER_NAME})
     organizer_role: str = field(metadata={'db_key': Keys.ORGANIZER_ROLE})
     default_participant_role: str = field(metadata={'db_key': Keys.DEFAULT_PARTICIPANT_ROLE})
     notification_channel_id: Optional[str] = field(default=None, metadata={'db_key': Keys.NOTIFICATION_CHANNEL_ID})
@@ -28,6 +30,7 @@ class ServerConfig(SubscriptableMixin):
     def from_dynamodb(cls, record: Dict[str, Any]) -> 'ServerConfig':
         return cls(
             server_id=record[cls.Keys.SERVER_ID],
+            server_name=record.get(cls.Keys.SERVER_NAME),
             organizer_role=record.get(cls.Keys.ORGANIZER_ROLE),
             default_participant_role=record.get(cls.Keys.DEFAULT_PARTICIPANT_ROLE),
             notification_channel_id=record.get(cls.Keys.NOTIFICATION_CHANNEL_ID),

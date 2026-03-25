@@ -1,6 +1,7 @@
 from mypy_boto3_dynamodb.service_resource import Table
 
 import database.dynamodb_utils as db_helper
+import utils.discord_api_helper as discord_helper
 import utils.permissions_helper as permissions_helper
 from aws_services import AWSServices
 from commands.models.discord_event import DiscordEvent
@@ -28,11 +29,15 @@ def setup_server(event: DiscordEvent, aws_services: AWSServices) -> ResponseMess
 
     pk = db_helper.build_server_pk(server_id)
 
+    server_name = discord_helper.get_guild_name(server_id)
+    print(f"[setup] Fetched server name: {server_name!r} for server_id={server_id!r}")
+
     table.put_item(
         Item={
             "PK": pk,
             "SK": ServerConfig.Keys.SK_CONFIG,
             ServerConfig.Keys.SERVER_ID: server_id,
+            ServerConfig.Keys.SERVER_NAME: server_name,
             ServerConfig.Keys.ORGANIZER_ROLE: organizer_role
         }
     )

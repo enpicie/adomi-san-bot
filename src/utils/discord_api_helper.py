@@ -20,6 +20,20 @@ BOT_AUTH_HEADERS = {
 _START_TIME_LOCKED_CODE = "GUILD_SCHEDULED_EVENT_SCHEDULE_INVALID_START_BY_STATUS"
 
 
+def get_guild_name(guild_id: str) -> Optional[str]:
+    """
+    Fetches the guild name from the Discord API.
+    :return: The guild name, or None if the request fails.
+    """
+    url = f"https://discord.com/api/v10/guilds/{guild_id}"
+    response = requests.get(url, headers=BOT_AUTH_HEADERS)
+    print(f"[discord] GET {url} -> {response.status_code}")
+    if response.status_code == 200:
+        return response.json().get("name")
+    print(f"[discord] Error fetching guild: status {response.status_code}, body: {response.text}")
+    return None
+
+
 class EventAlreadyActiveError(Exception):
     """Raised when Discord rejects a start_time update because the event is already active."""
     pass
