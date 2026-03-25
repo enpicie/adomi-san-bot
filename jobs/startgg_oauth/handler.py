@@ -93,9 +93,6 @@ def handler(event, context):
         logger.error(f"No access_token in token response: {token_data}")
         return _html_response(500, "Authorization Failed", "Could not retrieve access token. Please try again.")
 
-    db.store_user_tokens(table, discord_user_id, access_token, refresh_token, expires_in)
-    logger.info(f"[oauth:handler] Stored start.gg tokens for discord_user_id={discord_user_id!r}")
-
     if server_id:
         db.update_server_oauth_token(table, server_id, access_token, refresh_token, expires_in)
         logger.info(f"[oauth:handler] Updated server OAuth token for server_id={server_id!r}")
