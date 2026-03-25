@@ -2,6 +2,7 @@ from mypy_boto3_dynamodb.service_resource import Table
 
 import database.dynamodb_utils as db_helper
 import utils.discord_api_helper as discord_helper
+import utils.message_helper as message_helper
 import utils.permissions_helper as permissions_helper
 from aws_services import AWSServices
 from commands.models.discord_event import DiscordEvent
@@ -46,7 +47,12 @@ def setup_server(event: DiscordEvent, aws_services: AWSServices) -> ResponseMess
     )
 
     return ResponseMessage(
-        content="👍 Server setup complete."
+        content=(
+            "👍 Server setup complete"
+            f"with organizer role {message_helper.get_role_ping(organizer_role)}"
+            f" and notifications sent to {message_helper.get_channel_mention(notification_channel)}."
+            " Please ensure I have access to the notificaton channel and high role priority."
+        )
     )
 
 def set_organizer_role(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
@@ -99,7 +105,7 @@ def setup_notifications(event: DiscordEvent, aws_services: AWSServices) -> Respo
 
     ping_note = " Organizers will be pinged with notifications." if ping_organizers else ""
     return ResponseMessage(
-        content=f"👍 Notification channel updated successfully.{ping_note}"
+        content=f"👍 Notification channel updated successfully. Please ensure I have access to this channel. {ping_note}"
     )
 
 
