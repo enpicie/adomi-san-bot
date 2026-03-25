@@ -1,4 +1,7 @@
+import logging
 import time
+
+logger = logging.getLogger(__name__)
 
 _STATE_PK_PREFIX = "OAUTH_STATE#"
 _STATE_SK = "STATE"
@@ -7,12 +10,20 @@ _TOKEN_SK = "STARTGG_TOKEN"
 
 
 def consume_state(table, nonce: str) -> dict | None:
-    """Look up and delete the state nonce. Returns dict with discord_user_id and server_id, or None if not found."""
+    """Look up and delete the state nonce. Returns dict with discord_user_id and server_id, or None if not found/expired."""
     pk = f"{_STATE_PK_PREFIX}{nonce}"
+    logger.info(f"[oauth:db] Looking up state record: PK={pk!r}, table={table.name!r}")
     response = table.get_item(Key={"PK": pk, "SK": _STATE_SK})
     item = response.get("Item")
     if not item:
+        logger.warning(f"[oauth:db] State record not found for PK={pk!r}")
         return None
+    expires_at = item.get("expires_at", 0)
+    if expires_at and int(time.time()) > expires_at:
+        logger.warning(f"[oauth:db] State record expired (expires_at={expires_at}, now={int(time.time())})")
+        table.delete_item(Key={"PK": pk, "SK": _STATE_SK})
+        return None
+    logger.info(f"[oauth:db] State record found — discord_user_id={item.get('discord_user_id')!r}, server_id={item.get('server_id')!r}")
     table.delete_item(Key={"PK": pk, "SK": _STATE_SK})
     return {"discord_user_id": item["discord_user_id"], "server_id": item.get("server_id"), "channel_id": item.get("channel_id")}
 
