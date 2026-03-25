@@ -17,6 +17,23 @@ setup_commands: CommandMapping = {
                 param_type=AppCommandOptionType.role,
                 required=True,
                 choices=None
+            ),
+            CommandParam(
+                name="notification_channel",
+                description="Channel to post bot notifications in",
+                param_type=AppCommandOptionType.channel,
+                required=True,
+                choices=None
+            ),
+            CommandParam(
+                name="ping_organizers",
+                description="Ping the organizer role with notifications (default: False)",
+                param_type=AppCommandOptionType.boolean,
+                required=False,
+                choices=[
+                    ParamChoice(name="True", value=True),
+                    ParamChoice(name="False", value=False)
+                ]
             )
         ]
     },

@@ -25,7 +25,8 @@ def setup_server(event: DiscordEvent, aws_services: AWSServices) -> ResponseMess
         )
 
     organizer_role = event.get_command_input_value("organizer_role")
-    print(f"Organizer role: {organizer_role}")
+    notification_channel = event.get_command_input_value("notification_channel")
+    ping_organizers = event.get_command_input_value("ping_organizers") or False
 
     pk = db_helper.build_server_pk(server_id)
 
@@ -38,7 +39,9 @@ def setup_server(event: DiscordEvent, aws_services: AWSServices) -> ResponseMess
             "SK": ServerConfig.Keys.SK_CONFIG,
             ServerConfig.Keys.SERVER_ID: server_id,
             ServerConfig.Keys.SERVER_NAME: server_name,
-            ServerConfig.Keys.ORGANIZER_ROLE: organizer_role
+            ServerConfig.Keys.ORGANIZER_ROLE: organizer_role,
+            ServerConfig.Keys.NOTIFICATION_CHANNEL_ID: notification_channel,
+            ServerConfig.Keys.PING_ORGANIZERS: ping_organizers,
         }
     )
 
