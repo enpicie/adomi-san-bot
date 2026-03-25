@@ -9,14 +9,12 @@ from commands.models.response_message import ResponseMessage
 import commands.event.startgg.startgg_api as startgg_api
 from commands.event.startgg.startgg_api import StartggAuthError
 import database.dynamodb_utils as db_helper
+from database.models.oauth_state import OAuthState
 import utils.permissions_helper as permissions_helper
 
 _SCORE_PATTERN = re.compile(r"^(\d+)-(\d+)$")
 
 _STARTGG_OAUTH_BASE_URL = "https://start.gg/oauth/authorize"
-_OAUTH_STATE_PK_PREFIX = "OAUTH_STATE#"
-_OAUTH_STATE_SK = "STATE"
-_OAUTH_STATE_TTL_SECONDS = 600  # 10 minutes
 
 _AUTH_REQUIRED_MSG = (
     "A start.gg organizer account must be linked to this server before scores can be reported. "
@@ -42,14 +40,17 @@ def startgg_connect(event: DiscordEvent, aws_services: AWSServices) -> ResponseM
     server_id = event.get_server_id()
     discord_user_id = event.get_user_id()
 
+    pk = f"{OAuthState.Keys.PK_PREFIX}{nonce}"
+    print(f"[startgg:connect] Writing OAuth state — PK={pk!r}, table={aws_services.dynamodb_table.name!r}, server_id={server_id!r}, discord_user_id={discord_user_id!r}")
     aws_services.dynamodb_table.put_item(Item={
-        "PK": f"{_OAUTH_STATE_PK_PREFIX}{nonce}",
-        "SK": _OAUTH_STATE_SK,
-        "discord_user_id": discord_user_id,
-        "server_id": server_id,
-        "channel_id": event.get_channel_id(),
-        "expires_at": int(time.time()) + _OAUTH_STATE_TTL_SECONDS,
+        "PK": pk,
+        "SK": OAuthState.Keys.SK,
+        OAuthState.Keys.DISCORD_USER_ID: discord_user_id,
+        OAuthState.Keys.SERVER_ID: server_id,
+        OAuthState.Keys.CHANNEL_ID: event.get_channel_id(),
+        OAuthState.Keys.EXPIRES_AT: int(time.time()) + OAuthState.Keys.TTL_SECONDS,
     })
+    print(f"[startgg:connect] OAuth state written successfully — PK={pk!r}")
 
     oauth_url = (
         f"{_STARTGG_OAUTH_BASE_URL}"

@@ -5,8 +5,8 @@ import os
 import boto3
 import requests
 
-from db import consume_state, get_server_config, store_user_tokens, update_server_oauth_token
-from discord import send_oauth_notification
+import db
+import discord
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -49,12 +49,14 @@ def handler(event, context):
     code = params.get("code")
     state = params.get("state")
 
+    logger.info(f"[oauth:handler] Callback received — code_present={bool(code)}, state_present={bool(state)}, table={DYNAMODB_TABLE_NAME!r}")
+
     if not code or not state:
         logger.warning("OAuth callback missing code or state params")
         return _html_response(400, "Authorization Failed", "Missing required parameters. Please try connecting again.")
 
     table = dynamodb.Table(DYNAMODB_TABLE_NAME)
-    state_data = consume_state(table, state)
+    state_data = db.consume_state(table, state)
 
     if not state_data:
         logger.warning(f"No valid state record for nonce: {state}")
@@ -64,6 +66,7 @@ def handler(event, context):
     server_id = state_data.get("server_id")
     channel_id = state_data.get("channel_id")
 
+    logger.info(f"[oauth:handler] Exchanging code for token — discord_user_id={discord_user_id!r}, server_id={server_id!r}")
     credentials = _get_oauth_credentials()
     token_response = requests.post(
         STARTGG_TOKEN_URL,
@@ -90,16 +93,16 @@ def handler(event, context):
         logger.error(f"No access_token in token response: {token_data}")
         return _html_response(500, "Authorization Failed", "Could not retrieve access token. Please try again.")
 
-    store_user_tokens(table, discord_user_id, access_token, refresh_token, expires_in)
-    logger.info(f"Stored start.gg OAuth tokens for Discord user {discord_user_id}")
+    db.store_user_tokens(table, discord_user_id, access_token, refresh_token, expires_in)
+    logger.info(f"[oauth:handler] Stored start.gg tokens for discord_user_id={discord_user_id!r}")
 
     if server_id:
-        update_server_oauth_token(table, server_id, access_token, refresh_token, expires_in)
-        logger.info(f"Updated start.gg OAuth token for Discord server {server_id}")
+        db.update_server_oauth_token(table, server_id, access_token, refresh_token, expires_in)
+        logger.info(f"[oauth:handler] Updated server OAuth token for server_id={server_id!r}")
         try:
-            server_config = get_server_config(table, server_id)
+            server_config = db.get_server_config(table, server_id)
             if server_config:
-                send_oauth_notification(server_config, discord_user_id)
+                discord.send_oauth_notification(server_config, discord_user_id)
         except Exception as e:
             logger.error(f"Failed to send OAuth notification for server {server_id}: {e}")
     else:
