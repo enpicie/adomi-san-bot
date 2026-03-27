@@ -113,6 +113,23 @@ league_commands_mapping: CommandMapping = {
         "description": "Sync participants from the league's Google Sheet, assigning/removing the active participant role",
         "params": [LEAGUE_NAME_PARAM]
     },
+    "league-report-toggle": {
+        "function": league_commands.toggle_report_score,
+        "description": "Toggle whether score reporting is enabled for a league (Organizer only)",
+        "params": [
+            LEAGUE_NAME_PARAM,
+            CommandParam(
+                name="state",
+                description="Set to 'Start' to open score reporting, and set to 'End' to close it",
+                param_type=AppCommandOptionType.string,
+                required=True,
+                choices=[
+                    ParamChoice(name="Start", value="Start"),
+                    ParamChoice(name="End", value="End")
+                ]
+            )
+        ]
+    },
     "league-report-score": {
         "function": league_commands.report_score,
         "description": "Report the result of a league match and update the score sheet",

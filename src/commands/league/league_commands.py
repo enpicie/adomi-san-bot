@@ -60,6 +60,7 @@ def create_league(event: DiscordEvent, aws_services: AWSServices) -> ResponseMes
         LeagueData.Keys.GOOGLE_SHEETS_LINK: google_sheets_link,
         LeagueData.Keys.ACTIVE_PLAYERS: {},
         LeagueData.Keys.JOIN_ENABLED: False,
+        LeagueData.Keys.REPORT_ENABLED: False,
     }
     if active_participant_role:
         item[LeagueData.Keys.ACTIVE_PARTICIPANT_ROLE] = active_participant_role
@@ -160,6 +161,7 @@ def view_league(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessa
             f"• Google Sheet: {league_data.google_sheets_link}\n"
             f"• Active Players: {player_count}\n"
             f"• Join Enabled: {'✅' if league_data.join_enabled else '❌'}\n"
+            f"• Report Enabled: {'✅' if league_data.report_enabled else '❌'}\n"
             f"• Active Participant Role: {role_display}"
         )
     ).with_silent_pings()
@@ -211,8 +213,48 @@ def sync_active_participants(event: DiscordEvent, aws_services: AWSServices) -> 
 
 
 def report_score(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
+    server_id = event.get_server_id()
+    league_id = event.get_command_input_value("league_name")  # autocomplete value = league_id
+
+    league_data = db_helper.get_server_league_data_or_fail(server_id, league_id, aws_services.dynamodb_table)
+    if isinstance(league_data, ResponseMessage):
+        return league_data
+
+    if not league_data.report_enabled:
+        return ResponseMessage(content="❌ Score reporting is currently closed for this league.")
+
     _dispatch_to_sheets_agent("league-report-score", event, aws_services)
     return ResponseMessage(content="⏳ Reporting score...")
+
+
+def toggle_report_score(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
+    error_message = permissions_helper.verify_has_organizer_role(event, aws_services)
+    if error_message:
+        return error_message
+
+    server_id = event.get_server_id()
+    league_id = event.get_command_input_value("league_name")  # autocomplete value = league_id
+
+    league_data = db_helper.get_server_league_data_or_fail(server_id, league_id, aws_services.dynamodb_table)
+    if isinstance(league_data, ResponseMessage):
+        return league_data
+
+    report_state = event.get_command_input_value("state")
+    should_enable = report_state == "Start"
+    print(f"{LeagueData.Keys.REPORT_ENABLED}: {should_enable} via input {report_state}")
+
+    aws_services.dynamodb_table.update_item(
+        Key={"PK": db_helper.build_server_pk(server_id), "SK": LeagueData.Keys.SK_LEAGUE_PREFIX + league_id},
+        UpdateExpression=f"SET {LeagueData.Keys.REPORT_ENABLED} = :report_enabled",
+        ExpressionAttributeValues={":report_enabled": should_enable}
+    )
+
+    content = (
+        f"🟢 Score reporting started! Participants can now report scores for **{league_data.league_name}** with `/league-report-score`"
+        if should_enable
+        else f"🔴 Score reporting closed! **{league_data.league_name}** will no longer accept score reports."
+    )
+    return ResponseMessage(content=content)
 
 
 def delete_league(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
