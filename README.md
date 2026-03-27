@@ -345,8 +345,10 @@ League commands manage long-running competitive leagues tracked via Google Sheet
 | `/league-setup`             | Organizer                             | Initialize (or re-apply styling to) the Participants sheet                |
 | `/league-delete`            | Organizer                             | Delete a league record                                                    |
 | `/league-join-toggle`       | Organizer                             | Open or close joining for a league                                        |
+| `/league-report-toggle`     | Organizer                             | Open or close score reporting for a league                                |
 | `/league-sync-participants` | Organizer                             | Sync active participants from the sheet, assigning/removing Discord roles |
 | `/league-join`              | Any user                              | Join a league — adds you to the Participants sheet                        |
+| `/league-report-score`      | Any user                              | Report the result of a league match and update the score sheet            |
 | `/league-deactivate`        | Any user (organizer to target others) | Mark yourself (or another player) as inactive or DNF                      |
 
 **`/league-create` parameters:**
@@ -379,6 +381,24 @@ League commands manage long-running competitive leagues tracked via Google Sheet
 | ------------- | ------ | -------- | ----------------------------------------------- |
 | `league_name` | string | yes      | League to target (autocomplete)                 |
 | `state`       | choice | yes      | `Start` (open joining) or `End` (close joining) |
+
+**`/league-report-toggle` parameters:**
+
+| Parameter     | Type   | Required | Description                                              |
+| ------------- | ------ | -------- | -------------------------------------------------------- |
+| `league_name` | string | yes      | League to target (autocomplete)                          |
+| `state`       | choice | yes      | `Start` (open score reporting) or `End` (close it)       |
+
+**`/league-report-score` parameters:**
+
+| Parameter     | Type   | Required | Description                                                                 |
+| ------------- | ------ | -------- | --------------------------------------------------------------------------- |
+| `league_name` | string | yes      | League to target (autocomplete)                                             |
+| `winner`      | user   | yes      | Player who won the match                                                    |
+| `loser`       | user   | yes      | Player who lost the match                                                   |
+| `score`       | string | yes      | Score in `<winner games>-<loser games>` format, e.g. `3-2` (winner first)  |
+
+Score reporting must be enabled by an organizer via `/league-report-toggle` before participants can submit results.
 
 **`/league-deactivate` parameters:**
 
