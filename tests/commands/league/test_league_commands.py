@@ -4,7 +4,7 @@ from unittest.mock import Mock, patch
 
 from commands.league.league_commands import (
     create_league, update_league, sync_active_participants,
-    join_league, setup_league, toggle_join_league, LEAGUE_ID_MAX_LENGTH,
+    join_league, setup_league, toggle_join_league, toggle_report_score, LEAGUE_ID_MAX_LENGTH,
     deactivate_league_participant, report_score,
 )
 from commands.models.response_message import ResponseMessage
@@ -17,6 +17,7 @@ def _make_league(
     google_sheets_link="https://docs.google.com/spreadsheets/d/abc/edit",
     active_players=None,
     join_enabled=False,
+    report_enabled=False,
     active_participant_role=None,
 ):
     return LeagueData(
@@ -25,6 +26,7 @@ def _make_league(
         google_sheets_link=google_sheets_link,
         active_players=active_players or {},
         join_enabled=join_enabled,
+        report_enabled=report_enabled,
         active_participant_role=active_participant_role,
     )
 
@@ -243,12 +245,72 @@ class TestToggleJoinLeague(unittest.TestCase):
 
 
 class TestReportScore(unittest.TestCase):
-    def test_dispatches_to_sheets_agent_and_returns_ack(self):
+    @patch("commands.league.league_commands.db_helper")
+    def test_dispatches_to_sheets_agent_when_report_enabled(self, mock_db):
+        mock_db.get_server_league_data_or_fail.return_value = _make_league(report_enabled=True)
         aws = _make_aws()
-        result = report_score(_make_event(), aws)
+        event = _make_event(inputs={"league_name": "TST"})
+        result = report_score(event, aws)
         self.assertIsInstance(result, ResponseMessage)
         aws.sheets_agent_sqs_queue.send_message.assert_called_once()
         self.assertEqual(_get_dispatched_command(aws), "league-report-score")
+
+    @patch("commands.league.league_commands.db_helper")
+    def test_returns_error_when_report_disabled(self, mock_db):
+        mock_db.get_server_league_data_or_fail.return_value = _make_league(report_enabled=False)
+        aws = _make_aws()
+        event = _make_event(inputs={"league_name": "TST"})
+        result = report_score(event, aws)
+        self.assertIsInstance(result, ResponseMessage)
+        self.assertIn("closed", result.content)
+        aws.sheets_agent_sqs_queue.send_message.assert_not_called()
+
+    @patch("commands.league.league_commands.db_helper")
+    def test_returns_error_when_league_not_found(self, mock_db):
+        mock_db.get_server_league_data_or_fail.return_value = ResponseMessage(content="not found")
+        aws = _make_aws()
+        event = _make_event(inputs={"league_name": "TST"})
+        result = report_score(event, aws)
+        self.assertIn("not found", result.content)
+        aws.sheets_agent_sqs_queue.send_message.assert_not_called()
+
+
+class TestToggleReportScore(unittest.TestCase):
+    @patch("commands.league.league_commands.permissions_helper")
+    @patch("commands.league.league_commands.db_helper")
+    def test_enables_reporting_when_state_is_start(self, mock_db, mock_perms):
+        mock_perms.verify_has_organizer_role.return_value = None
+        mock_db.get_server_league_data_or_fail.return_value = _make_league(report_enabled=False)
+        mock_db.build_server_pk.return_value = "SERVER#server123"
+        aws = _make_aws()
+        event = _make_event(inputs={"league_name": "TST", "state": "Start"})
+
+        result = toggle_report_score(event, aws)
+
+        update_kwargs = aws.dynamodb_table.update_item.call_args.kwargs
+        self.assertTrue(update_kwargs["ExpressionAttributeValues"][":report_enabled"])
+        self.assertIn("started", result.content)
+
+    @patch("commands.league.league_commands.permissions_helper")
+    @patch("commands.league.league_commands.db_helper")
+    def test_disables_reporting_when_state_is_not_start(self, mock_db, mock_perms):
+        mock_perms.verify_has_organizer_role.return_value = None
+        mock_db.get_server_league_data_or_fail.return_value = _make_league(report_enabled=True)
+        mock_db.build_server_pk.return_value = "SERVER#server123"
+        aws = _make_aws()
+        event = _make_event(inputs={"league_name": "TST", "state": "End"})
+
+        result = toggle_report_score(event, aws)
+
+        update_kwargs = aws.dynamodb_table.update_item.call_args.kwargs
+        self.assertFalse(update_kwargs["ExpressionAttributeValues"][":report_enabled"])
+        self.assertIn("closed", result.content)
+
+    @patch("commands.league.league_commands.permissions_helper")
+    def test_missing_organizer_role_returns_error(self, mock_perms):
+        mock_perms.verify_has_organizer_role.return_value = ResponseMessage(content="no permission")
+        result = toggle_report_score(_make_event(), _make_aws())
+        self.assertIn("no permission", result.content)
 
 
 class TestDeactivateLeagueParticipant(unittest.TestCase):
