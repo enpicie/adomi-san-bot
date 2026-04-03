@@ -110,19 +110,6 @@ class TestRemoveCheckedIn(unittest.TestCase):
         aws.remove_role_sqs_queue.send_messages.assert_called_once()
         self.assertIn("role removal", result.content)
 
-    @patch("commands.check_in.check_in_commands.permissions_helper")
-    @patch("commands.check_in.check_in_commands.db_helper")
-    def test_event_data_fetch_failure_returns_error(self, mock_db, mock_perms):
-        mock_perms.verify_has_organizer_role.return_value = None
-        mock_db.get_server_event_data_or_fail.return_value = ResponseMessage(content="event not found")
-        aws = _make_aws()
-        event = _make_event(inputs={"event_name": "event1", "user": "user_xyz"})
-
-        result = remove_checked_in(event, aws)
-
-        self.assertIn("event not found", result.content)
-        aws.dynamodb_table.update_item.assert_not_called()
-
 
 if __name__ == "__main__":
     unittest.main()

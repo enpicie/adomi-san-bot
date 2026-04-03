@@ -108,14 +108,15 @@ def find_set_between_players(
     is_completed = latest.get("state") == _SET_STATE_COMPLETED
     return str(latest["id"]), {eid: eid for eid in player_ids}, is_completed
 
-def report_set(set_id: str, winner_entrant_id: str, game_data: list[dict], oauth_token: str) -> None:
+def report_set(set_id: str, winner_entrant_id: str, game_data: list[dict], oauth_token: str, *, is_dq: bool = False) -> None:
     """
     Reports a set result on start.gg using the server's OAuth token.
     game_data: list of {"winnerId": entrant_id, "gameNum": int}
+    is_dq: if True, reports the set as a DQ with the loser being the non-winner.
     Raises StartggAuthError if the token is invalid or expired.
     """
     headers = {"Authorization": f"Bearer {oauth_token}"}
-    variables = {"setId": set_id, "winnerId": winner_entrant_id, "gameData": game_data}
+    variables = {"setId": set_id, "winnerId": winner_entrant_id, "isDQ": is_dq, "gameData": game_data}
 
     response = _post_graphql(variables, startgg_graphql.REPORT_SET_MUTATION, headers)
 

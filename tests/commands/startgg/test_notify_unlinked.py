@@ -20,9 +20,10 @@ def _make_aws():
     return aws
 
 
-def _make_event_data(startgg_url="https://start.gg/tournament/test/event/bracket"):
+def _make_event_data(startgg_url="https://start.gg/tournament/test/event/bracket", registered=None):
     data = Mock(spec=EventData)
     data.startgg_url = startgg_url
+    data.registered = registered if registered is not None else {}
     return data
 
 
@@ -65,6 +66,7 @@ class TestNotifyUnlinked(unittest.TestCase):
     def test_all_linked_returns_success_message(self, mock_api, mock_db, mock_perms):
         mock_perms.verify_has_organizer_role.return_value = None
         mock_db.get_server_event_data_or_fail.return_value = _make_event_data()
+        mock_api.query_startgg_event.return_value.participants = []
         mock_api.query_startgg_event.return_value.no_discord_participants = []
         event = _make_event(inputs={"event_name": "evt1"})
         result = notify_unlinked(event, _make_aws())
@@ -77,6 +79,7 @@ class TestNotifyUnlinked(unittest.TestCase):
     def test_unlinked_participants_listed_in_response(self, mock_api, mock_db, mock_perms):
         mock_perms.verify_has_organizer_role.return_value = None
         mock_db.get_server_event_data_or_fail.return_value = _make_event_data()
+        mock_api.query_startgg_event.return_value.participants = []
         mock_api.query_startgg_event.return_value.no_discord_participants = [
             _make_participant("PlayerOne"),
             _make_participant("PlayerTwo"),
