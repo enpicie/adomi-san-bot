@@ -198,6 +198,51 @@ def show_not_checked_in(event: DiscordEvent, aws_services: AWSServices) -> Respo
 
     return response if should_ping_users else response.with_silent_pings()
 
+def remove_checked_in(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
+    """
+    Removes a specified user from the 'checked_in' map for the event record in DynamoDB.
+    Queues a job to remove the participant role from the user if configured.
+    Requires the calling user to have the organizer role.
+    Returns a ResponseMessage indicating success or failure.
+    """
+    error_message = permissions_helper.verify_has_organizer_role(event, aws_services)
+    if error_message:
+        return error_message
+
+    server_id = event.get_server_id()
+    event_id = event.get_command_input_value("event_name")
+    user_id = event.get_command_input_value("user")
+
+    event_data_result = db_helper.get_server_event_data_or_fail(server_id, event_id, aws_services.dynamodb_table)
+    if isinstance(event_data_result, ResponseMessage):
+        return event_data_result
+
+    if user_id not in event_data_result.checked_in:
+        return ResponseMessage(
+            content=f"⚠️ {message_helper.get_user_ping(user_id)} is not checked in for this event."
+        ).with_silent_pings()
+
+    aws_services.dynamodb_table.update_item(
+        Key={"PK": db_helper.build_server_pk(server_id), "SK": EventData.Keys.SK_EVENT_PREFIX + event_id},
+        UpdateExpression=f"REMOVE {EventData.Keys.CHECKED_IN}.#uid",
+        ExpressionAttributeNames={"#uid": user_id}
+    )
+
+    content = f"✅ {message_helper.get_user_ping(user_id)} has been removed from check-in"
+
+    if event_data_result.participant_role:
+        role_removal_queue.enqueue_remove_role_jobs(
+            server_id=server_id,
+            user_ids=[user_id],
+            role_id=event_data_result.participant_role,
+            sqs_queue=aws_services.remove_role_sqs_queue
+        )
+        content += ", and I've queued up their participant role removal 🫡"
+    else:
+        content += "!"
+
+    return ResponseMessage(content=content).with_silent_pings()
+
 def toggle_check_in(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
     error_message = permissions_helper.verify_has_organizer_role(event, aws_services)
     if error_message:

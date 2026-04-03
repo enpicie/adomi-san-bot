@@ -39,6 +39,20 @@ checkin_commands: CommandMapping = {
             )
         ]
     },
+    "check-in-remove": {
+        "function": check_in_commands.remove_checked_in,
+        "description": "Remove a user from check-in and queue participant role removal if set",
+        "params": [
+            EVENT_NAME_PARAM,
+            CommandParam(
+                name="user",
+                description="The user to remove from check-in",
+                param_type=AppCommandOptionType.user,
+                required=True,
+                choices=None
+            )
+        ]
+    },
     "check-in-toggle": {
         "function": check_in_commands.toggle_check_in,
         "description": "Toggle check-in start/end to set if check-ins are accepted or rejected",
