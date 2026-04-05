@@ -24,8 +24,8 @@ FIND_SET_QUERY = """
 """
 
 REPORT_SET_MUTATION = """
-    mutation ReportBracketSet($setId: ID!, $winnerId: ID, $isDQ: Boolean, $gameData: [BracketSetGameDataInput]) {
-        reportBracketSet(setId: $setId, winnerId: $winnerId, isDQ: $isDQ, gameData: $gameData) {
+    mutation ReportBracketSet($setId: ID!, $winnerId: ID!, $gameData: [BracketSetGameDataInput]) {
+        reportBracketSet(setId: $setId, winnerId: $winnerId, gameData: $gameData) {
             id
             state
         }
