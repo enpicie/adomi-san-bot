@@ -7,7 +7,7 @@ from aws_services import AWSServices
 from commands.models.discord_event import DiscordEvent
 from commands.models.response_message import ResponseMessage
 import commands.event.startgg.startgg_api as startgg_api
-from commands.event.startgg.startgg_api import StartggAuthError
+from commands.event.startgg.startgg_api import StartggAuthError, StartggPermissionError
 import database.dynamodb_utils as db_helper
 from database.models.oauth_state import OAuthState
 import utils.permissions_helper as permissions_helper
@@ -223,6 +223,14 @@ def report_score(event: DiscordEvent, aws_services: AWSServices) -> ResponseMess
         startgg_api.report_set(set_id, entrant_ids[winner_entrant_id], game_data, server_config.startgg_oauth_token, is_dq=is_dq)
     except StartggAuthError:
         return ResponseMessage(content=_AUTH_EXPIRED_MSG)
+    except StartggPermissionError:
+        return ResponseMessage(
+            content=(
+                "❌ The connected start.gg account does not have permission to report scores for this tournament. "
+                "The account must be an organizer or TO for the event on start.gg. "
+                "Contact an organizer to re-authenticate via `/startgg-connect` using the correct account."
+            )
+        )
     except ValueError as e:
         return ResponseMessage(content=f"❌ {e}")
 

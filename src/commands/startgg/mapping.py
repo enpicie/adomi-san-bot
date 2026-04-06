@@ -37,7 +37,7 @@ startgg_commands_mapping: CommandMapping = {
             ),
             CommandParam(
                 name="score",
-                description="Score in '<winner games>-<loser games>' format, e.g. '2-1' (winner score first)",
+                description="Score in '<winner games>-<loser games>' format, e.g. '2-1' or 'dq' mark loss as DQ",
                 param_type=AppCommandOptionType.string,
                 required=True,
                 choices=None
