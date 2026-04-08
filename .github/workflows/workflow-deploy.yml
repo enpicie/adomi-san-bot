@@ -55,6 +55,11 @@ on:
         description: Public key for Discord verification (env-specific and used by Terraform)
         required: true
         type: string
+      force_rebuild_layer:
+        description: 'Force rebuild of all Lambda layers even if requirements.txt is unchanged'
+        required: false
+        default: false
+        type: boolean
     secrets:
       AWS_ROLE_ARN_LAMBDA_APIGW_DDB_SQS:
         required: true
@@ -88,6 +93,7 @@ jobs:
           architecture: x86_64
           s3_layer_bucket_name: ${{ inputs.artifact_s3_bucket }} # Store layer in same bucket for env as artifacts
           aws_role_arn: ${{ secrets.AWS_ROLE_ARN_S3 }}
+          force_rebuild: ${{ inputs.force_rebuild_layer }}
 
       - name: Build and Upload Lambda Layer Artifact to S3 - SQS Worker Lambda
         id: build_layer_worker
@@ -99,6 +105,7 @@ jobs:
           architecture: x86_64
           s3_layer_bucket_name: ${{ inputs.artifact_s3_bucket }}
           aws_role_arn: ${{ secrets.AWS_ROLE_ARN_S3 }}
+          force_rebuild: ${{ inputs.force_rebuild_layer }}
 
       - name: Build and Upload Lambda Layer Artifact to S3 - Scheduled Job Lambda
         id: build_layer_scheduled_job
@@ -110,6 +117,7 @@ jobs:
           architecture: x86_64
           s3_layer_bucket_name: ${{ inputs.artifact_s3_bucket }}
           aws_role_arn: ${{ secrets.AWS_ROLE_ARN_S3 }}
+          force_rebuild: ${{ inputs.force_rebuild_layer }}
 
       - name: Upload Latest Lambda Zip to S3 - Main Lambda
         uses: enpicie/gh-action-workflow-upload-lambda-zip@v0.3.0
@@ -157,6 +165,7 @@ jobs:
           python_runtime: ${{ inputs.python_runtime }}
           s3_layer_bucket_name: ${{ inputs.artifact_s3_bucket }}
           aws_role_arn: ${{ secrets.AWS_ROLE_ARN_S3 }}
+          force_rebuild: ${{ inputs.force_rebuild_layer }}
 
       - name: Build and Upload Lambda Layer Artifact to S3 - Sheets Agent Lambda
         id: build_layer_sheets_agent
@@ -168,6 +177,7 @@ jobs:
           architecture: x86_64
           s3_layer_bucket_name: ${{ inputs.artifact_s3_bucket }}
           aws_role_arn: ${{ secrets.AWS_ROLE_ARN_S3 }}
+          force_rebuild: ${{ inputs.force_rebuild_layer }}
 
       - name: Upload Latest Lambda Zip to S3 - start.gg OAuth Lambda
         uses: enpicie/gh-action-workflow-upload-lambda-zip@v0.3.0
