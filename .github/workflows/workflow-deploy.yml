@@ -55,6 +55,11 @@ on:
         description: Public key for Discord verification (env-specific and used by Terraform)
         required: true
         type: string
+      lambda_architecture:
+        description: 'Lambda architecture to build layers for (x86_64 or arm64)'
+        required: false
+        default: 'x86_64'
+        type: string
       force_rebuild_layer:
         description: 'Force rebuild of all Lambda layers even if requirements.txt is unchanged'
         required: false
@@ -90,7 +95,7 @@ jobs:
           requirements_path: ./requirements.txt # Path relative the repository root
           app_name: ${{ inputs.app_name }}
           python_runtime: ${{ inputs.python_runtime }}
-          architecture: x86_64
+          architecture: ${{ inputs.lambda_architecture }}
           s3_layer_bucket_name: ${{ inputs.artifact_s3_bucket }} # Store layer in same bucket for env as artifacts
           aws_role_arn: ${{ secrets.AWS_ROLE_ARN_S3 }}
           force_rebuild: ${{ inputs.force_rebuild_layer }}
@@ -102,7 +107,7 @@ jobs:
           requirements_path: ./jobs/remove_role/requirements.txt # Path relative the repository root
           app_name: ${{ inputs.sqs_worker_name }}
           python_runtime: ${{ inputs.python_runtime }}
-          architecture: x86_64
+          architecture: ${{ inputs.lambda_architecture }}
           s3_layer_bucket_name: ${{ inputs.artifact_s3_bucket }}
           aws_role_arn: ${{ secrets.AWS_ROLE_ARN_S3 }}
           force_rebuild: ${{ inputs.force_rebuild_layer }}
@@ -114,7 +119,7 @@ jobs:
           requirements_path: ./jobs/scheduled_job/requirements.txt
           app_name: ${{ inputs.scheduled_job_name }}
           python_runtime: ${{ inputs.python_runtime }}
-          architecture: x86_64
+          architecture: ${{ inputs.lambda_architecture }}
           s3_layer_bucket_name: ${{ inputs.artifact_s3_bucket }}
           aws_role_arn: ${{ secrets.AWS_ROLE_ARN_S3 }}
           force_rebuild: ${{ inputs.force_rebuild_layer }}
@@ -163,6 +168,7 @@ jobs:
           requirements_path: ./jobs/startgg_oauth/requirements.txt
           app_name: ${{ inputs.startgg_oauth_name }}
           python_runtime: ${{ inputs.python_runtime }}
+          architecture: ${{ inputs.lambda_architecture }}
           s3_layer_bucket_name: ${{ inputs.artifact_s3_bucket }}
           aws_role_arn: ${{ secrets.AWS_ROLE_ARN_S3 }}
           force_rebuild: ${{ inputs.force_rebuild_layer }}
@@ -174,7 +180,7 @@ jobs:
           requirements_path: ./jobs/sheets_agent/requirements.txt
           app_name: ${{ inputs.sheets_agent_name }}
           python_runtime: ${{ inputs.python_runtime }}
-          architecture: x86_64
+          architecture: ${{ inputs.lambda_architecture }}
           s3_layer_bucket_name: ${{ inputs.artifact_s3_bucket }}
           aws_role_arn: ${{ secrets.AWS_ROLE_ARN_S3 }}
           force_rebuild: ${{ inputs.force_rebuild_layer }}
@@ -263,6 +269,7 @@ jobs:
             TF_VAR_sqs_worker_name=${{ inputs.sqs_worker_name }}
             TF_VAR_aws_region=${{ inputs.aws_region }}
             TF_VAR_python_runtime=${{ inputs.python_runtime }}
+            TF_VAR_architecture=${{ inputs.lambda_architecture }}
             TF_VAR_deployment_env=${{ inputs.deployment_env }}
             TF_VAR_bucket_name=${{ inputs.artifact_s3_bucket }}
             TF_VAR_app_lambda_layer_s3_key=${{ steps.build_layer.outputs.s3_artifact_key }}
@@ -295,6 +302,7 @@ jobs:
             TF_VAR_sqs_worker_name=${{ inputs.sqs_worker_name }}
             TF_VAR_aws_region=${{ inputs.aws_region }}
             TF_VAR_python_runtime=${{ inputs.python_runtime }}
+            TF_VAR_architecture=${{ inputs.lambda_architecture }}
             TF_VAR_deployment_env=${{ inputs.deployment_env }}
             TF_VAR_bucket_name=${{ inputs.artifact_s3_bucket }}
             TF_VAR_scheduled_job_layer_s3_key=${{ steps.build_layer_scheduled_job.outputs.s3_artifact_key }}

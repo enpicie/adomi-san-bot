@@ -38,6 +38,7 @@ jobs:
       GOOGLE_SHEETS_SECRET_NAME: ${{ steps.set-vars.outputs.GOOGLE_SHEETS_SECRET_NAME }}
       AWS_REGION: ${{ steps.set-vars.outputs.AWS_REGION }}
       PYTHON_RUNTIME: ${{ steps.set-vars.outputs.PYTHON_RUNTIME }}
+      LAMBDA_ARCHITECTURE: ${{ steps.set-vars.outputs.LAMBDA_ARCHITECTURE }}
       DISCORD_PUBLIC_KEY: ${{ steps.set-vars.outputs.DISCORD_PUBLIC_KEY }}
       GOOGLE_SERVICE_ACCOUNT_EMAIL: ${{ steps.set-vars.outputs.GOOGLE_SERVICE_ACCOUNT_EMAIL }}
       BRANCH_NAME: ${{ steps.set-vars.outputs.BRANCH_NAME }}
@@ -58,6 +59,7 @@ jobs:
           echo "GOOGLE_SHEETS_SECRET_NAME=$GOOGLE_SHEETS_SECRET_NAME" >> $GITHUB_OUTPUT
           echo "AWS_REGION=$AWS_REGION" >> $GITHUB_OUTPUT
           echo "PYTHON_RUNTIME=$PYTHON_RUNTIME" >> $GITHUB_OUTPUT
+          echo "LAMBDA_ARCHITECTURE=$LAMBDA_ARCHITECTURE" >> $GITHUB_OUTPUT
           echo "DISCORD_PUBLIC_KEY=$DISCORD_PUBLIC_KEY_DEV" >> $GITHUB_OUTPUT
           echo "GOOGLE_SERVICE_ACCOUNT_EMAIL=$GOOGLE_SERVICE_ACCOUNT_EMAIL" >> $GITHUB_OUTPUT
           echo "BRANCH_NAME=$SHORT_BRANCH_NAME" >> $GITHUB_OUTPUT
@@ -82,6 +84,7 @@ jobs:
       sheets_agent_name: ${{ needs.read-config.outputs.SHEETS_AGENT_NAME }}
       aws_region: ${{ needs.read-config.outputs.AWS_REGION }}
       python_runtime: ${{ needs.read-config.outputs.PYTHON_RUNTIME }}
+      lambda_architecture: ${{ needs.read-config.outputs.LAMBDA_ARCHITECTURE }}
       discord_public_key: ${{ needs.read-config.outputs.DISCORD_PUBLIC_KEY }}
       google_service_account_email: ${{ needs.read-config.outputs.GOOGLE_SERVICE_ACCOUNT_EMAIL }}
       app_version: ${{ needs.read-config.outputs.BRANCH_NAME }}
