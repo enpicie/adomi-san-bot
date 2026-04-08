@@ -90,7 +90,7 @@ jobs:
 
       - name: Build and Upload Lambda Layer Artifact to S3 - Main Lambda
         id: build_layer
-        uses: enpicie/gh-action-workflow-build-python-lambda-layer-zip@v2.1.1
+        uses: enpicie/gh-action-workflow-build-python-lambda-layer-zip@v2.2.0
         with:
           requirements_path: ./requirements.txt # Path relative the repository root
           app_name: ${{ inputs.app_name }}
@@ -102,7 +102,7 @@ jobs:
 
       - name: Build and Upload Lambda Layer Artifact to S3 - SQS Worker Lambda
         id: build_layer_worker
-        uses: enpicie/gh-action-workflow-build-python-lambda-layer-zip@v2.1.1
+        uses: enpicie/gh-action-workflow-build-python-lambda-layer-zip@v2.2.0
         with:
           requirements_path: ./jobs/remove_role/requirements.txt # Path relative the repository root
           app_name: ${{ inputs.sqs_worker_name }}
@@ -114,7 +114,7 @@ jobs:
 
       - name: Build and Upload Lambda Layer Artifact to S3 - Scheduled Job Lambda
         id: build_layer_scheduled_job
-        uses: enpicie/gh-action-workflow-build-python-lambda-layer-zip@v2.1.1
+        uses: enpicie/gh-action-workflow-build-python-lambda-layer-zip@v2.2.0
         with:
           requirements_path: ./jobs/scheduled_job/requirements.txt
           app_name: ${{ inputs.scheduled_job_name }}
@@ -163,7 +163,7 @@ jobs:
 
       - name: Build and Upload Lambda Layer Artifact to S3 - start.gg OAuth Lambda
         id: build_layer_startgg_oauth
-        uses: enpicie/gh-action-workflow-build-python-lambda-layer-zip@v2.1.1
+        uses: enpicie/gh-action-workflow-build-python-lambda-layer-zip@v2.2.0
         with:
           requirements_path: ./jobs/startgg_oauth/requirements.txt
           app_name: ${{ inputs.startgg_oauth_name }}
@@ -175,7 +175,7 @@ jobs:
 
       - name: Build and Upload Lambda Layer Artifact to S3 - Sheets Agent Lambda
         id: build_layer_sheets_agent
-        uses: enpicie/gh-action-workflow-build-python-lambda-layer-zip@v2.1.1
+        uses: enpicie/gh-action-workflow-build-python-lambda-layer-zip@v2.2.0
         with:
           requirements_path: ./jobs/sheets_agent/requirements.txt
           app_name: ${{ inputs.sheets_agent_name }}
