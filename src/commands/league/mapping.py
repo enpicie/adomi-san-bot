@@ -24,7 +24,7 @@ ACTIVE_PARTICIPANT_ROLE_PARAM = CommandParam(
 league_commands_mapping: CommandMapping = {
     "league-create": {
         "function": league_commands.create_league,
-        "description": "Create a new league tracked via Google Sheets",
+        "description": "Create a new league tracked via Google Sheets (Organizer only)",
         "params": [
             CommandParam(
                 name="league_name",
@@ -46,7 +46,7 @@ league_commands_mapping: CommandMapping = {
     },
     "league-update": {
         "function": league_commands.update_league,
-        "description": "Update an existing league's details",
+        "description": "Update an existing league's details (Organizer only)",
         "params": [
             LEAGUE_NAME_PARAM,
             CommandParam(
@@ -68,12 +68,12 @@ league_commands_mapping: CommandMapping = {
     },
     "league-list": {
         "function": league_commands.list_leagues,
-        "description": "List all leagues for this server",
+        "description": "List all leagues for this server (Organizer only)",
         "params": []
     },
     "league-view": {
         "function": league_commands.view_league,
-        "description": "View details of an existing league",
+        "description": "View details of an existing league (Organizer only)",
         "params": [LEAGUE_NAME_PARAM]
     },
     "league-setup": {
@@ -83,7 +83,7 @@ league_commands_mapping: CommandMapping = {
     },
     "league-delete": {
         "function": league_commands.delete_league,
-        "description": "Delete a league record",
+        "description": "Delete a league record (Organizer only)",
         "params": [LEAGUE_NAME_PARAM]
     },
     "league-join": {
@@ -93,7 +93,7 @@ league_commands_mapping: CommandMapping = {
     },
     "league-join-toggle": {
         "function": league_commands.toggle_join_league,
-        "description": "Toggle whether joining is enabled for a league",
+        "description": "Open or close joining for a league (Organizer only)",
         "params": [
             LEAGUE_NAME_PARAM,
             CommandParam(

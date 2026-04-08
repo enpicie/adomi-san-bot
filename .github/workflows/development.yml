@@ -16,6 +16,11 @@ on:
         required: false
         default: false
         type: boolean
+      force_rebuild_layer:
+        description: 'Force rebuild of all Lambda layers even if requirements.txt is unchanged'
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   id-token: write
@@ -82,6 +87,7 @@ jobs:
       app_version: ${{ needs.read-config.outputs.BRANCH_NAME }}
       deployment_env: 'dev'
       artifact_s3_bucket: 'enpicie-dev-lambda-artifacts'
+      force_rebuild_layer: ${{ github.event.inputs.force_rebuild_layer == 'true' }}
       google_sheets_secret_name: ${{ needs.read-config.outputs.GOOGLE_SHEETS_SECRET_NAME }}
     secrets:
       AWS_ROLE_ARN_LAMBDA_APIGW_DDB_SQS: ${{ secrets.AWS_ROLE_ARN_LAMBDA_APIGW_DDB_SQS }}

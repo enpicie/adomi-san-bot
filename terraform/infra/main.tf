@@ -39,6 +39,7 @@ resource "aws_lambda_function" "bot_lambda" {
   handler       = "lambda_handler.lambda_handler"
   runtime       = "python${var.python_runtime}"
   architectures = [var.architecture]
+  memory_size   = 256
   role          = aws_iam_role.lambda_exec_role.arn
   timeout       = 10
   layers = [

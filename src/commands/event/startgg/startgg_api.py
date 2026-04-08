@@ -14,6 +14,9 @@ _SET_STATE_COMPLETED = 3
 class StartggAuthError(Exception):
     """Raised when start.gg rejects a request due to invalid or expired OAuth token."""
 
+class StartggPermissionError(Exception):
+    """Raised when start.gg rejects a report request due to insufficient permissions on the connected account."""
+
 _startgg_api_token: str | None = None
 
 def _get_startgg_api_token() -> str:
@@ -129,4 +132,6 @@ def report_set(set_id: str, winner_entrant_id: str, game_data: list[dict], oauth
     data = response.json()
     if "errors" in data:
         print(f"[startgg] GraphQL errors reporting set '{set_id}': {data['errors']}")
+        if any("permission" in (e.get("message") or "").lower() for e in data["errors"]):
+            raise StartggPermissionError()
         raise ValueError("start.gg returned an error while reporting the set. Please check that the set is still open or contact an organizer.")
