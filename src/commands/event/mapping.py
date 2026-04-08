@@ -124,7 +124,7 @@ event_commands_mapping: CommandMapping = {
     },
     "event-delete": {
         "function": event_commands.delete_event,
-        "description": "Delete an event and remove it from the bot",
+        "description": "Delete an event and remove it from the bot (Organizer only)",
         "params": [
             CommandParam(
                 name="event_name",
@@ -150,7 +150,7 @@ event_commands_mapping: CommandMapping = {
             ),
             CommandParam(
                 name="end_time",
-                description="Format: '2026-03-19 21:30'. End time — event data cleaned up after this",
+                description="Format: '2026-03-19 21:30' (24-hour time). End time — event data cleaned up after this",
                 param_type=AppCommandOptionType.string,
                 required=True,
                 choices=None
@@ -187,7 +187,7 @@ event_commands_mapping: CommandMapping = {
             ),
             CommandParam(
                 name="end_time",
-                description="Format: '2026-03-19 21:30'. End time — event data cleaned up after this",
+                description="Format: '2026-03-19 21:30' (24-hour time). End time — event data cleaned up after this",
                 param_type=AppCommandOptionType.string,
                 required=True,
                 choices=None
@@ -212,12 +212,12 @@ event_commands_mapping: CommandMapping = {
     },
     "event-refresh-startgg": {
         "function": event_commands.event_refresh_startgg,
-        "description": "Refresh registered participants for an existing event from its linked start.gg event",
+        "description": "Refresh registered participants from the linked start.gg event (Organizer only)",
         "params": [EVENT_NAME_PARAM]
     },
     "event-list": {
         "function": event_commands.events_list,
-        "description": "List all events for this server",
+        "description": "List all events for this server (Organizer only)",
         "params": []
     }
 }

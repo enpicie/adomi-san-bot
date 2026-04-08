@@ -14,17 +14,17 @@ checkin_commands: CommandMapping = {
     },
     "check-in-list": {
         "function": check_in_commands.show_checked_in,
-        "description": "Show list of checked-in users",
+        "description": "Show list of checked-in users (Organizer only)",
         "params": [EVENT_NAME_PARAM]
     },
     "check-in-clear": {
         "function": check_in_commands.clear_checked_in,
-        "description": "Clear list of checked-in users and remove Participant roles if set",
+        "description": "Clear list of checked-in users and remove Participant roles if set (Organizer only)",
         "params": [EVENT_NAME_PARAM]
     },
     "check-in-list-absent": {
         "function": check_in_commands.show_not_checked_in,
-        "description": "Show list of users who are registered but not checked-in and optionally ping them",
+        "description": "Show registered users who have not checked in, optionally ping them (Organizer only)",
         "params": [
             EVENT_NAME_PARAM,
             CommandParam(
@@ -41,7 +41,7 @@ checkin_commands: CommandMapping = {
     },
     "check-in-remove": {
         "function": check_in_commands.remove_checked_in,
-        "description": "Remove a user from check-in and queue participant role removal if set",
+        "description": "Remove a user from check-in and queue participant role removal if set (Organizer only)",
         "params": [
             EVENT_NAME_PARAM,
             CommandParam(
@@ -55,7 +55,7 @@ checkin_commands: CommandMapping = {
     },
     "check-in-toggle": {
         "function": check_in_commands.toggle_check_in,
-        "description": "Toggle check-in start/end to set if check-ins are accepted or rejected",
+        "description": "Open or close check-ins for an event (Organizer only)",
         "params": [
             EVENT_NAME_PARAM,
             CommandParam(

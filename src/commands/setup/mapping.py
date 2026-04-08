@@ -88,7 +88,7 @@ setup_commands: CommandMapping = {
     },
     "event-view": {
         "function": show_config_commands.event_view,
-        "description": "View event settings, toggle states, and participant counts",
+        "description": "View event settings, toggle states, and participant counts (Organizer only)",
         "params": [EVENT_NAME_PARAM]
     },
     "show-event-roles": {

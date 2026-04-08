@@ -10,12 +10,12 @@ from commands.event.autocomplete_handlers import EVENT_NAME_PARAM
 register_commands_mapping: CommandMapping = {
     "register-list": {
         "function": register_list_commands.show_registered,
-        "description": "Show list of registered users for an event",
+        "description": "Show list of registered users for an event (Organizer only)",
         "params": [EVENT_NAME_PARAM]
     },
     "register-clear": {
         "function": register_list_commands.clear_registered,
-        "description": "Clear list of registered users for an event",
+        "description": "Clear list of registered users for an event (Organizer only)",
         "params": [EVENT_NAME_PARAM]
     },
     "register": {
@@ -48,7 +48,7 @@ register_commands_mapping: CommandMapping = {
     },
     "register-toggle": {
         "function": register_commands.toggle_register,
-        "description": "Toggle registration start/end to set if registrations are accepted or rejected (Organizer only)",
+        "description": "Open or close registration for an event (Organizer only)",
         "params": [
             EVENT_NAME_PARAM,
             CommandParam(

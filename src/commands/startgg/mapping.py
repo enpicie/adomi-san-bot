@@ -8,12 +8,12 @@ import commands.startgg.startgg_commands as startgg_commands
 startgg_commands_mapping: CommandMapping = {
     "startgg-notify-unlinked": {
         "function": startgg_commands.notify_unlinked,
-        "description": "List start.gg participants who have not linked their Discord account",
+        "description": "List start.gg participants who have not linked their Discord account (Organizer only)",
         "params": [EVENT_NAME_PARAM]
     },
     "startgg-connect": {
         "function": startgg_commands.startgg_connect,
-        "description": "Link your start.gg organizer account to this Discord server to enable score reporting",
+        "description": "Link a start.gg organizer account to enable score reporting in this server (Organizer only)",
         "params": []
     },
     "startgg-report-score": {
@@ -37,7 +37,7 @@ startgg_commands_mapping: CommandMapping = {
             ),
             CommandParam(
                 name="score",
-                description="Score in '<winner games>-<loser games>' format, e.g. '2-1' or 'dq' mark loss as DQ",
+                description="Score in '<winner games>-<loser games>' format, e.g. '2-1', or 'dq' to mark the loss as a DQ",
                 param_type=AppCommandOptionType.string,
                 required=True,
                 choices=None
