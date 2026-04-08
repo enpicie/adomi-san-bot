@@ -37,8 +37,9 @@ variable "python_runtime" {
 variable "architecture" {
   description = "Architecture for Lambda (e.g., x86_64, arm64)"
   type        = string
-  default     = "x86_64"
+  default     = "arm64"
 }
+
 
 variable "deployment_env" {
   description = "Deployment environment (e.g., dev, prod)"
