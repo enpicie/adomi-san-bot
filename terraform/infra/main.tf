@@ -8,10 +8,6 @@ data "aws_s3_object" "lambda_zip_latest" {
 }
 
 # Layer with PyNaCl for cryptographic operations required by Discord auth
-data "aws_lambda_layer_version" "pynacl_layer" {
-  layer_name = "PyNaCl-311"
-}
-
 data "aws_s3_object" "app_layer_zip" {
   bucket = var.bucket_name
   key    = var.app_lambda_layer_s3_key
@@ -43,7 +39,6 @@ resource "aws_lambda_function" "bot_lambda" {
   role          = aws_iam_role.lambda_exec_role.arn
   timeout       = 10
   layers = [
-    data.aws_lambda_layer_version.pynacl_layer.arn,
     aws_lambda_layer_version.app_layer.arn
   ]
   environment {

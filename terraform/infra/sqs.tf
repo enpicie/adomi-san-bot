@@ -35,6 +35,7 @@ resource "aws_lambda_function" "remove_role_worker" {
   s3_key        = data.aws_s3_object.worker_zip_latest.key
   handler       = "handler.handler"
   runtime       = "python${var.python_runtime}"
+  architectures = [var.architecture]
   role          = aws_iam_role.worker_role.arn
 
   layers = [

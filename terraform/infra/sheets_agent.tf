@@ -35,6 +35,7 @@ resource "aws_lambda_function" "sheets_agent" {
   s3_key        = data.aws_s3_object.sheets_agent_zip_latest.key
   handler       = "handler.handler"
   runtime       = "python${var.python_runtime}"
+  architectures = [var.architecture]
   role          = aws_iam_role.sheets_agent_role.arn
   timeout       = 480
   memory_size   = 512

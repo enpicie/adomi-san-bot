@@ -36,7 +36,7 @@ resource "aws_lambda_layer_version" "scheduled_job_layer" {
 }
 
 module "scheduled_job" {
-  source = "github.com/enpicie/tf-module-eventbridge-scheduled-lambda?ref=v1.2.0"
+  source = "github.com/enpicie/tf-module-eventbridge-scheduled-lambda?ref=v1.3.0"
 
   name                = "${var.scheduled_job_name}-${var.deployment_env}"
   schedule_expression = "rate(15 minutes)"
@@ -49,7 +49,8 @@ module "scheduled_job" {
   s3_key           = data.aws_s3_object.scheduled_job_zip_latest.key
   source_code_hash = data.aws_s3_object.scheduled_job_zip_latest.etag
 
-  layers = [aws_lambda_layer_version.scheduled_job_layer.arn]
+  architecture = var.architecture
+  layers       = [aws_lambda_layer_version.scheduled_job_layer.arn]
 
   environment_variables = {
     REGION                    = var.aws_region
