@@ -1,4 +1,4 @@
-from datetime import datetime, timezone as dt_timezone
+from datetime import datetime, timedelta, timezone as dt_timezone
 
 import database.dynamodb_utils as db_helper
 import utils.permissions_helper as permissions_helper
@@ -192,7 +192,7 @@ def create_event_startgg(event: DiscordEvent, aws_services: AWSServices) -> Resp
     past_time_warning = ""
     start_time_utc = startgg_event.start_time_utc
     if _is_past_time(start_time_utc):
-        start_time_utc = datetime.now(dt_timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        start_time_utc = (datetime.now(dt_timezone.utc) + timedelta(minutes=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
         past_time_warning = (
             f"\n⚠️ The start.gg event time (`{startgg_event.start_time_utc}`) is in the past. "
             "The current time has been used instead."
