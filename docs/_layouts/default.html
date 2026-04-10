@@ -1,63 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>{{ page.title }} — {{ site.title }}</title>
-  <link rel="stylesheet" href="https://cdn.simplecss.org/simple.min.css" />
-  <style>
-    :root {
-      --accent: #5865f2;
-      --accent-hover: #4752c4;
-    }
-    a { color: var(--accent); }
-    a:hover { color: var(--accent-hover); }
-    nav a { margin-right: 1rem; font-weight: 600; text-decoration: none; }
-    nav a:hover { text-decoration: underline; }
-    .cta {
-      display: inline-block;
-      background: var(--accent);
-      color: #fff !important;
-      padding: 0.5rem 1.2rem;
-      border-radius: 6px;
-      font-weight: 600;
-      text-decoration: none;
-    }
-    .cta:hover { background: var(--accent-hover); }
-    .badge {
-      display: inline-block;
-      background: var(--accent);
-      color: #fff;
-      padding: 0.15rem 0.6rem;
-      border-radius: 999px;
-      font-size: 0.78rem;
-      font-weight: 600;
-      margin-right: 0.3rem;
-    }
-    footer { text-align: center; font-size: 0.85rem; }
-    details summary { cursor: pointer; font-weight: 600; font-size: 1.05rem; }
-    table { font-size: 0.9rem; }
-    code { font-size: 0.88em; }
-  </style>
-</head>
-<body>
-  <header>
-    <nav>
-      <a href="{{ site.baseurl }}/">Home</a>
-      <a href="{{ site.baseurl }}/getting-started">Getting Started</a>
-      <a href="{{ site.baseurl }}/commands">Commands</a>
-      <a class="cta" href="https://github.com/enpicie/adomi-san-bot">GitHub</a>
-    </nav>
-    <h1>{{ site.title }}</h1>
-    <p>{{ site.description }}</p>
-  </header>
+{% include head.html %}
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col">
 
-  <main>
+  {% include header.html %}
+
+  <main class="flex-1 max-w-4xl mx-auto w-full px-4 py-10 prose">
     {{ content }}
   </main>
 
-  <footer>
-    <p>Adomi-san &mdash; made by <a href="https://github.com/enpicie">enpicie</a></p>
-  </footer>
+  {% include footer.html %}
+
 </body>
 </html>

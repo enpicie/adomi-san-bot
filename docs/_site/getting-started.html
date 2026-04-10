@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Getting Started — Adomi-san</title>
+  <link rel="icon" type="image/jpeg" href="/adomi-san-bot/adomin.jpg" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/adomi-san-bot/assets/css/main.css" />
+</head>
+
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col">
+
+  <header class="bg-slate-900 border-b border-slate-800 sticky top-0 z-40">
+  <div class="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
+
+    <a href="/adomi-san-bot/" class="flex items-center gap-3 no-underline">
+      <img src="/adomi-san-bot/adomin.jpg" alt="Adomin" class="w-9 h-9 rounded-lg object-cover" />
+      <div>
+        <span class="font-black text-transparent bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-lg leading-none">
+          Adomi-san
+        </span>
+        <p class="text-[10px] text-slate-400 font-medium hidden sm:block leading-none mt-0.5">Discord bracket bot</p>
+      </div>
+    </a>
+
+    <nav class="flex items-center gap-1 flex-wrap">
+      <a href="/adomi-san-bot/"
+         class="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800 border border-transparent hover:border-slate-700 transition-colors">
+        Home
+      </a>
+      <a href="/adomi-san-bot/getting-started"
+         class="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800 border border-transparent hover:border-slate-700 transition-colors">
+        Getting Started
+      </a>
+      <a href="/adomi-san-bot/commands"
+         class="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800 border border-transparent hover:border-slate-700 transition-colors">
+        Commands
+      </a>
+      <a href="https://github.com/enpicie/adomi-san-bot"
+         class="px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-widest bg-indigo-600 hover:bg-indigo-500 text-white transition-colors">
+        GitHub
+      </a>
+    </nav>
+
+  </div>
+</header>
+
+
+  <main class="flex-1 max-w-4xl mx-auto w-full px-4 py-10 prose">
+    <h1 id="getting-started">Getting Started</h1>
+
+<p>Adomi-san is self-hosted — you deploy your own instance on AWS and connect it to your Discord server.</p>
+
+<hr />
+
+<h2 id="prerequisites">Prerequisites</h2>
+
+<ul>
+  <li>An AWS account</li>
+  <li>A Discord application and bot token (<a href="https://discord.com/developers/applications">Discord Developer Portal</a>)</li>
+  <li>A start.gg account (for start.gg features)</li>
+  <li>Terraform + HCP Terraform Cloud (for infrastructure)</li>
+</ul>
+
+<hr />
+
+<h2 id="1-deploy-the-bot">1. Deploy the Bot</h2>
+
+<p>Clone the repository and follow the infrastructure setup in the <a href="https://github.com/enpicie/adomi-san-bot">GitHub repo</a>.</p>
+
+<p>The bot runs on AWS Lambda + API Gateway. Deployment is handled via GitHub Actions and Terraform.</p>
+
+<hr />
+
+<h2 id="2-add-the-bot-to-your-server">2. Add the Bot to Your Server</h2>
+
+<p>Invite the bot to your Discord server using the OAuth2 URL from your Discord application page.
+Make sure it has the following permissions:</p>
+
+<ul>
+  <li>Manage Roles</li>
+  <li>Read Messages / Send Messages</li>
+  <li>Use Slash Commands</li>
+</ul>
+
+<hr />
+
+<h2 id="3-initialize-your-server">3. Initialize Your Server</h2>
+
+<p>Once the bot is in your server, run:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>/setup-server organizer_role: @YourOrganizerRole
+</code></pre></div></div>
+
+<p>This initializes the bot’s config for your server. The role you provide will gate all organizer commands.</p>
+
+<hr />
+
+<h2 id="4-optional-setup">4. Optional Setup</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Command</th>
+      <th>What it does</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">/set-default-participant-role</code></td>
+      <td>Set the default role assigned to participants on check-in</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">/startgg-connect</code></td>
+      <td>Link a start.gg organizer account for score reporting</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">/league-create</code></td>
+      <td>Set up a Google Sheets-backed league</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr />
+
+<h2 id="participant-role-resolution">Participant Role Resolution</h2>
+
+<p>When a participant checks in, the bot assigns a role in this order:</p>
+
+<ol>
+  <li>Event-specific role (set at event creation or update)</li>
+  <li>Server default (<code class="language-plaintext highlighter-rouge">/set-default-participant-role</code>)</li>
+  <li>None (a warning is shown)</li>
+</ol>
+
+<hr />
+
+<h2 id="need-help">Need Help?</h2>
+
+<p>See the <a href="commands">Commands</a> page for a full reference, or message <strong>@enpicie</strong> on Discord.</p>
+
+  </main>
+
+  <footer class="border-t border-slate-800 py-6 text-center text-xs text-slate-500">
+  <p>
+    Adomi-san &mdash; made by
+    <a href="https://github.com/enpicie" class="text-indigo-400 hover:text-indigo-300">enpicie</a>
+  </p>
+</footer>
+
+
+</body>
+</html>
