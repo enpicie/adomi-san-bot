@@ -9,7 +9,7 @@ from commands.event.autocomplete_handlers import autocomplete_event_timezone
 
 schedule_commands_mapping: CommandMapping = {
     "schedule-post": {
-        "function": schedule_commands.schedule_post,
+        "function": schedule_commands.post_schedule,
         "description": "Post or update the tracked schedule message listing upcoming events (Organizer only)",
         "params": [
             CommandParam(
@@ -39,7 +39,7 @@ schedule_commands_mapping: CommandMapping = {
         ],
     },
     "schedule-update": {
-        "function": schedule_commands.schedule_update,
+        "function": schedule_commands.update_schedule,
         "description": "Refresh the tracked schedule message, optionally changing the title (Organizer only)",
         "params": [
             CommandParam(
@@ -52,8 +52,8 @@ schedule_commands_mapping: CommandMapping = {
         ],
     },
     "schedule-plan-event": {
-        "function": schedule_commands.schedule_plan_event,
-        "description": "Add a planned event placeholder to the schedule before creating it as a Discord event (Organizer only)",
+        "function": schedule_commands.add_plan,
+        "description": "Add a planned event placeholder to the schedule before creating a Discord event (Organizer only)",
         "params": [
             CommandParam(
                 name="name",
@@ -88,7 +88,7 @@ schedule_commands_mapping: CommandMapping = {
         ],
     },
     "schedule-plan-remove": {
-        "function": schedule_commands.schedule_plan_remove,
+        "function": schedule_commands.remove_plan,
         "description": "Remove a planned event placeholder from the schedule (Organizer only)",
         "params": [
             CommandParam(
@@ -101,5 +101,10 @@ schedule_commands_mapping: CommandMapping = {
                 autocomplete_handler=autocomplete_handlers.autocomplete_plan_name,
             ),
         ],
+    },
+    "schedule-clear-past": {
+        "function": schedule_commands.clear_past_plans,
+        "description": "Remove all past planned event placeholders from the schedule and refresh the message (Organizer only)",
+        "params": [],
     },
 }

@@ -11,7 +11,7 @@ from database.models.schedule_plan import SchedulePlan
 from database.models.server_config import ServerConfig
 
 
-def schedule_post(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
+def post_schedule(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
     """Posts or updates the tracked schedule message for this server."""
     server_id = event.get_server_id()
 
@@ -73,7 +73,7 @@ def schedule_post(event: DiscordEvent, aws_services: AWSServices) -> ResponseMes
         )
 
 
-def schedule_update(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
+def update_schedule(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
     """Refreshes the tracked schedule message, optionally changing the title."""
     server_id = event.get_server_id()
 
@@ -97,7 +97,7 @@ def schedule_update(event: DiscordEvent, aws_services: AWSServices) -> ResponseM
     )
 
 
-def schedule_plan_event(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
+def add_plan(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
     """Adds a planned event placeholder to the schedule."""
     server_id = event.get_server_id()
 
@@ -122,7 +122,45 @@ def schedule_plan_event(event: DiscordEvent, aws_services: AWSServices) -> Respo
     return ResponseMessage(content=f"✅ Planned event **{name}** added to the schedule.")
 
 
-def schedule_plan_remove(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
+def clear_past_plans(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
+    """Removes all past planned event placeholders from the schedule and refreshes the message."""
+    server_id = event.get_server_id()
+
+    server_config = db_helper.get_server_config_or_fail(server_id, aws_services.dynamodb_table)
+    if isinstance(server_config, ResponseMessage):
+        return server_config
+
+    error_message = permissions_helper.require_organizer_role(server_config, event)
+    if error_message:
+        return error_message
+
+    from datetime import datetime, timezone as dt_timezone
+    now_epoch = int(datetime.now(dt_timezone.utc).timestamp())
+
+    planned_events = db_helper.get_schedule_plans_for_server(server_id, aws_services.dynamodb_table)
+
+    past_plans = []
+    for plan in planned_events:
+        try:
+            epoch = int(datetime.fromisoformat(plan.start_time.replace("Z", "+00:00")).timestamp())
+        except Exception:
+            continue
+        if epoch < now_epoch:
+            past_plans.append(plan)
+
+    if not past_plans:
+        return ResponseMessage(content="ℹ️ No past planned events to clear.")
+
+    for plan in past_plans:
+        db_helper.delete_schedule_plan(server_id, plan.plan_name, aws_services.dynamodb_table)
+
+    sync_schedule(server_id, server_config, aws_services.dynamodb_table)
+
+    names = ", ".join(f"**{p.plan_name}**" for p in past_plans)
+    return ResponseMessage(content=f"✅ Removed {len(past_plans)} past planned event(s): {names}")
+
+
+def remove_plan(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
     """Removes a planned event placeholder from the schedule."""
     server_id = event.get_server_id()
 
