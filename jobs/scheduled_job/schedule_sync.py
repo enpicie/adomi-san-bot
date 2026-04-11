@@ -66,8 +66,9 @@ def _extract_title(message_content: str) -> str:
 
 def sync_schedule_for_server(table, server_id: str, server_config: dict) -> None:
     """
-    Removes planned events whose names match a real event, then regenerates
-    and updates the tracked schedule message. No-op if no schedule is configured.
+    Removes past orphaned planned events, then regenerates and updates the tracked
+    schedule message (with strikethrough for any events whose start time has passed).
+    No-op if no schedule is configured.
     """
     if not server_config:
         return
@@ -87,14 +88,9 @@ def sync_schedule_for_server(table, server_id: str, server_config: dict) -> None
     planned_events = db.get_schedule_plans_for_server(table, server_id)
 
     now_epoch = int(datetime.now(dt_timezone.utc).timestamp())
-    real_names = {(e.get("event_name") or "").strip().lower() for e in real_events}
     remaining_plans = []
     for plan in planned_events:
         plan_name = plan.get("plan_name") or ""
-        if plan_name.strip().lower() in real_names:
-            db.delete_schedule_plan(table, server_id, plan_name)
-            logger.info(f"Removed matched plan '{plan_name}' for server {server_id}")
-            continue
         epoch = _to_epoch(plan.get("start_time")) if plan.get("start_time") else None
         if epoch is not None and epoch < now_epoch:
             db.delete_schedule_plan(table, server_id, plan_name)

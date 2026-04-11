@@ -101,7 +101,11 @@ def add_plan(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
     """Adds a planned event placeholder to the schedule."""
     server_id = event.get_server_id()
 
-    error_message = permissions_helper.verify_has_organizer_role(event, aws_services)
+    server_config = db_helper.get_server_config_or_fail(server_id, aws_services.dynamodb_table)
+    if isinstance(server_config, ResponseMessage):
+        return server_config
+
+    error_message = permissions_helper.require_organizer_role(server_config, event)
     if error_message:
         return error_message
 
@@ -118,6 +122,7 @@ def add_plan(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
         event_link=event_link or None,
     )
     db_helper.put_schedule_plan(server_id, plan, aws_services.dynamodb_table)
+    sync_schedule(server_id, server_config, aws_services.dynamodb_table)
 
     return ResponseMessage(content=f"✅ Planned event **{name}** added to the schedule.")
 
