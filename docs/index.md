@@ -5,17 +5,11 @@ title: Home
 
 # Adomi-san ☆
 
-<span class="badge">start.gg</span>
-<span class="badge">Serverless</span>
-<span class="badge">AWS Lambda</span>
-<span class="badge">Google Sheets</span>
+Adomi-san (or Adomin for short) is here to help as a Discord event administration assistant. She helps make you manage events organically within Discord, automating work to make events visible, notify event participants, and more!
 
-Adomi-san automates the full lifecycle of netplay bracket events on your Discord server.
-Create events manually or import them from [start.gg](https://start.gg), manage participant
-registration and check-in with automatic role assignment, report bracket set scores directly
-to start.gg, and run long-term leagues tracked via Google Sheets — all through Discord slash commands.
+With special training to support FGC tournaments hosted on [start.gg](https://start.gg), she simplifies score reporting while letting you count player check-ins without extra steps in start.gg itself.
 
-But you can call her Adomin ~☆！
+Explore this site to learn how you can get started running your own online events easily with help from Adomin ~☆!
 
 ---
 
