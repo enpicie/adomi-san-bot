@@ -33,7 +33,7 @@ def get_guild_events(guild_id):
 
 def send_channel_message(channel_id, content):
     """Send a message to a Discord channel. Returns True on success."""
-    resp = _request("POST", f"{_DISCORD_API}/channels/{channel_id}/messages", json={"content": content})
+    resp = _request("POST", f"{_DISCORD_API}/channels/{channel_id}/messages", json={"content": content, "flags": 4})
     if resp.status_code not in (200, 201):
         logger.error(
             f"Failed to send message to channel {channel_id}: {resp.status_code} {resp.text}"
@@ -55,7 +55,7 @@ def get_channel_message(channel_id, message_id):
 
 def edit_channel_message(channel_id, message_id, content):
     """Edit an existing message in a Discord channel. Returns True on success."""
-    resp = _request("PATCH", f"{_DISCORD_API}/channels/{channel_id}/messages/{message_id}", json={"content": content})
+    resp = _request("PATCH", f"{_DISCORD_API}/channels/{channel_id}/messages/{message_id}", json={"content": content, "flags": 4})
     if resp.status_code == 200:
         return True
     logger.error(

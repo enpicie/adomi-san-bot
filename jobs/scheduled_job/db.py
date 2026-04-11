@@ -26,10 +26,11 @@ def get_server_config(table, server_id):
 
 
 def get_all_events_by_server(table):
-    """Scan EventNameIndex to get all event records grouped by server_id -> [event_id]."""
+    """Scan EventNameIndex to get all active (not ended) event records grouped by server_id -> [event_id]."""
     server_events = {}
+    filter_expr = Attr("is_ended").ne(True)
 
-    response = table.scan(IndexName=_EVENT_NAME_INDEX)
+    response = table.scan(IndexName=_EVENT_NAME_INDEX, FilterExpression=filter_expr)
     for item in response.get("Items", []):
         server_id = item.get("server_id")
         event_id = item.get("event_id")
@@ -39,6 +40,7 @@ def get_all_events_by_server(table):
     while "LastEvaluatedKey" in response:
         response = table.scan(
             IndexName=_EVENT_NAME_INDEX,
+            FilterExpression=filter_expr,
             ExclusiveStartKey=response["LastEvaluatedKey"],
         )
         for item in response.get("Items", []):
@@ -48,6 +50,17 @@ def get_all_events_by_server(table):
                 server_events.setdefault(server_id, []).append(event_id)
 
     return server_events
+
+
+def mark_event_ended(table, server_id, event_id):
+    """Mark an event as ended so the job skips it, while keeping the record for schedule display."""
+    pk = f"{_PK_SERVER_PREFIX}{server_id}"
+    sk = f"{_SK_EVENT_PREFIX}{event_id}"
+    table.update_item(
+        Key={"PK": pk, "SK": sk},
+        UpdateExpression="SET is_ended = :val",
+        ExpressionAttributeValues={":val": True},
+    )
 
 
 def get_all_server_configs_with_oauth(table):

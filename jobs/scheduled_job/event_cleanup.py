@@ -73,5 +73,5 @@ def cleanup_ended_event(table, server_id, event_id):
     discord_api.delete_guild_event(server_id, event_id)
     time.sleep(0.5)  # Brief pause between Discord API calls to avoid rate limits
 
-    db.delete_event_record(table, server_id, event_id)
+    db.mark_event_ended(table, server_id, event_id)
     return event_name

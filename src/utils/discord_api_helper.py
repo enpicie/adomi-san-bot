@@ -162,7 +162,7 @@ def send_channel_message(channel_id: str, content: str) -> Optional[str]:
     :return: The message ID if successful, None otherwise.
     """
     url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
-    body = {"content": content}
+    body = {"content": content, "flags": 4}
     print(f"[discord] POST {url}")
     response = requests.post(url, headers=BOT_AUTH_HEADERS, json=body)
     print(f"[discord] Response status: {response.status_code} | body: {response.text}")
@@ -178,7 +178,7 @@ def edit_channel_message(channel_id: str, message_id: str, content: str) -> bool
     :return: True if successful, False otherwise.
     """
     url = f"https://discord.com/api/v10/channels/{channel_id}/messages/{message_id}"
-    body = {"content": content}
+    body = {"content": content, "flags": 4}
     print(f"[discord] PATCH {url}")
     response = requests.patch(url, headers=BOT_AUTH_HEADERS, json=body)
     print(f"[discord] Response status: {response.status_code} | body: {response.text}")
