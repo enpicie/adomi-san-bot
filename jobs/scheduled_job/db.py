@@ -88,6 +88,15 @@ def delete_event_record(table, server_id, event_id):
         return False
 
 
+def mark_event_reminder_sent(table, server_id: str, event_id: str):
+    """Set did_post_reminder to True on an event record to prevent duplicate reminder sends."""
+    table.update_item(
+        Key={"PK": f"{_PK_SERVER_PREFIX}{server_id}", "SK": f"{_SK_EVENT_PREFIX}{event_id}"},
+        UpdateExpression="SET did_post_reminder = :val",
+        ExpressionAttributeValues={":val": True}
+    )
+
+
 def update_server_oauth_token(table, server_id: str, access_token: str, refresh_token: str, expires_at: int):
     """Write a refreshed OAuth access token, refresh token, and expiry into the server's config record."""
     table.update_item(

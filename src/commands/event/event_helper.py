@@ -17,6 +17,7 @@ class EventRecord:
     end_time_utc: str         # UTC ISO 8601
     description: Optional[str] = None
     participant_role: Optional[str] = None
+    should_post_reminder: Optional[bool] = False
 
 
 def create_event_record(server_id: str, record: EventRecord, table: Table) -> str:
@@ -50,6 +51,8 @@ def create_event_record(server_id: str, record: EventRecord, table: Table) -> st
         EventData.Keys.QUEUE: {},
         EventData.Keys.CHECK_IN_ENABLED: False,
         EventData.Keys.REGISTER_ENABLED: False,
+        EventData.Keys.SHOULD_POST_REMINDER: record.should_post_reminder or False,
+        EventData.Keys.DID_POST_REMINDER: False,
     })
 
     return event_id

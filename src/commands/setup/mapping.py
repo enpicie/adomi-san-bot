@@ -6,6 +6,8 @@ import commands.setup.server_config_commands as server_config_commands
 import commands.setup.show_config_commands as show_config_commands
 from commands.event.autocomplete_handlers import EVENT_NAME_PARAM
 
+
+
 setup_commands: CommandMapping = {
     "setup-server": {
         "function": server_config_commands.setup_server,
@@ -82,6 +84,36 @@ setup_commands: CommandMapping = {
                 choices=[
                     ParamChoice(name="True", value=True),
                     ParamChoice(name="False", value=False)
+                ]
+            )
+        ]
+    },
+    "setup-event-reminders": {
+        "function": server_config_commands.setup_event_reminders,
+        "description": "Configure the announcement channel and default reminder behavior for events",
+        "params": [
+            CommandParam(
+                name="announcement_channel",
+                description="Channel to post event reminder announcements in",
+                param_type=AppCommandOptionType.channel,
+                required=True,
+                choices=None
+            ),
+            CommandParam(
+                name="announcement_role",
+                description="Role to ping in reminder announcements (leave blank for no ping)",
+                param_type=AppCommandOptionType.role,
+                required=False,
+                choices=None
+            ),
+            CommandParam(
+                name="remind_by_default",
+                description="Whether new events should have reminder announcements on by default (default: False)",
+                param_type=AppCommandOptionType.boolean,
+                required=False,
+                choices=[
+                    ParamChoice(name="True", value=True),
+                    ParamChoice(name="False", value=False),
                 ]
             )
         ]

@@ -28,6 +28,9 @@ class EventData(SubscriptableMixin):
         END_MESSAGE = "end_message"
         STARTGG_URL = "startgg_url"
 
+        SHOULD_POST_REMINDER = "should_post_reminder"
+        DID_POST_REMINDER = "did_post_reminder"
+
 
     checked_in: dict = field(metadata={'db_key': Keys.CHECKED_IN})
     registered: dict = field(metadata={'db_key': Keys.REGISTERED})
@@ -42,6 +45,8 @@ class EventData(SubscriptableMixin):
     event_location: Optional[str] = field(default=None, metadata={'db_key': Keys.EVENT_LOCATION})
     event_name: Optional[str] = field(default=None, metadata={'db_key': Keys.EVENT_NAME})
     startgg_url: Optional[str] = field(default=None, metadata={'db_key': Keys.STARTGG_URL})
+    should_post_reminder: Optional[bool] = field(default=False, metadata={'db_key': Keys.SHOULD_POST_REMINDER})
+    did_post_reminder: Optional[bool] = field(default=False, metadata={'db_key': Keys.DID_POST_REMINDER})
 
     @classmethod
     def from_dynamodb(cls, record: Dict[str, Any]) -> 'EventData':
@@ -58,5 +63,7 @@ class EventData(SubscriptableMixin):
             end_time=record.get(cls.Keys.END_TIME),
             event_location=record.get(cls.Keys.EVENT_LOCATION),
             event_name=record.get(cls.Keys.EVENT_NAME),
-            startgg_url=record.get(cls.Keys.STARTGG_URL)
+            startgg_url=record.get(cls.Keys.STARTGG_URL),
+            should_post_reminder=record.get(cls.Keys.SHOULD_POST_REMINDER, False),
+            did_post_reminder=record.get(cls.Keys.DID_POST_REMINDER, False),
         )

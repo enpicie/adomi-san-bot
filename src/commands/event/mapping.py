@@ -1,7 +1,7 @@
 from discord import AppCommandOptionType
 
 from commands.models.command_mapping import CommandMapping
-from commands.models.command_param import CommandParam
+from commands.models.command_param import CommandParam, ParamChoice
 import commands.event.event_commands as event_commands
 import commands.event.autocomplete_handlers as autocomplete_handlers
 from commands.event.autocomplete_handlers import EVENT_NAME_PARAM
@@ -61,6 +61,16 @@ event_commands_mapping: CommandMapping = {
                 param_type=AppCommandOptionType.role,
                 required=False,
                 choices=None
+            ),
+            CommandParam(
+                name="announce_reminder",
+                description="Post a reminder announcement 24h before this event (default: server setting)",
+                param_type=AppCommandOptionType.string,
+                required=False,
+                choices=[
+                    ParamChoice(name="On", value="On"),
+                    ParamChoice(name="Off", value="Off"),
+                ]
             )
         ]
     },
@@ -119,6 +129,16 @@ event_commands_mapping: CommandMapping = {
                 param_type=AppCommandOptionType.role,
                 required=False,
                 choices=None
+            ),
+            CommandParam(
+                name="announce_reminder",
+                description="Post a reminder announcement 24h before this event (default: server setting)",
+                param_type=AppCommandOptionType.string,
+                required=False,
+                choices=[
+                    ParamChoice(name="On", value="On"),
+                    ParamChoice(name="Off", value="Off"),
+                ]
             )
         ]
     },

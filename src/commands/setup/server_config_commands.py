@@ -109,6 +109,51 @@ def setup_notifications(event: DiscordEvent, aws_services: AWSServices) -> Respo
     )
 
 
+def setup_event_reminders(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
+    """Configures the announcement channel, optional role, and default reminder behavior for events."""
+    error_message = permissions_helper.require_manage_server_permission(event)
+    if isinstance(error_message, ResponseMessage):
+        return error_message
+
+    server_id = event.get_server_id()
+    pk = db_helper.build_server_pk(server_id)
+
+    result = db_helper.get_server_config_or_fail(server_id, aws_services.dynamodb_table)
+    if isinstance(result, ResponseMessage):
+        return result
+
+    announcement_channel = event.get_command_input_value("announcement_channel")
+    announcement_role = event.get_command_input_value("announcement_role")
+    remind_by_default = event.get_command_input_value("remind_by_default")
+
+    update_expr = f"SET {ServerConfig.Keys.ANNOUNCEMENT_CHANNEL_ID} = :channel"
+    expression_values = {":channel": announcement_channel}
+
+    if announcement_role is not None:
+        update_expr += f", {ServerConfig.Keys.ANNOUNCEMENT_ROLE_ID} = :role"
+        expression_values[":role"] = announcement_role
+
+    if remind_by_default is not None:
+        update_expr += f", {ServerConfig.Keys.SHOULD_ALWAYS_REMIND} = :remind"
+        expression_values[":remind"] = remind_by_default
+
+    aws_services.dynamodb_table.update_item(
+        Key={"PK": pk, "SK": ServerConfig.Keys.SK_CONFIG},
+        UpdateExpression=update_expr,
+        ExpressionAttributeValues=expression_values
+    )
+
+    role_note = f" Reminders will ping {message_helper.get_role_ping(announcement_role)}." if announcement_role else ""
+    remind_note = " Events will have reminders on by default." if remind_by_default else ""
+    return ResponseMessage(
+        content=(
+            f"👍 Event reminders configured. Announcements will be posted to "
+            f"{message_helper.get_channel_mention(announcement_channel)}.{role_note}{remind_note}"
+            " Please ensure I have access to the announcement channel."
+        )
+    )
+
+
 def set_default_participant_role(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
     """Sets the default_participant_role property of the server CONFIG record."""
     error_message = permissions_helper.require_manage_server_permission(event)
