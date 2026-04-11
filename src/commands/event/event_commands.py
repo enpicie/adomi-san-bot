@@ -42,12 +42,6 @@ def create_event(event: DiscordEvent, aws_services: AWSServices) -> ResponseMess
 
     timezone = event.get_command_input_value("timezone")
 
-    announce_reminder = event.get_command_input_value("announce_reminder")
-    should_post_reminder = (
-        announce_reminder == "On" if announce_reminder is not None
-        else server_config.should_always_remind or False
-    )
-
     create_event_record(
         server_id=server_id,
         record=EventRecord(
@@ -57,7 +51,7 @@ def create_event(event: DiscordEvent, aws_services: AWSServices) -> ResponseMess
             end_time_utc=to_utc_iso(event.get_command_input_value("end_time"), timezone),
             description=event.get_command_input_value("event_description"),
             participant_role=participant_role,
-            should_post_reminder=should_post_reminder
+            should_post_reminder=server_config.should_always_remind or False
         ),
         table=aws_services.dynamodb_table
     )
@@ -89,7 +83,6 @@ def update_event(event: DiscordEvent, aws_services: AWSServices) -> ResponseMess
     start_time_input = event.get_command_input_value("start_time")
     end_time_input = event.get_command_input_value("end_time")
     participant_role_input = event.get_command_input_value("participant_role")
-    announce_reminder = event.get_command_input_value("announce_reminder")
 
     if (start_time_input or end_time_input) and not timezone:
         return ResponseMessage(content="❌ A timezone is required when providing a start time or end time.")
@@ -122,24 +115,6 @@ def update_event(event: DiscordEvent, aws_services: AWSServices) -> ResponseMess
         table=aws_services.dynamodb_table
     )
 
-    # Apply announce_reminder change if provided — tracked separately from EventRecord fields
-    reminder_changed = False
-    if announce_reminder is not None:
-        new_should_post_reminder = announce_reminder == "On"
-        if new_should_post_reminder != event_data_result.should_post_reminder:
-            reminder_changed = True
-            reminder_update_expr = f"SET {EventData.Keys.SHOULD_POST_REMINDER} = :spr"
-            reminder_update_values = {":spr": new_should_post_reminder}
-            # Reset did_post_reminder when re-enabling so a fresh reminder can be sent
-            if new_should_post_reminder:
-                reminder_update_expr += f", {EventData.Keys.DID_POST_REMINDER} = :dpr"
-                reminder_update_values[":dpr"] = False
-            aws_services.dynamodb_table.update_item(
-                Key={"PK": db_helper.build_server_pk(server_id), "SK": EventData.Keys.SK_EVENT_PREFIX + event_id},
-                UpdateExpression=reminder_update_expr,
-                ExpressionAttributeValues=reminder_update_values
-            )
-
     # Build change summary — only report fields that were provided AND differ from stored
     changes = []
     if new_name and new_name != event_data_result.event_name:
@@ -157,9 +132,6 @@ def update_event(event: DiscordEvent, aws_services: AWSServices) -> ResponseMess
         changes.append(f"🔚 End time updated to `{end_time_utc}`")
     if participant_role_input and participant_role_input != event_data_result.participant_role:
         changes.append(f"🎭 Participant role updated")
-    if reminder_changed:
-        reminder_label = "On" if announce_reminder == "On" else "Off"
-        changes.append(f"🔔 Reminder announcement: {reminder_label}")
 
     no_role_warning = (
         "\n⚠️ No participant role is set for this event. "
@@ -176,6 +148,45 @@ def update_event(event: DiscordEvent, aws_services: AWSServices) -> ResponseMess
 
     change_summary = "\n".join(f"• {c}" for c in changes)
     return ResponseMessage(content=f"✅ Event updated:\n{change_summary}{startgg_start_note}{no_role_warning}")
+
+
+def setup_event_reminder(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
+    server_id = event.get_server_id()
+    server_config = db_helper.get_server_config_or_fail(server_id, aws_services.dynamodb_table)
+    if isinstance(server_config, ResponseMessage):
+        return server_config
+    error_message = permissions_helper.require_organizer_role(server_config, event)
+    if error_message:
+        return error_message
+
+    event_id = event.get_command_input_value("event_name")
+    event_data_result = db_helper.get_server_event_data_or_fail(server_id, event_id, aws_services.dynamodb_table)
+    if isinstance(event_data_result, ResponseMessage):
+        return event_data_result
+
+    send_reminder = event.get_command_input_value("send_reminder")
+    announcement_role = event.get_command_input_value("announcement_role")
+
+    update_expr = f"SET {EventData.Keys.SHOULD_POST_REMINDER} = :spr"
+    expr_values = {":spr": send_reminder}
+
+    if send_reminder:
+        update_expr += f", {EventData.Keys.DID_POST_REMINDER} = :dpr"
+        expr_values[":dpr"] = False
+
+    if announcement_role is not None:
+        update_expr += f", {EventData.Keys.REMINDER_ROLE_ID} = :role"
+        expr_values[":role"] = announcement_role
+
+    aws_services.dynamodb_table.update_item(
+        Key={"PK": db_helper.build_server_pk(server_id), "SK": EventData.Keys.SK_EVENT_PREFIX + event_id},
+        UpdateExpression=update_expr,
+        ExpressionAttributeValues=expr_values
+    )
+
+    reminder_label = "On" if send_reminder else "Off"
+    role_note = f" Reminder will ping <@&{announcement_role}>." if announcement_role else ""
+    return ResponseMessage(content=f"✅ Reminder for **{event_data_result.event_name}** set to **{reminder_label}**.{role_note}")
 
 
 def delete_event(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:

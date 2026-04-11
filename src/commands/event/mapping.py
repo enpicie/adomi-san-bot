@@ -1,7 +1,7 @@
 from discord import AppCommandOptionType
 
 from commands.models.command_mapping import CommandMapping
-from commands.models.command_param import CommandParam, ParamChoice
+from commands.models.command_param import CommandParam
 import commands.event.event_commands as event_commands
 import commands.event.autocomplete_handlers as autocomplete_handlers
 from commands.event.autocomplete_handlers import EVENT_NAME_PARAM
@@ -62,16 +62,6 @@ event_commands_mapping: CommandMapping = {
                 required=False,
                 choices=None
             ),
-            CommandParam(
-                name="announce_reminder",
-                description="Post a reminder announcement 24h before this event (default: server setting)",
-                param_type=AppCommandOptionType.string,
-                required=False,
-                choices=[
-                    ParamChoice(name="On", value="On"),
-                    ParamChoice(name="Off", value="Off"),
-                ]
-            )
         ]
     },
     "event-update": {
@@ -130,15 +120,26 @@ event_commands_mapping: CommandMapping = {
                 required=False,
                 choices=None
             ),
+        ]
+    },
+    "event-setup-reminder": {
+        "function": event_commands.setup_event_reminder,
+        "description": "Configure the reminder for an event (Organizer only)",
+        "params": [
+            EVENT_NAME_PARAM,
             CommandParam(
-                name="announce_reminder",
-                description="Post a reminder announcement 24h before this event (default: server setting)",
-                param_type=AppCommandOptionType.string,
+                name="send_reminder",
+                description="Whether to send a reminder announcement 24h before this event",
+                param_type=AppCommandOptionType.boolean,
+                required=True,
+                choices=None
+            ),
+            CommandParam(
+                name="announcement_role",
+                description="Role to ping in the reminder (overrides server default, leave blank to use server default)",
+                param_type=AppCommandOptionType.role,
                 required=False,
-                choices=[
-                    ParamChoice(name="On", value="On"),
-                    ParamChoice(name="Off", value="Off"),
-                ]
+                choices=None
             )
         ]
     },

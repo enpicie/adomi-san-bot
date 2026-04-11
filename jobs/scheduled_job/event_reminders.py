@@ -57,7 +57,7 @@ def check_and_send_reminder(table, server_id, event_id, server_config):
 
     message = f"## 📣 {event_name} is coming up <t:{start_epoch}:R>\n Starting <t:{start_epoch}:F>!"
 
-    announcement_role_id = server_config.get("announcement_role_id") if server_config else None
+    announcement_role_id = event_record.get("reminder_role_id") or (server_config.get("announcement_role_id") if server_config else None)
     if announcement_role_id:
         message = f"<@&{announcement_role_id}> {message}"
 

@@ -18,6 +18,7 @@ All require the **organizer role**.
 |---|---|
 | `/event-create` | Create a new event manually |
 | `/event-update` | Update an existing event's details |
+| `/event-setup-reminder` | Configure reminder and optional ping role for an event |
 | `/event-delete` | Delete an event |
 | `/event-create-startgg` | Import an event from a start.gg tournament link |
 | `/event-update-startgg` | Link an existing event to start.gg and import participants |
