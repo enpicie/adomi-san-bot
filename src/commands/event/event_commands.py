@@ -5,6 +5,7 @@ import utils.permissions_helper as permissions_helper
 import commands.event.startgg.startgg_api as startgg_api
 from commands.event.event_helper import EventRecord, create_event_record, update_event_record, delete_event_record
 from commands.event.timezone_helper import to_utc_iso
+from commands.schedule.schedule_helper import sync_schedule
 from aws_services import AWSServices
 from commands.models.discord_event import DiscordEvent
 from commands.models.response_message import ResponseMessage
@@ -62,6 +63,7 @@ def create_event(event: DiscordEvent, aws_services: AWSServices) -> ResponseMess
     )
 
     event_name = event.get_command_input_value("event_name")
+    sync_schedule(server_id, server_config, aws_services.dynamodb_table)
     return ResponseMessage(content=f"Event '{event_name}' created successfully.{no_role_warning}")
 
 
@@ -277,6 +279,7 @@ def create_event_startgg(event: DiscordEvent, aws_services: AWSServices) -> Resp
 
     no_discord_report = _build_no_discord_report(no_discord_names)
 
+    sync_schedule(server_id, server_config, aws_services.dynamodb_table)
     return ResponseMessage(
         content=f"✅ Event **{startgg_event.event_name}** created with {total_count} registered participants!{past_time_warning}{no_discord_report}{no_role_warning}"
     )

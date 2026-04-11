@@ -1,12 +1,13 @@
 from typing import List, Tuple
 
-from boto3.dynamodb.conditions import Key
+from boto3.dynamodb.conditions import Key, Attr
 from mypy_boto3_dynamodb.service_resource import Table
 
 import utils.adomin_messages as adomin_messages
 from commands.models.response_message import ResponseMessage
 from database.models.event_data import EventData
 from database.models.league_data import LeagueData
+from database.models.schedule_plan import SchedulePlan
 from database.models.server_config import ServerConfig
 
 PK_SERVER_PREFIX = "SERVER#"
@@ -54,6 +55,46 @@ def get_server_event_data_or_fail(server_id: str, event_id: str, table: Table) -
     print(f"Found {sk} Record: {existing_data}")
 
     return EventData.from_dynamodb(existing_data)
+
+
+def get_full_events_for_server(server_id: str, table: Table) -> List[EventData]:
+    """Query all EVENT records for a server by PK + SK prefix and return as EventData objects."""
+    pk = build_server_pk(server_id)
+    response = table.query(
+        KeyConditionExpression=Key("PK").eq(pk) & Key("SK").begins_with(EventData.Keys.SK_EVENT_PREFIX)
+    )
+    return [EventData.from_dynamodb(item) for item in response.get("Items", [])]
+
+
+def get_schedule_plans_for_server(server_id: str, table: Table) -> List[SchedulePlan]:
+    """Return all SCHEDULE_PLAN records for a server."""
+    pk = build_server_pk(server_id)
+    response = table.query(
+        KeyConditionExpression=Key("PK").eq(pk) & Key("SK").begins_with(SchedulePlan.Keys.SK_PLAN_PREFIX)
+    )
+    return [SchedulePlan.from_dynamodb(item) for item in response.get("Items", [])]
+
+
+def put_schedule_plan(server_id: str, plan: SchedulePlan, table: Table) -> None:
+    """Upsert a SCHEDULE_PLAN record, keyed by normalized plan name."""
+    pk = build_server_pk(server_id)
+    sk = SchedulePlan.Keys.SK_PLAN_PREFIX + SchedulePlan.normalize_name(plan.plan_name)
+    item = {
+        "PK": pk,
+        "SK": sk,
+        SchedulePlan.Keys.PLAN_NAME: plan.plan_name,
+        SchedulePlan.Keys.START_TIME: plan.start_time,
+    }
+    if plan.event_link:
+        item[SchedulePlan.Keys.EVENT_LINK] = plan.event_link
+    table.put_item(Item=item)
+
+
+def delete_schedule_plan(server_id: str, plan_name: str, table: Table) -> None:
+    """Delete a SCHEDULE_PLAN record by plan name (normalized for the key)."""
+    pk = build_server_pk(server_id)
+    sk = SchedulePlan.Keys.SK_PLAN_PREFIX + SchedulePlan.normalize_name(plan_name)
+    table.delete_item(Key={"PK": pk, "SK": sk})
 
 
 def get_leagues_for_server(server_id: str, table: Table) -> List[Tuple[str, str]]:

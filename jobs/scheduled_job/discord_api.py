@@ -42,6 +42,28 @@ def send_channel_message(channel_id, content):
     return True
 
 
+def get_channel_message(channel_id, message_id):
+    """Fetch the content of an existing channel message. Returns content string or None on failure."""
+    resp = _request("GET", f"{_DISCORD_API}/channels/{channel_id}/messages/{message_id}")
+    if resp.status_code == 200:
+        return resp.json().get("content")
+    logger.error(
+        f"Failed to fetch message {message_id} in channel {channel_id}: {resp.status_code} {resp.text}"
+    )
+    return None
+
+
+def edit_channel_message(channel_id, message_id, content):
+    """Edit an existing message in a Discord channel. Returns True on success."""
+    resp = _request("PATCH", f"{_DISCORD_API}/channels/{channel_id}/messages/{message_id}", json={"content": content})
+    if resp.status_code == 200:
+        return True
+    logger.error(
+        f"Failed to edit message {message_id} in channel {channel_id}: {resp.status_code} {resp.text}"
+    )
+    return False
+
+
 def delete_guild_event(guild_id, event_id):
     """Delete a scheduled event from Discord. Returns True on success."""
     resp = _request("DELETE", f"{_DISCORD_API}/guilds/{guild_id}/scheduled-events/{event_id}")

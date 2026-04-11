@@ -5,6 +5,7 @@ import db
 import discord_api
 from event_cleanup import cleanup_ended_event
 from event_reminders import check_and_send_reminder
+from schedule_sync import sync_schedule_for_server
 from startgg_token_refresh import refresh_startgg_tokens
 
 logger = logging.getLogger()
@@ -84,3 +85,7 @@ def handler(event, context):
                 discord_api.send_channel_message(notification_channel_id, message)
             else:
                 logger.info(f"No notification_channel_id configured for server {server_id}, skipping notification")
+
+        if server_config is None:
+            server_config = db.get_server_config(table, server_id)
+        sync_schedule_for_server(table, server_id, server_config)

@@ -22,6 +22,9 @@ class ServerConfig(SubscriptableMixin):
         ANNOUNCEMENT_ROLE_ID = "announcement_role_id"
         SHOULD_ALWAYS_REMIND = "should_always_remind"
 
+        SCHEDULE_CHANNEL_ID = "schedule_channel_id"
+        SCHEDULE_MESSAGE_ID = "schedule_message_id"
+
     server_id: str = field(metadata={'db_key': Keys.SERVER_ID})
     server_name: str = field(metadata={'db_key': Keys.SERVER_NAME})
     organizer_role: str = field(metadata={'db_key': Keys.ORGANIZER_ROLE})
@@ -32,6 +35,8 @@ class ServerConfig(SubscriptableMixin):
     announcement_channel_id: Optional[str] = field(default=None, metadata={'db_key': Keys.ANNOUNCEMENT_CHANNEL_ID})
     announcement_role_id: Optional[str] = field(default=None, metadata={'db_key': Keys.ANNOUNCEMENT_ROLE_ID})
     should_always_remind: Optional[bool] = field(default=False, metadata={'db_key': Keys.SHOULD_ALWAYS_REMIND})
+    schedule_channel_id: Optional[str] = field(default=None, metadata={'db_key': Keys.SCHEDULE_CHANNEL_ID})
+    schedule_message_id: Optional[str] = field(default=None, metadata={'db_key': Keys.SCHEDULE_MESSAGE_ID})
 
     @classmethod
     def from_dynamodb(cls, record: Dict[str, Any]) -> 'ServerConfig':
@@ -46,4 +51,6 @@ class ServerConfig(SubscriptableMixin):
             announcement_channel_id=record.get(cls.Keys.ANNOUNCEMENT_CHANNEL_ID),
             announcement_role_id=record.get(cls.Keys.ANNOUNCEMENT_ROLE_ID),
             should_always_remind=record.get(cls.Keys.SHOULD_ALWAYS_REMIND, False),
+            schedule_channel_id=record.get(cls.Keys.SCHEDULE_CHANNEL_ID),
+            schedule_message_id=record.get(cls.Keys.SCHEDULE_MESSAGE_ID),
         )
