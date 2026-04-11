@@ -1,3 +1,4 @@
+from datetime import datetime, timezone as dt_timezone
 from typing import List, Tuple
 
 from boto3.dynamodb.conditions import Key, Attr
@@ -64,6 +65,29 @@ def get_full_events_for_server(server_id: str, table: Table) -> List[EventData]:
         KeyConditionExpression=Key("PK").eq(pk) & Key("SK").begins_with(EventData.Keys.SK_EVENT_PREFIX)
     )
     return [EventData.from_dynamodb(item) for item in response.get("Items", [])]
+
+
+def delete_past_real_events(server_id: str, table: Table) -> List[str]:
+    """Delete all past EVENT records from DynamoDB. Returns list of deleted event names."""
+    pk = build_server_pk(server_id)
+    response = table.query(
+        KeyConditionExpression=Key("PK").eq(pk) & Key("SK").begins_with(EventData.Keys.SK_EVENT_PREFIX)
+    )
+    now_epoch = int(datetime.now(dt_timezone.utc).timestamp())
+    deleted_names = []
+    for item in response.get("Items", []):
+        start_time = item.get(EventData.Keys.START_TIME)
+        if not start_time:
+            continue
+        try:
+            epoch = int(datetime.fromisoformat(start_time.replace("Z", "+00:00")).timestamp())
+        except Exception:
+            continue
+        if epoch < now_epoch:
+            event_id = item.get(EventData.Keys.EVENT_ID)
+            table.delete_item(Key={"PK": pk, "SK": EventData.Keys.SK_EVENT_PREFIX + event_id})
+            deleted_names.append(item.get(EventData.Keys.EVENT_NAME) or event_id)
+    return deleted_names
 
 
 def get_schedule_plans_for_server(server_id: str, table: Table) -> List[SchedulePlan]:

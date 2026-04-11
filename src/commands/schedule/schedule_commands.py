@@ -123,7 +123,7 @@ def add_plan(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
 
 
 def clear_past_plans(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
-    """Removes all past planned event placeholders from the schedule and refreshes the message."""
+    """Removes all past events (real and planned) from the schedule and refreshes the message."""
     server_id = event.get_server_id()
 
     server_config = db_helper.get_server_config_or_fail(server_id, aws_services.dynamodb_table)
@@ -138,7 +138,6 @@ def clear_past_plans(event: DiscordEvent, aws_services: AWSServices) -> Response
     now_epoch = int(datetime.now(dt_timezone.utc).timestamp())
 
     planned_events = db_helper.get_schedule_plans_for_server(server_id, aws_services.dynamodb_table)
-
     past_plans = []
     for plan in planned_events:
         try:
@@ -148,16 +147,19 @@ def clear_past_plans(event: DiscordEvent, aws_services: AWSServices) -> Response
         if epoch < now_epoch:
             past_plans.append(plan)
 
-    if not past_plans:
-        return ResponseMessage(content="ℹ️ No past planned events to clear.")
-
     for plan in past_plans:
         db_helper.delete_schedule_plan(server_id, plan.plan_name, aws_services.dynamodb_table)
 
+    past_real_names = db_helper.delete_past_real_events(server_id, aws_services.dynamodb_table)
+
+    total = len(past_plans) + len(past_real_names)
+    if total == 0:
+        return ResponseMessage(content="ℹ️ No past events to clear.")
+
     sync_schedule(server_id, server_config, aws_services.dynamodb_table)
 
-    names = ", ".join(f"**{p.plan_name}**" for p in past_plans)
-    return ResponseMessage(content=f"✅ Removed {len(past_plans)} past planned event(s): {names}")
+    all_names = [f"**{p.plan_name}**" for p in past_plans] + [f"**{n}**" for n in past_real_names]
+    return ResponseMessage(content=f"✅ Removed {total} past event(s): {', '.join(all_names)}")
 
 
 def remove_plan(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:

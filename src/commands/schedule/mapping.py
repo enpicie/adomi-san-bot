@@ -104,7 +104,7 @@ schedule_commands_mapping: CommandMapping = {
     },
     "schedule-clear-past": {
         "function": schedule_commands.clear_past_plans,
-        "description": "Remove all past planned event placeholders from the schedule and refresh the message (Organizer only)",
+        "description": "Clear all past events from the schedule and refresh the message (Organizer only)",
         "params": [],
     },
 }

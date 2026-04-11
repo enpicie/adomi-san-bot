@@ -86,6 +86,7 @@ def sync_schedule_for_server(table, server_id: str, server_config: dict) -> None
     real_events = db.get_full_events_for_server(table, server_id)
     planned_events = db.get_schedule_plans_for_server(table, server_id)
 
+    now_epoch = int(datetime.now(dt_timezone.utc).timestamp())
     real_names = {(e.get("event_name") or "").strip().lower() for e in real_events}
     remaining_plans = []
     for plan in planned_events:
@@ -93,8 +94,13 @@ def sync_schedule_for_server(table, server_id: str, server_config: dict) -> None
         if plan_name.strip().lower() in real_names:
             db.delete_schedule_plan(table, server_id, plan_name)
             logger.info(f"Removed matched plan '{plan_name}' for server {server_id}")
-        else:
-            remaining_plans.append(plan)
+            continue
+        epoch = _to_epoch(plan.get("start_time")) if plan.get("start_time") else None
+        if epoch is not None and epoch < now_epoch:
+            db.delete_schedule_plan(table, server_id, plan_name)
+            logger.info(f"Removed past plan '{plan_name}' for server {server_id}")
+            continue
+        remaining_plans.append(plan)
 
     content = _build_schedule_content(title, real_events, remaining_plans)
     success = discord_api.edit_channel_message(schedule_channel_id, schedule_message_id, content)
