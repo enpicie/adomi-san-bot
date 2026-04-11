@@ -35,10 +35,11 @@ def build_schedule_content(
 
     for p in planned_events:
         epoch = _to_epoch(p.start_time)
+        if epoch is not None and epoch < now_epoch:
+            continue
         display_name = f"[{p.plan_name}]({p.event_link})" if p.event_link else p.plan_name
         timestamp = f"**<t:{epoch}:F>**" if epoch is not None else "**TBD**"
-        is_past = epoch is not None and epoch < now_epoch
-        items.append((epoch if epoch is not None else float("inf"), display_name, timestamp, is_past, True))
+        items.append((epoch if epoch is not None else float("inf"), display_name, timestamp, False, True))
 
     items.sort(key=lambda x: x[0])
 
@@ -55,6 +56,23 @@ def build_schedule_content(
             lines.append(f"- {entry}")
 
     return "\n".join(lines)
+
+
+def _delete_past_plans(
+    server_id: str,
+    planned_events: List[SchedulePlan],
+    table,
+) -> List[SchedulePlan]:
+    """Delete any planned event whose start_time is in the past. Returns the remaining list."""
+    now_epoch = int(datetime.now(dt_timezone.utc).timestamp())
+    remaining = []
+    for plan in planned_events:
+        epoch = _to_epoch(plan.start_time)
+        if epoch is not None and epoch < now_epoch:
+            db_helper.delete_schedule_plan(server_id, plan.plan_name, table)
+        else:
+            remaining.append(plan)
+    return remaining
 
 
 def remove_matched_plans(
@@ -97,6 +115,7 @@ def sync_schedule(server_id: str, server_config: ServerConfig, table, title: Opt
     real_events = db_helper.get_full_events_for_server(server_id, table)
     planned_events = db_helper.get_schedule_plans_for_server(server_id, table)
     planned_events = remove_matched_plans(server_id, real_events, planned_events, table)
+    planned_events = _delete_past_plans(server_id, planned_events, table)
     content = build_schedule_content(title, real_events, planned_events)
     success = discord_helper.edit_channel_message(
         server_config.schedule_channel_id, server_config.schedule_message_id, content

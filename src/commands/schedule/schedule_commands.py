@@ -171,11 +171,16 @@ def remove_plan(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessa
     """Removes a planned event placeholder from the schedule."""
     server_id = event.get_server_id()
 
-    error_message = permissions_helper.verify_has_organizer_role(event, aws_services)
+    server_config = db_helper.get_server_config_or_fail(server_id, aws_services.dynamodb_table)
+    if isinstance(server_config, ResponseMessage):
+        return server_config
+
+    error_message = permissions_helper.require_organizer_role(server_config, event)
     if error_message:
         return error_message
 
     plan_name = event.get_command_input_value("plan_name")
     db_helper.delete_schedule_plan(server_id, plan_name, aws_services.dynamodb_table)
+    sync_schedule(server_id, server_config, aws_services.dynamodb_table)
 
     return ResponseMessage(content=f"✅ Planned event **{plan_name}** removed from the schedule.")

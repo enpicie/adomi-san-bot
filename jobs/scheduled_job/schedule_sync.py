@@ -32,12 +32,13 @@ def _build_schedule_content(title: str, real_events: list, planned_events: list)
 
     for p in planned_events:
         epoch = _to_epoch(p.get("start_time")) if p.get("start_time") else None
+        if epoch is not None and epoch < now_epoch:
+            continue
         name = p.get("plan_name") or "Unnamed Plan"
         event_link = p.get("event_link")
         display_name = f"[{name}]({event_link})" if event_link else name
         timestamp = f"**<t:{epoch}:F>**" if epoch is not None else "**TBD**"
-        is_past = epoch is not None and epoch < now_epoch
-        items.append((epoch if epoch is not None else float("inf"), display_name, timestamp, is_past, True))
+        items.append((epoch if epoch is not None else float("inf"), display_name, timestamp, False, True))
 
     items.sort(key=lambda x: x[0])
 
