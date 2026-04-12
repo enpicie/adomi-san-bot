@@ -11,24 +11,14 @@
       </div>
     </a>
 
-    <nav class="flex items-center gap-1 flex-wrap">
-      <a href="{{ site.baseurl }}/"
+    <nav aria-label="Main navigation" class="flex items-center gap-1 flex-wrap">
+      {% for item in site.data.nav %}
+      <a href="{{ site.baseurl }}{{ item.url }}"
          class="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800 border border-transparent hover:border-slate-700 transition-colors">
-        Home
+        {{ item.label }}
       </a>
-      <a href="{{ site.baseurl }}/getting-started"
-         class="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800 border border-transparent hover:border-slate-700 transition-colors">
-        Getting Started
-      </a>
-      <a href="{{ site.baseurl }}/commands"
-         class="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800 border border-transparent hover:border-slate-700 transition-colors">
-        Commands
-      </a>
-      <a href="{{ site.baseurl }}/adomin"
-         class="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800 border border-transparent hover:border-slate-700 transition-colors">
-        Adomin
-      </a>
-      <a href="https://github.com/enpicie/adomi-san-bot"
+      {% endfor %}
+      <a href="{{ site.github_url }}"
          class="px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-widest bg-indigo-600 hover:bg-indigo-500 text-white transition-colors">
         GitHub
       </a>

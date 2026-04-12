@@ -156,6 +156,8 @@
 
 .prose table tr:hover td { background: rgba(30, 41, 59, 0.4); }
 
+.prose table td:first-child { white-space: nowrap; }
+
 /* ============================================================
    Collapsible sections
    ============================================================ */
@@ -198,22 +200,6 @@
 
 .prose details > *:not(summary) {
   padding: 0 1.125rem 1rem;
-}
-
-/* ============================================================
-   Badge component
-   ============================================================ */
-
-.badge {
-  display: inline-block;
-  background: rgba(99, 102, 241, 0.2);
-  color: #818cf8;
-  border: 1px solid rgba(99, 102, 241, 0.4);
-  padding: 0.15rem 0.65rem;
-  border-radius: 999px;
-  font-size: 0.75rem;
-  font-weight: 700;
-  margin-right: 0.25rem;
 }
 
 /* ============================================================

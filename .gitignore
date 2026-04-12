@@ -71,6 +71,10 @@ instance/
 # Sphinx documentation
 docs/_build/
 
+# Jekyll build output
+docs/_site/
+docs/.jekyll-cache/
+
 # PyBuilder
 .pybuilder/
 target/

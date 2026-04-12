@@ -22,12 +22,17 @@ Explore this site to learn how you can get started running your own online event
 
 ## Quick Links
 
-- [Getting Started](getting-started) — how to set up Adomi-san on your server
-- [Commands](commands) — full slash command reference
+- [Stream Setup](stream-setup) — Downloads and quick guide
+- [Adomin](adomin) — Guide to using Adomin for events
+- [Commands](commands) — Full Adomin slash command reference
+
+> NEST is currently used for [Midweek Melting](https://www.start.gg/hub/midweek-melting-1) and many other Melty Blood netplay events. Guides and recommendations for using NEST are derived from enpicie's experience running Melty and other FPan events.
 
 ## Special Thanks
 
-Special thanks to [Beffen](https://x.com/BeffenM) for bringing Adomin to life with her profile pic. Big thanks to the MBAACC community as well for working with me to adopt and test these tools.
+Special thanks to [Beffen](https://x.com/BeffenM) for bringing Adomin to life with her profile pic Tarik of WASD Gaming for building [fgc-scoreboard](https://github.com/WASD-Gaming/fgc-scoreboard) which I have used since Midweek Melting 1.
+
+Big thanks to the MBAACC community as well for working with me to adopt and test these tools.
 
 ---
 
