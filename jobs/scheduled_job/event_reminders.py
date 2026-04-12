@@ -59,7 +59,7 @@ def check_and_send_reminder(table, server_id, event_id, server_config):
 
     announcement_role_id = event_record.get("reminder_role_id") or (server_config.get("announcement_role_id") if server_config else None)
     if announcement_role_id:
-        message = f"<@&{announcement_role_id}> {message}"
+        message = f"<@&{announcement_role_id}>\n{message}"
 
     sent = discord_api.send_channel_message(announcement_channel_id, message)
     if sent:
