@@ -3,32 +3,31 @@ layout: default
 title: Home
 ---
 
-# Netplay Event Starter Tools ☆
+# Netplay Event Starter Tools (NEST)
 
-Adomi-san (or Adomin for short) is here to help as a Discord event administration assistant. She helps make you manage events organically within Discord, automating work to make events visible, notify event participants, and more!
+NEST is a set of tools to help you get started running netplay events thru Discord with Adomin Discord bot, OBS stream scenes, and a Discord server template.
 
-With special training to support FGC tournaments hosted on [start.gg](https://start.gg), she simplifies score reporting while letting you count player check-ins without extra steps in start.gg itself.
+**Get setup to stream and coordinate events through Discord and let Adomin help out with the work so you can focus on your community.**
 
 Explore this site to learn how you can get started running your own online events easily with help from Adomin ~☆!
 
----
+## Key Features with Adomin
 
-## Features
-
-- Create and manage events manually or via start.gg import
-- Registration with open/close toggle and per-event role assignment
-- Check-in flow that automatically assigns Discord roles
-- Score reporting to start.gg brackets via OAuth
-- Long-running league management via Google Sheets
-- Automatic event cleanup via a scheduled poller
+- Quickly create Discord events for start.gg events
+- Setup automatic event reminders 24-hrs ahead of your events
+- Check-ins flow that automatically assigns Discord role as people check-in
+- Report scores on start.gg from Discord
+- Instantly check which registered participants have not yet checked in
 - Server-wide organizer role gating for all management commands
-
----
 
 ## Quick Links
 
 - [Getting Started](getting-started) — how to set up Adomi-san on your server
 - [Commands](commands) — full slash command reference
+
+## Special Thanks
+
+Special thanks to [Beffen](https://x.com/BeffenM) for bringing Adomin to life with her profile pic. Big thanks to the MBAACC community as well for working with me to adopt and test these tools.
 
 ---
 

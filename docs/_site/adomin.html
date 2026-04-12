@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Adomin — NEST</title>
+  <link rel="icon" type="image/x-icon" href="/nest/favicon.ico" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/nest/assets/css/main.css" />
+</head>
+
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col">
+
+  <header class="bg-slate-900 border-b border-slate-800 sticky top-0 z-40">
+  <div class="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
+
+    <a href="/nest/" class="flex items-center gap-3 no-underline">
+      <img src="/nest/adomin.jpg" alt="Adomin" class="w-9 h-9 rounded-lg object-cover" />
+      <div>
+        <span class="font-black text-transparent bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-lg leading-none">
+          NEST
+        </span>
+        <p class="text-[10px] text-slate-400 font-medium hidden sm:block leading-none mt-0.5">Netplay Event Starter Tools</p>
+      </div>
+    </a>
+
+    <nav class="flex items-center gap-1 flex-wrap">
+      <a href="/nest/"
+         class="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800 border border-transparent hover:border-slate-700 transition-colors">
+        Home
+      </a>
+      <a href="/nest/getting-started"
+         class="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800 border border-transparent hover:border-slate-700 transition-colors">
+        Getting Started
+      </a>
+      <a href="/nest/commands"
+         class="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800 border border-transparent hover:border-slate-700 transition-colors">
+        Commands
+      </a>
+      <a href="/nest/adomin"
+         class="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800 border border-transparent hover:border-slate-700 transition-colors">
+        Adomin
+      </a>
+      <a href="https://github.com/enpicie/adomi-san-bot"
+         class="px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-widest bg-indigo-600 hover:bg-indigo-500 text-white transition-colors">
+        GitHub
+      </a>
+    </nav>
+
+  </div>
+</header>
+
+
+  <main class="flex-1 max-w-4xl mx-auto w-full px-4 py-10 prose">
+    <h1 id="adomin-">Adomin! ☆</h1>
+
+<p><strong>Adomi-san</strong> (or <strong>Adomin</strong> for short) is here to help as a Discord event administration assistant. She helps make you manage events organically within Discord, automating work to make events visible, notify event participants, and more! With special training to support FGC tournaments hosted on <a href="https://start.gg">start.gg</a>, she simplifies score reporting while letting you count player check-ins without extra steps in start.gg itself.</p>
+
+<p>Here are some Quick Start guides to get started with events via Adomin! Use the <code class="language-plaintext highlighter-rouge">/help</code> and <code class="language-plaintext highlighter-rouge">/help-*</code> commands to get help in Discord.</p>
+
+<h2 id="guide">Guide</h2>
+<ul>
+  <li><a href="#first-time-server-setup">First-Time Server Setup</a></li>
+  <li><a href="#running-a-startgg-tournament">Running a start.gg Tournament</a></li>
+  <li><a href="#running-an-event-eg-exhibition-other-non-tournament-event">Running an Event (Exhibition, etc.)</a></li>
+  <li><a href="#running-a-league">Running a League</a></li>
+</ul>
+
+<h2 id="first-time-server-setup">First-Time Server Setup</h2>
+
+<p>These steps only need to be done once per server.</p>
+
+<ol>
+  <li>Create a Discord role for event organizers. Users with this role can run privileged commands. Organizers should be anyone you want to be allowed to manage events in your server.</li>
+  <li>Run <code class="language-plaintext highlighter-rouge">/setup-server</code> and provide that role as <code class="language-plaintext highlighter-rouge">organizer_role</code>.</li>
+  <li><em>(Optional)</em> Run <code class="language-plaintext highlighter-rouge">/set-default-participant-role</code> to set a role that gets assigned to users when they check in. This can be used to ping active participants mid-event.</li>
+  <li><em>(Optional)</em> Run <code class="language-plaintext highlighter-rouge">/setup-notifications</code> to configure a channel for notifications such as automated event cleanup or startgg connection notifications.</li>
+  <li><em>(Optional)</em> Run <code class="language-plaintext highlighter-rouge">/setup-event-reminders</code> to setup automatic reminders for events. These can be configured per-event too, but this command sets up the defaults for your server.</li>
+</ol>
+
+<h2 id="running-a-startgg-tournament">Running a start.gg Tournament</h2>
+
+<h3 id="creating-the-event">Creating the Event</h3>
+
+<p>Run <code class="language-plaintext highlighter-rouge">/event-create-startgg</code> with your bracket link, <code class="language-plaintext highlighter-rouge">end_time</code>, and <code class="language-plaintext highlighter-rouge">timezone</code>. Adomi-san will create the event and automatically load all registered entrants into the registration list.</p>
+
+<blockquote>
+  <p>Example link: <code class="language-plaintext highlighter-rouge">https://www.start.gg/tournament/midweek-melting-1/event/mbaacc-double-elim</code></p>
+</blockquote>
+
+<p>If new entrants sign up after creation, use <code class="language-plaintext highlighter-rouge">/event-refresh-startgg</code> to re-sync. Data for the event will be cleaned up and the participant role will be removed from all users after the given end time passes.</p>
+
+<h3 id="on-event-day">On Event Day</h3>
+
+<ol>
+  <li>Open check-in with <code class="language-plaintext highlighter-rouge">/check-in-toggle</code> (state: <strong>Start</strong>).</li>
+  <li>Participants run <code class="language-plaintext highlighter-rouge">/check-in</code> — this marks them as present and assigns the participant role if one is configured.
+    <ul>
+      <li>Note that this does not check the user in on start.gg itself</li>
+    </ul>
+  </li>
+  <li>Use <code class="language-plaintext highlighter-rouge">/check-in-list-absent</code> (with <code class="language-plaintext highlighter-rouge">ping_users: True</code>) to ping anyone who hasn’t checked in yet.
+    <ul>
+      <li>Recommended to run <code class="language-plaintext highlighter-rouge">/event-refresh-startgg</code> before this if your registration is open and you may have new entrants to sync.</li>
+    </ul>
+  </li>
+  <li>When check-in is over, run <code class="language-plaintext highlighter-rouge">/check-in-toggle</code> (state: <strong>End</strong>).</li>
+  <li>Players can report scores with <code class="language-plaintext highlighter-rouge">/startgg-report-score</code> (this requires players to have Discord properly linked to start.gg to function correctly).</li>
+</ol>
+
+<blockquote>
+  <p>Score reporting requires authorization via <code class="language-plaintext highlighter-rouge">/startgg-connect</code> command where a user with permissions to report scores for the event must authorize Adomin to report scores.</p>
+</blockquote>
+
+<h3 id="after-the-event">After the Event</h3>
+
+<p>Adomi-san automatically detects when the Discord scheduled event ends and will…</p>
+<ul>
+  <li>Remove the participant role from all attendees</li>
+  <li>Delete the event data</li>
+  <li>Post a notification to your configured notifications channel</li>
+</ul>
+
+<p>You can also manually clean up with <code class="language-plaintext highlighter-rouge">/check-in-clear</code>, <code class="language-plaintext highlighter-rouge">/register-clear</code>, and <code class="language-plaintext highlighter-rouge">/event-delete</code>.</p>
+
+<h2 id="running-an-event-eg-exhibition-other-non-tournament-event">Running an Event (e.g. Exhibition, other non-tournament event)</h2>
+
+<h3 id="creating-the-event-1">Creating the Event</h3>
+
+<p>Run <code class="language-plaintext highlighter-rouge">/event-create</code> and fill in the required fields: <code class="language-plaintext highlighter-rouge">event_name</code>, <code class="language-plaintext highlighter-rouge">event_location</code>, <code class="language-plaintext highlighter-rouge">start_time</code>, <code class="language-plaintext highlighter-rouge">end_time</code>, and <code class="language-plaintext highlighter-rouge">timezone</code>. Optionally add a description and specified Participant Role.</p>
+
+<h3 id="before-the-event">Before the Event</h3>
+
+<p><em>Registration is only used to determine who is expected to check-in at event time.</em> If you have a set of expected participants you want to register, you can run <code class="language-plaintext highlighter-rouge">/register</code> as an organizer and pass in specific users to register.</p>
+
+<p>To allow users to register themselves:</p>
+
+<ol>
+  <li>Open registration with <code class="language-plaintext highlighter-rouge">/register-toggle</code> (state: <strong>Start</strong>) so participants can sign up.</li>
+  <li>Participants run <code class="language-plaintext highlighter-rouge">/register</code> to add themselves to the list.</li>
+  <li>Organizers can check the list any time with <code class="language-plaintext highlighter-rouge">/register-list</code>.</li>
+</ol>
+
+<h3 id="check-in-management">Check-in Management</h3>
+
+<p>Check-in affirms participants are present for the event and assigns a Participant role to users as they check in.</p>
+
+<ol>
+  <li>Open check-in with <code class="language-plaintext highlighter-rouge">/check-in-toggle</code> (state: <strong>Start</strong>).</li>
+  <li>Participants run <code class="language-plaintext highlighter-rouge">/check-in</code> — this marks them as present and assigns the participant role if one is configured.</li>
+  <li>Use <code class="language-plaintext highlighter-rouge">/check-in-list-absent</code> (with <code class="language-plaintext highlighter-rouge">ping_users: True</code>) to ping anyone who hasn’t checked in yet.</li>
+  <li>When check-in is over, run <code class="language-plaintext highlighter-rouge">/check-in-toggle</code> (state: <strong>End</strong>).</li>
+</ol>
+
+<blockquote>
+  <p>One of the main benefits of the Participant role is managing channel access. If you want to use a specific role-gated channel to help plan or run your event, you can make it accessible specifically to users with the Participant role. Participants will then be able to access your channel after checking in.</p>
+</blockquote>
+
+<h3 id="after-the-event-1">After the Event</h3>
+
+<p>Adomi-san automatically detects when the Discord scheduled event ends and will:</p>
+<ul>
+  <li>Remove the participant role from all attendees</li>
+  <li>Delete the event data</li>
+  <li>Post a notification to your configured notifications channel</li>
+</ul>
+
+<p>You can also manually clean up with <code class="language-plaintext highlighter-rouge">/check-in-clear</code>, <code class="language-plaintext highlighter-rouge">/register-clear</code>, and <code class="language-plaintext highlighter-rouge">/event-delete</code>.</p>
+
+<h2 id="running-a-league">Running a League</h2>
+
+<p>Adomi-san manages leagues in partnership with <a href="https://github.com/enpicie/fgc-league-sheets">fgc-league-sheets</a>, a Google Sheets extension that handles the actual league automation: distributing players into groups, generating score matrices, and calculating tier promotions and demotions at the end of each rotation. The bot handles everything Discord-side — player sign-ups, score reporting, and keeping Discord roles in sync with the sheet.</p>
+
+<p><strong>Adomi-san talks to the Google Sheet directly.</strong> The fgc-league-sheets extension runs separately within Google Sheets itself, managing rotation cycles. Organizers interact with both.</p>
+
+<blockquote>
+  <p>Note: League functionality is still actively undergoing testing primarily via DMF Duel League for MBAACC. Contact <strong>@enpicie</strong> for any questions or issues experienced.</p>
+</blockquote>
+
+<h3 id="first-time-league-setup">First-Time League Setup</h3>
+
+<p>These steps only need to be done once per league.</p>
+
+<ol>
+  <li>Copy the <a href="https://docs.google.com/spreadsheets/d/1FojOkjQJD1dtr29fwH8bgabIdfxd-Yp72V0-pqbIqcc/edit?usp=sharing">FGC League Template</a> sheet to get the starter sheet with latest version of the extension.
+    <ul>
+      <li>Regardless of the stated version number, this sheet always has the latest version of the Google Sheets extension.</li>
+    </ul>
+  </li>
+  <li>Share the sheet with the bot’s service account. The account email is shown when you run <code class="language-plaintext highlighter-rouge">/league-create</code>.</li>
+  <li>Run <code class="language-plaintext highlighter-rouge">/league-create</code> with the league name, a short unique ID (max 4 characters, e.g. <code class="language-plaintext highlighter-rouge">MBAA</code>), the Google Sheets link, and optionally an <code class="language-plaintext highlighter-rouge">active_participant_role</code> to assign to active league members.</li>
+  <li>Run <code class="language-plaintext highlighter-rouge">/league-setup</code> to initialize the Participants sheet in the linked Google Sheet. This creates the roster the bot and the extension both read from.</li>
+</ol>
+
+<h3 id="each-rotation">Each Rotation</h3>
+
+<h4 id="signing-up">Signing Up</h4>
+
+<ol>
+  <li>Open joining with <code class="language-plaintext highlighter-rouge">/league-join-toggle</code> (state: <strong>Start</strong>).</li>
+  <li>Players run <code class="language-plaintext highlighter-rouge">/league-join</code> — this adds them to the Participants sheet with a <strong>QUEUED</strong> status, ready to be picked up when the next rotation starts.</li>
+  <li>Close joining with <code class="language-plaintext highlighter-rouge">/league-join-toggle</code> (state: <strong>End</strong>).</li>
+</ol>
+
+<h4 id="starting-the-rotation-in-google-sheets">Starting the Rotation (in Google Sheets)</h4>
+
+<ol>
+  <li>Open the Google Sheet and run the <strong>Start Cycle</strong> from the fgc-league-sheets extension. This promotes QUEUED players to ACTIVE, distributes all active players into groups by tier, and generates the score matrix for the rotation.</li>
+  <li>Run <code class="language-plaintext highlighter-rouge">/league-sync-participants</code> — this reads the sheet and assigns or removes the <code class="language-plaintext highlighter-rouge">active_participant_role</code> based on who is currently ACTIVE.</li>
+</ol>
+
+<h4 id="reporting-scores">Reporting Scores</h4>
+
+<p>During the rotation, players report their match results in Discord:</p>
+
+<ul>
+  <li>Run <code class="language-plaintext highlighter-rouge">/league-report-score</code> with the league name, <code class="language-plaintext highlighter-rouge">winner</code>, <code class="language-plaintext highlighter-rouge">loser</code>, and <code class="language-plaintext highlighter-rouge">score</code> (e.g. <code class="language-plaintext highlighter-rouge">3-2</code>, winner’s score first). This writes the result to the score matrix in the Google Sheet.</li>
+</ul>
+
+<h4 id="ending-the-rotation-in-google-sheets">Ending the Rotation (in Google Sheets)</h4>
+
+<ol>
+  <li>Open the Google Sheet and run the <strong>End Cycle</strong> from the fgc-league-sheets extension. This analyzes win percentages, flags promotion and demotion candidates, and marks anyone who didn’t complete their matches as inactive. Organizers can review and commit or undo the proposed changes before they take effect.</li>
+  <li>Run <code class="language-plaintext highlighter-rouge">/league-sync-participants</code> again to update Discord roles to match the new state of the sheet.</li>
+</ol>
+
+<h3 id="other-league-management">Other League Management</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Task</th>
+      <th>Command</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>View league details and participant count</td>
+      <td><code class="language-plaintext highlighter-rouge">/league-view</code></td>
+    </tr>
+    <tr>
+      <td>List all leagues on the server</td>
+      <td><code class="language-plaintext highlighter-rouge">/league-list</code></td>
+    </tr>
+    <tr>
+      <td>Mark yourself inactive or DNF</td>
+      <td><code class="language-plaintext highlighter-rouge">/league-deactivate</code> (optional: <code class="language-plaintext highlighter-rouge">dnf: True</code>)</td>
+    </tr>
+    <tr>
+      <td>Deactivate another player (Organizer)</td>
+      <td><code class="language-plaintext highlighter-rouge">/league-deactivate</code> with <code class="language-plaintext highlighter-rouge">player</code> set</td>
+    </tr>
+    <tr>
+      <td>Update league name, sheet, or role</td>
+      <td><code class="language-plaintext highlighter-rouge">/league-update</code></td>
+    </tr>
+    <tr>
+      <td>Delete a league record</td>
+      <td><code class="language-plaintext highlighter-rouge">/league-delete</code></td>
+    </tr>
+  </tbody>
+</table>
+
+  </main>
+
+  <footer class="border-t border-slate-800 py-6 text-center text-xs text-slate-500">
+  <p>
+    Adomi-san &mdash; made by
+    <a href="https://github.com/enpicie" class="text-indigo-400 hover:text-indigo-300">enpicie</a>
+  </p>
+</footer>
+
+
+</body>
+</html>

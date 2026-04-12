@@ -44,12 +44,34 @@
 .prose a:hover { color: #a5b4fc; }
 
 .prose ul {
-  list-style: disc;
-  padding-left: 1.5rem;
+  list-style: disc !important;
+  padding-left: 1.5rem !important;
   color: #cbd5e1;
   margin-bottom: 1rem;
 }
+.prose ol {
+  counter-reset: ol-counter;
+  list-style: none !important;
+  padding-left: 0;
+  color: #cbd5e1;
+  margin-bottom: 1rem;
+}
+.prose ol > li {
+  counter-increment: ol-counter;
+  position: relative;
+  padding-left: 1.75rem;
+  margin-bottom: 0.35rem;
+}
+.prose ol > li::before {
+  content: counter(ol-counter) ".";
+  position: absolute;
+  left: 0;
+  color: #818cf8;
+  font-weight: 700;
+  font-size: 0.9em;
+}
 .prose ul li { margin-bottom: 0.35rem; }
+.prose li > ul, .prose li > ol { margin-bottom: 0; margin-top: 0.25rem; }
 
 .prose strong { color: #e2e8f0; font-weight: 700; }
 .prose em     { color: #94a3b8; }
@@ -69,6 +91,7 @@
   font-style: italic;
   margin: 1rem 0;
 }
+.prose blockquote > *:last-child { margin-bottom: 0; }
 
 /* ============================================================
    Code
