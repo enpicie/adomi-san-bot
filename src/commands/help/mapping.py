@@ -31,5 +31,10 @@ help_commands: CommandMapping = {
         "function": adomi_help_commands.help_league,
         "description": "List all league management commands with descriptions",
         "params": []
+    },
+    "help-schedule": {
+        "function": adomi_help_commands.help_schedule,
+        "description": "List all schedule commands with descriptions",
+        "params": []
     }
 }

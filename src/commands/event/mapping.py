@@ -61,7 +61,7 @@ event_commands_mapping: CommandMapping = {
                 param_type=AppCommandOptionType.role,
                 required=False,
                 choices=None
-            )
+            ),
         ]
     },
     "event-update": {
@@ -119,7 +119,35 @@ event_commands_mapping: CommandMapping = {
                 param_type=AppCommandOptionType.role,
                 required=False,
                 choices=None
-            )
+            ),
+        ]
+    },
+    "event-configure-reminder": {
+        "function": event_commands.configure_event_reminder,
+        "description": "Configure the reminder for an event (Organizer only)",
+        "params": [
+            EVENT_NAME_PARAM,
+            CommandParam(
+                name="send_reminder",
+                description="Whether to send a reminder announcement 24h before this event",
+                param_type=AppCommandOptionType.boolean,
+                required=True,
+                choices=None
+            ),
+            CommandParam(
+                name="announcement_role",
+                description="Role to ping in the reminder (overrides server default, leave blank to use server default)",
+                param_type=AppCommandOptionType.role,
+                required=False,
+                choices=None
+            ),
+            CommandParam(
+                name="announcement_channel",
+                description="Channel to post the reminder in (overrides server default, leave blank to use server default)",
+                param_type=AppCommandOptionType.channel,
+                required=False,
+                choices=None
+            ),
         ]
     },
     "event-delete": {

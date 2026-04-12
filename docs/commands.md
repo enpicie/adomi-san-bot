@@ -18,6 +18,7 @@ All require the **organizer role**.
 |---|---|
 | `/event-create` | Create a new event manually |
 | `/event-update` | Update an existing event's details |
+| `/event-setup-reminder` | Configure reminder and optional ping role for an event |
 | `/event-delete` | Delete an event |
 | `/event-create-startgg` | Import an event from a start.gg tournament link |
 | `/event-update-startgg` | Link an existing event to start.gg and import participants |
@@ -93,6 +94,28 @@ Participants must have their Discord account linked in their start.gg profile un
 ---
 
 <details>
+<summary>Schedule Commands</summary>
+
+All require the **organizer role**. The bot tracks one schedule message per server — a single living post that is edited in place.
+
+**Message format:** events are sorted by start time. Past events show as ~~strikethrough~~, planned placeholders show as *italics*, start.gg-linked events are hyperlinked.
+
+**Title persistence:** the title is stored as the first line of the message (`# Title`) and extracted automatically on each sync — it does not need to be re-supplied.
+
+| Command | Description |
+|---|---|
+| `/schedule-post` | Post a new tracked schedule message in a channel |
+| `/schedule-update` | Refresh the tracked message, optionally changing the title |
+| `/schedule-plan-event` | Add a planned event placeholder to the schedule |
+| `/schedule-plan-remove` | Remove a planned event placeholder |
+
+**Planned events:** use `/schedule-plan-event` to add a placeholder for an event before it exists as a real Discord event. When you later run `/event-create` with the same name (case-insensitive), the placeholder is automatically removed and the schedule is refreshed.
+
+</details>
+
+---
+
+<details>
 <summary>League Commands</summary>
 
 Manages long-running leagues via Google Sheets. The league's sheet must be shared with **Editor** access
@@ -128,5 +151,6 @@ to the bot's service account email — run `/league-view` to see that address.
 | `/help-check-in` | Help for check-in commands |
 | `/help-startgg` | Help for start.gg score reporting commands |
 | `/help-league` | Help for league management commands |
+| `/help-schedule` | Help for schedule commands |
 
 </details>

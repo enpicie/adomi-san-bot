@@ -141,6 +141,53 @@ def update_scheduled_event(guild_id: str, event_id: str, params: ScheduledEventP
     return False
 
 
+def get_channel_message(channel_id: str, message_id: str) -> Optional[str]:
+    """
+    Fetches the content of an existing message in a Discord channel.
+    :return: The message content string, or None if the fetch fails.
+    """
+    url = f"https://discord.com/api/v10/channels/{channel_id}/messages/{message_id}"
+    print(f"[discord] GET {url}")
+    response = requests.get(url, headers=BOT_AUTH_HEADERS)
+    print(f"[discord] Response status: {response.status_code}")
+    if response.status_code == 200:
+        return response.json().get("content")
+    print(f"[discord] Error fetching message: status {response.status_code}, body: {response.text}")
+    return None
+
+
+def send_channel_message(channel_id: str, content: str) -> Optional[str]:
+    """
+    Sends a message to a Discord channel.
+    :return: The message ID if successful, None otherwise.
+    """
+    url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
+    body = {"content": content, "flags": 4}
+    print(f"[discord] POST {url}")
+    response = requests.post(url, headers=BOT_AUTH_HEADERS, json=body)
+    print(f"[discord] Response status: {response.status_code} | body: {response.text}")
+    if response.status_code in (200, 201):
+        return response.json()["id"]
+    print(f"[discord] Error sending channel message: status {response.status_code}, body: {response.text}")
+    return None
+
+
+def edit_channel_message(channel_id: str, message_id: str, content: str) -> bool:
+    """
+    Edits an existing message in a Discord channel.
+    :return: True if successful, False otherwise.
+    """
+    url = f"https://discord.com/api/v10/channels/{channel_id}/messages/{message_id}"
+    body = {"content": content, "flags": 4}
+    print(f"[discord] PATCH {url}")
+    response = requests.patch(url, headers=BOT_AUTH_HEADERS, json=body)
+    print(f"[discord] Response status: {response.status_code} | body: {response.text}")
+    if response.status_code == 200:
+        return True
+    print(f"[discord] Error editing channel message: status {response.status_code}, body: {response.text}")
+    return False
+
+
 def delete_scheduled_event(guild_id: str, event_id: str) -> bool:
     """
     Deletes a Discord guild scheduled event.

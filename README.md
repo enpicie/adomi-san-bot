@@ -16,8 +16,13 @@ But you can call her Adomin ~☆！
   - [Check-In Commands](#check-in-commands)
   - [Setup Commands](#setup-commands)
   - [Score Reporting Commands](#score-reporting-commands)
+  - [Schedule Commands](#schedule-commands)
   - [League Commands](#league-commands)
   - [Help Commands](#help-commands)
+- [Scheduled Job Flows](#scheduled-job-flows)
+  - [Event Cleanup](#event-cleanup)
+  - [Event Reminders](#event-reminders)
+  - [Schedule Sync](#schedule-sync)
 - [Database Schema](#database-schema)
 - [Configuration](#configuration)
 - [Infrastructure](#infrastructure)
@@ -330,6 +335,69 @@ Fetches the current entrant list from start.gg and returns all participants who 
 
 ---
 
+### Schedule Commands
+
+These commands manage a persistent schedule message in a Discord channel listing upcoming events. All require the **organizer role**.
+
+| Command                | Description                                                                        |
+| ---------------------- | ---------------------------------------------------------------------------------- |
+| `/schedule-post`       | Post a new tracked schedule message in a channel                                   |
+| `/schedule-update`     | Refresh the tracked message, optionally changing the title                         |
+| `/schedule-plan-event` | Add a planned event placeholder to the schedule before creating it as a real event |
+| `/schedule-plan-remove`| Remove a planned event placeholder                                                 |
+
+The bot tracks one schedule message per server (`schedule_channel_id` + `schedule_message_id` in `ServerConfig`). The message is a single living post that gets edited in place rather than reposted.
+
+**Message format:**
+
+```
+# Title
+
+- [Upcoming Event](https://start.gg/...) - **<t:1234567890:F>**
+- _Planned Event - **<t:1234567891:F>**_
+- ~~Past Event - **<t:1234567889:F>**~~
+```
+
+- Events linked to start.gg are rendered as markdown hyperlinks.
+- Planned events (added via `/schedule-plan-event`) are rendered in *italics*.
+- Past events (start time in the past) are rendered with ~~strikethrough~~.
+- All entries are sorted by start time, earliest first.
+
+**Title persistence:** The title is stored in the message itself (`# Title` on the first line). Auto-updates extract it from the current message content, so it persists across syncs without being stored in the database. Use `/schedule-update new_title:...` to change it.
+
+**Planned event auto-removal:** When a real event is created via `/event-create` or `/event-create-startgg` with a name that case-insensitively matches an existing plan, the plan is automatically removed and the schedule is refreshed immediately.
+
+**`/schedule-post` parameters:**
+
+| Parameter        | Type    | Required | Description                                                         |
+| ---------------- | ------- | -------- | ------------------------------------------------------------------- |
+| `channel`        | channel | no*      | Channel to post the schedule in (*required when creating a new post)|
+| `title`          | string  | no       | Header text for the schedule (default: `Upcoming Events`)           |
+| `create_new_post`| boolean | no       | Force a new post even if a tracked message already exists           |
+
+**`/schedule-update` parameters:**
+
+| Parameter   | Type   | Required | Description                                            |
+| ----------- | ------ | -------- | ------------------------------------------------------ |
+| `new_title` | string | no       | New header text (leave blank to keep the current title)|
+
+**`/schedule-plan-event` parameters:**
+
+| Parameter    | Type   | Required | Description                                                                     |
+| ------------ | ------ | -------- | ------------------------------------------------------------------------------- |
+| `name`       | string | yes      | Name of the planned event — must match the name used in `/event-create` exactly |
+| `start_time` | string | yes      | Format: `2026-03-19 19:30` (24-hour time)                                       |
+| `timezone`   | string | yes      | Timezone for the start time (autocomplete)                                      |
+| `event_link` | string | no       | Optional link (e.g. start.gg registration page)                                 |
+
+**`/schedule-plan-remove` parameters:**
+
+| Parameter   | Type   | Required | Description                              |
+| ----------- | ------ | -------- | ---------------------------------------- |
+| `plan_name` | string | yes      | Plan to remove (autocomplete)            |
+
+---
+
 ### League Commands
 
 League commands manage long-running competitive leagues tracked via Google Sheets. Participant data (status, name, Discord ID) lives in a Google Sheet tab that the bot reads and writes.
@@ -424,6 +492,52 @@ When `/league-sync-participants` is run, any players newly marked **ACTIVE** in 
 | `/help-check-in` | Help for check-in commands                 |
 | `/help-startgg`  | Help for start.gg score reporting commands |
 | `/help-league`   | Help for league management commands        |
+| `/help-schedule` | Help for schedule commands                 |
+
+---
+
+## Scheduled Job Flows
+
+The scheduled job (`jobs/scheduled_job/handler.py`) runs every 15 minutes via EventBridge. On each invocation it performs three passes in order.
+
+### Event Cleanup
+
+Scans `EventNameIndex` to get all tracked event IDs grouped by server. For each event, fetches the corresponding Discord Guild Scheduled Event status:
+
+- **Completed (status 3) or Cancelled (status 4):** deletes the DynamoDB record and queues participant role removal.
+- **Not found on Discord:** treats the event as ended and applies the same cleanup.
+- **Active:** no cleanup; proceeds to reminder check.
+
+After processing all events for a server, if any were cleaned up and a `notification_channel_id` is configured, a summary message is posted to that channel (optionally pinging the organizer role if `ping_organizers` is set).
+
+### Event Reminders
+
+For each active event, the job checks whether a 24-hour advance reminder should be sent. A reminder is sent when **all** of the following are true:
+
+1. `should_post_reminder` is `True` on the event record
+2. `did_post_reminder` is `False` (reminder has not already been sent)
+3. The event's `start_time` falls within the next 24 hours
+4. `announcement_channel_id` is configured on the server
+
+Reminder message format:
+```
+@role 📣 **Event Name** is coming up <t:epoch:R> — starting <t:epoch:F>!
+```
+
+The role ping is omitted if `announcement_role_id` is not set. After a successful send, `did_post_reminder` is set to `True` to prevent duplicate reminders.
+
+Configure reminder behavior per-server with `/setup-event-reminders`. Toggle per-event with the `announce_reminder` parameter on `/event-create` or `/event-update`.
+
+### Schedule Sync
+
+After cleanup and reminder processing for each server, the job syncs the tracked schedule message if one is configured (`schedule_message_id` is set in `ServerConfig`):
+
+1. Fetches the current schedule message from Discord to extract the title from the first line (`# Title`).
+2. Queries all real events and all `SCHEDULE_PLAN#` records for the server.
+3. Removes any plan whose name case-insensitively matches a real event name.
+4. Rebuilds the message content and edits the Discord message in place.
+
+The sync only runs for servers that have active events (since the handler loops over servers from `EventNameIndex`). Servers with no active events but a configured schedule are not synced by the job — use `/schedule-post` or `/schedule-update` to manually refresh in that case.
 
 ---
 
@@ -433,7 +547,7 @@ When `/league-sync-participants` is run, any players newly marked **ACTIVE** in 
 
 - Billing: Pay-per-request
 - Partition key (`PK`): `SERVER#{server_id}`
-- Sort key (`SK`): `CONFIG` or `EVENT#{event_id}`
+- Sort key (`SK`): `CONFIG`, `EVENT#{event_id}`, or `SCHEDULE_PLAN#{normalized_plan_name}`
 
 **Global Secondary Index — `EventNameIndex`:**
 
@@ -452,6 +566,21 @@ When `/league-sync-participants` is run, any players newly marked **ACTIVE** in 
 | `notification_channel_id`  | Channel to post bot notifications to (optional)                      |
 | `ping_organizers`          | Whether to ping the organizer role in notifications (optional)       |
 | `oauth_token_startgg`      | start.gg OAuth access token linked via `/startgg-connect` (optional) |
+| `announcement_channel_id`  | Channel for event reminder announcements (optional)                  |
+| `announcement_role_id`     | Role to ping in reminder announcements (optional)                    |
+| `should_always_remind`     | Whether new events have reminders enabled by default (optional)      |
+| `schedule_channel_id`      | Channel containing the tracked schedule message (optional)           |
+| `schedule_message_id`      | Message ID of the tracked schedule message (optional)                |
+
+### SchedulePlan record (SK: `SCHEDULE_PLAN#{normalized_name}`)
+
+Planned event placeholders added via `/schedule-plan-event`. The SK key uses the plan name lowercased and stripped. Automatically deleted when a real event is created with a matching name.
+
+| Field        | Description                                      |
+| ------------ | ------------------------------------------------ |
+| `plan_name`  | Display name of the planned event                |
+| `start_time` | ISO 8601 UTC timestamp                           |
+| `event_link` | Optional link (e.g. start.gg registration page) |
 
 ### EventData record (SK: `EVENT#{event_id}`)
 
@@ -469,9 +598,11 @@ When `/league-sync-participants` is run, any players newly marked **ACTIVE** in 
 | `registered`       | Map of `user_id → {display_name, user_id, time_added, source}`        |
 | `checked_in`       | Map of `user_id → {display_name, user_id, check_in_time}`             |
 | `queue`            | Reserved (unused)                                                     |
-| `startgg_url`      | start.gg event link (optional)                                        |
-| `start_message`    | Custom start message (optional)                                       |
-| `end_message`      | Custom end message (optional)                                         |
+| `startgg_url`          | start.gg event link (optional)                                            |
+| `start_message`        | Custom start message (optional)                                           |
+| `end_message`          | Custom end message (optional)                                             |
+| `should_post_reminder` | Whether a 24-hour reminder announcement should be sent for this event     |
+| `did_post_reminder`    | Whether the reminder has already been sent (prevents duplicate sends)     |
 
 ---
 

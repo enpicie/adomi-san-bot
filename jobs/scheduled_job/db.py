@@ -3,7 +3,8 @@ import os
 import time
 
 import boto3
-from boto3.dynamodb.conditions import Attr
+from boto3.dynamodb.conditions import Attr, Key
+from botocore.exceptions import ClientError
 
 logger = logging.getLogger()
 
@@ -13,6 +14,7 @@ _EVENT_NAME_INDEX = "EventNameIndex"
 _PK_SERVER_PREFIX = "SERVER#"
 _SK_EVENT_PREFIX = "EVENT#"
 _SK_CONFIG = "CONFIG"
+_SK_PLAN_PREFIX = "SCHEDULE_PLAN#"
 
 dynamodb = boto3.resource("dynamodb", region_name=REGION)
 
@@ -25,10 +27,11 @@ def get_server_config(table, server_id):
 
 
 def get_all_events_by_server(table):
-    """Scan EventNameIndex to get all event records grouped by server_id -> [event_id]."""
+    """Scan EventNameIndex to get all active (not ended) event records grouped by server_id -> [event_id]."""
     server_events = {}
+    filter_expr = Attr("is_ended").ne(True)
 
-    response = table.scan(IndexName=_EVENT_NAME_INDEX)
+    response = table.scan(IndexName=_EVENT_NAME_INDEX, FilterExpression=filter_expr)
     for item in response.get("Items", []):
         server_id = item.get("server_id")
         event_id = item.get("event_id")
@@ -38,6 +41,7 @@ def get_all_events_by_server(table):
     while "LastEvaluatedKey" in response:
         response = table.scan(
             IndexName=_EVENT_NAME_INDEX,
+            FilterExpression=filter_expr,
             ExclusiveStartKey=response["LastEvaluatedKey"],
         )
         for item in response.get("Items", []):
@@ -47,6 +51,25 @@ def get_all_events_by_server(table):
                 server_events.setdefault(server_id, []).append(event_id)
 
     return server_events
+
+
+def mark_event_ended(table, server_id, event_id):
+    """Atomically mark an event as ended. Returns True if this call claimed the cleanup,
+    False if another invocation already marked it ended (ConditionalCheckFailedException)."""
+    pk = f"{_PK_SERVER_PREFIX}{server_id}"
+    sk = f"{_SK_EVENT_PREFIX}{event_id}"
+    try:
+        table.update_item(
+            Key={"PK": pk, "SK": sk},
+            UpdateExpression="SET is_ended = :val",
+            ConditionExpression=Attr("is_ended").ne(True),
+            ExpressionAttributeValues={":val": True},
+        )
+        return True
+    except ClientError as e:
+        if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
+            return False
+        raise
 
 
 def get_all_server_configs_with_oauth(table):
@@ -65,6 +88,31 @@ def get_all_server_configs_with_oauth(table):
         configs.extend(response.get("Items", []))
 
     return configs
+
+
+def get_full_events_for_server(table, server_id):
+    """Query all EVENT records for a server by PK + SK prefix. Returns list of item dicts."""
+    pk = f"{_PK_SERVER_PREFIX}{server_id}"
+    response = table.query(
+        KeyConditionExpression=Key("PK").eq(pk) & Key("SK").begins_with(_SK_EVENT_PREFIX)
+    )
+    return response.get("Items", [])
+
+
+def get_schedule_plans_for_server(table, server_id):
+    """Query all SCHEDULE_PLAN records for a server. Returns list of item dicts."""
+    pk = f"{_PK_SERVER_PREFIX}{server_id}"
+    response = table.query(
+        KeyConditionExpression=Key("PK").eq(pk) & Key("SK").begins_with(_SK_PLAN_PREFIX)
+    )
+    return response.get("Items", [])
+
+
+def delete_schedule_plan(table, server_id, plan_name):
+    """Delete a SCHEDULE_PLAN record by plan name (normalized for the key)."""
+    pk = f"{_PK_SERVER_PREFIX}{server_id}"
+    sk = _SK_PLAN_PREFIX + plan_name.strip().lower()
+    table.delete_item(Key={"PK": pk, "SK": sk})
 
 
 def get_event_record(table, server_id, event_id):
@@ -86,6 +134,15 @@ def delete_event_record(table, server_id, event_id):
     except Exception as e:
         logger.error(f"Failed to delete DynamoDB record for event {event_id}: {e}")
         return False
+
+
+def mark_event_reminder_sent(table, server_id: str, event_id: str):
+    """Set did_post_reminder to True on an event record to prevent duplicate reminder sends."""
+    table.update_item(
+        Key={"PK": f"{_PK_SERVER_PREFIX}{server_id}", "SK": f"{_SK_EVENT_PREFIX}{event_id}"},
+        UpdateExpression="SET did_post_reminder = :val",
+        ExpressionAttributeValues={":val": True}
+    )
 
 
 def update_server_oauth_token(table, server_id: str, access_token: str, refresh_token: str, expires_at: int):
