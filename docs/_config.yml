@@ -1,7 +1,7 @@
-title: Adomi-san
-description: A Discord bot for running netplay brackets — from registration to score reporting.
+title: NEST
+description: Netplay Event Starter Tools
 url: "https://enpicie.github.io"
-baseurl: "/adomi-san-bot"
+baseurl: "/nest"
 
 # Tell Jekyll where the source lives
 source: .

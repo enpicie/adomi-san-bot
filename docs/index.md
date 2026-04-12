@@ -3,7 +3,7 @@ layout: default
 title: Home
 ---
 
-# Adomi-san ☆
+# Netplay Event Starter Tools ☆
 
 Adomi-san (or Adomin for short) is here to help as a Discord event administration assistant. She helps make you manage events organically within Discord, automating work to make events visible, notify event participants, and more!
 
