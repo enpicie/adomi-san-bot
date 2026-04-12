@@ -67,6 +67,32 @@ def get_full_events_for_server(server_id: str, table: Table) -> List[EventData]:
     return [EventData.from_dynamodb(item) for item in response.get("Items", [])]
 
 
+def enable_reminders_for_server_events(server_id: str, table: Table) -> int:
+    """Enable reminders on all events that don't already have them. Returns count updated."""
+    pk = build_server_pk(server_id)
+    response = table.query(
+        KeyConditionExpression=Key("PK").eq(pk) & Key("SK").begins_with(EventData.Keys.SK_EVENT_PREFIX)
+    )
+    transact_items = []
+    for item in response.get("Items", []):
+        if item.get(EventData.Keys.SHOULD_POST_REMINDER):
+            continue
+        event_id = item.get(EventData.Keys.EVENT_ID)
+        if not event_id:
+            continue
+        transact_items.append({
+            "Update": {
+                "TableName": table.name,
+                "Key": {"PK": pk, "SK": EventData.Keys.SK_EVENT_PREFIX + event_id},
+                "UpdateExpression": f"SET {EventData.Keys.SHOULD_POST_REMINDER} = :spr, {EventData.Keys.DID_POST_REMINDER} = :dpr",
+                "ExpressionAttributeValues": {":spr": True, ":dpr": False},
+            }
+        })
+    if transact_items:
+        table.meta.client.transact_write_items(TransactItems=transact_items)
+    return len(transact_items)
+
+
 def delete_past_real_events(server_id: str, table: Table) -> List[str]:
     """Delete all past EVENT records from DynamoDB. Returns list of deleted event names."""
     pk = build_server_pk(server_id)

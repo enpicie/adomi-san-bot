@@ -41,12 +41,18 @@ def _queue_role_removals(guild_id, checked_in, participant_role):
 
 
 def cleanup_ended_event(table, server_id, event_id):
-    """Queue role removals, delete Discord event, and delete DynamoDB record.
-    Returns the event name on success, or None if the record was not found."""
+    """Queue role removals, delete Discord event, and mark DynamoDB record as ended.
+    Returns the event name on success, or None if the record was not found or was already cleaned up."""
     event_record = db.get_event_record(table, server_id, event_id)
     if not event_record:
         logger.warning(
             f"DynamoDB record not found for event {event_id} in server {server_id}, skipping cleanup"
+        )
+        return None
+
+    if event_record.get("is_ended"):
+        logger.info(
+            f"Event {event_id} in server {server_id} already marked as ended, skipping duplicate cleanup"
         )
         return None
 
@@ -73,5 +79,10 @@ def cleanup_ended_event(table, server_id, event_id):
     discord_api.delete_guild_event(server_id, event_id)
     time.sleep(0.5)  # Brief pause between Discord API calls to avoid rate limits
 
-    db.mark_event_ended(table, server_id, event_id)
+    claimed = db.mark_event_ended(table, server_id, event_id)
+    if not claimed:
+        logger.info(
+            f"Event {event_id} in server {server_id} was concurrently cleaned up by another invocation"
+        )
+        return None
     return event_name

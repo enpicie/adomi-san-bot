@@ -4,6 +4,7 @@ import time
 
 import boto3
 from boto3.dynamodb.conditions import Attr, Key
+from botocore.exceptions import ClientError
 
 logger = logging.getLogger()
 
@@ -53,14 +54,22 @@ def get_all_events_by_server(table):
 
 
 def mark_event_ended(table, server_id, event_id):
-    """Mark an event as ended so the job skips it, while keeping the record for schedule display."""
+    """Atomically mark an event as ended. Returns True if this call claimed the cleanup,
+    False if another invocation already marked it ended (ConditionalCheckFailedException)."""
     pk = f"{_PK_SERVER_PREFIX}{server_id}"
     sk = f"{_SK_EVENT_PREFIX}{event_id}"
-    table.update_item(
-        Key={"PK": pk, "SK": sk},
-        UpdateExpression="SET is_ended = :val",
-        ExpressionAttributeValues={":val": True},
-    )
+    try:
+        table.update_item(
+            Key={"PK": pk, "SK": sk},
+            UpdateExpression="SET is_ended = :val",
+            ConditionExpression=Attr("is_ended").ne(True),
+            ExpressionAttributeValues={":val": True},
+        )
+        return True
+    except ClientError as e:
+        if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
+            return False
+        raise
 
 
 def get_all_server_configs_with_oauth(table):

@@ -143,12 +143,17 @@ def setup_event_reminders(event: DiscordEvent, aws_services: AWSServices) -> Res
         ExpressionAttributeValues=expression_values
     )
 
+    queued_count = 0
+    if remind_by_default:
+        queued_count = db_helper.enable_reminders_for_server_events(server_id, aws_services.dynamodb_table)
+
     role_note = f" Reminders will ping {message_helper.get_role_ping(announcement_role)}." if announcement_role else ""
     remind_note = " Events will have reminders on by default." if remind_by_default else ""
+    queued_note = f" Enabled reminders on {queued_count} existing event(s)." if queued_count else ""
     return ResponseMessage(
         content=(
             f"👍 Event reminders configured. Announcements will be posted to "
-            f"{message_helper.get_channel_mention(announcement_channel)}.{role_note}{remind_note}"
+            f"{message_helper.get_channel_mention(announcement_channel)}.{role_note}{remind_note}{queued_note}"
             " Please ensure I have access to the announcement channel."
         )
     )
