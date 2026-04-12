@@ -47,7 +47,7 @@ def check_and_send_reminder(table, server_id, event_id, server_config):
     if server_config is None:
         server_config = db.get_server_config(table, server_id)
 
-    announcement_channel_id = server_config.get("announcement_channel_id") if server_config else None
+    announcement_channel_id = event_record.get("reminder_channel_id") or (server_config.get("announcement_channel_id") if server_config else None)
     if not announcement_channel_id:
         logger.info(f"No announcement_channel_id configured for server {server_id}, skipping reminder for event {event_id}")
         return server_config

@@ -122,8 +122,8 @@ event_commands_mapping: CommandMapping = {
             ),
         ]
     },
-    "event-setup-reminder": {
-        "function": event_commands.setup_event_reminder,
+    "event-configure-reminder": {
+        "function": event_commands.configure_event_reminder,
         "description": "Configure the reminder for an event (Organizer only)",
         "params": [
             EVENT_NAME_PARAM,
@@ -140,7 +140,14 @@ event_commands_mapping: CommandMapping = {
                 param_type=AppCommandOptionType.role,
                 required=False,
                 choices=None
-            )
+            ),
+            CommandParam(
+                name="announcement_channel",
+                description="Channel to post the reminder in (overrides server default, leave blank to use server default)",
+                param_type=AppCommandOptionType.channel,
+                required=False,
+                choices=None
+            ),
         ]
     },
     "event-delete": {

@@ -150,7 +150,7 @@ def update_event(event: DiscordEvent, aws_services: AWSServices) -> ResponseMess
     return ResponseMessage(content=f"✅ Event updated:\n{change_summary}{startgg_start_note}{no_role_warning}")
 
 
-def setup_event_reminder(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
+def configure_event_reminder(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
     server_id = event.get_server_id()
     server_config = db_helper.get_server_config_or_fail(server_id, aws_services.dynamodb_table)
     if isinstance(server_config, ResponseMessage):
@@ -166,6 +166,7 @@ def setup_event_reminder(event: DiscordEvent, aws_services: AWSServices) -> Resp
 
     send_reminder = event.get_command_input_value("send_reminder")
     announcement_role = event.get_command_input_value("announcement_role")
+    announcement_channel = event.get_command_input_value("announcement_channel")
 
     update_expr = f"SET {EventData.Keys.SHOULD_POST_REMINDER} = :spr"
     expr_values = {":spr": send_reminder}
@@ -178,6 +179,10 @@ def setup_event_reminder(event: DiscordEvent, aws_services: AWSServices) -> Resp
         update_expr += f", {EventData.Keys.REMINDER_ROLE_ID} = :role"
         expr_values[":role"] = announcement_role
 
+    if announcement_channel is not None:
+        update_expr += f", {EventData.Keys.REMINDER_CHANNEL_ID} = :ch"
+        expr_values[":ch"] = announcement_channel
+
     aws_services.dynamodb_table.update_item(
         Key={"PK": db_helper.build_server_pk(server_id), "SK": EventData.Keys.SK_EVENT_PREFIX + event_id},
         UpdateExpression=update_expr,
@@ -186,7 +191,8 @@ def setup_event_reminder(event: DiscordEvent, aws_services: AWSServices) -> Resp
 
     reminder_label = "On" if send_reminder else "Off"
     role_note = f" Reminder will ping <@&{announcement_role}>." if announcement_role else ""
-    return ResponseMessage(content=f"✅ Reminder for **{event_data_result.event_name}** set to **{reminder_label}**.{role_note}")
+    channel_note = f" Reminder will post in <#{announcement_channel}>." if announcement_channel else ""
+    return ResponseMessage(content=f"✅ Reminder for **{event_data_result.event_name}** set to **{reminder_label}**.{role_note}{channel_note}")
 
 
 def delete_event(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:

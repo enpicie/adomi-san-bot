@@ -31,6 +31,7 @@ class EventData(SubscriptableMixin):
         SHOULD_POST_REMINDER = "should_post_reminder"
         DID_POST_REMINDER = "did_post_reminder"
         REMINDER_ROLE_ID = "reminder_role_id"
+        REMINDER_CHANNEL_ID = "reminder_channel_id"
 
 
     checked_in: dict = field(metadata={'db_key': Keys.CHECKED_IN})
