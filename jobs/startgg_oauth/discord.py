@@ -32,5 +32,10 @@ def send_oauth_notification(server_config: dict, discord_user_id: str):
         json={"content": message},
         timeout=5,
     )
-    if not response.ok:
+    if response.status_code == 403:
+        logger.error(
+            f"[oauth:discord] Adomin is missing permissions to send to notification channel "
+            f"{notification_channel_id} — grant Send Messages and View Channel permissions there."
+        )
+    elif not response.ok:
         logger.error(f"[oauth:discord] Failed to send notification: status={response.status_code}, body={response.text}")

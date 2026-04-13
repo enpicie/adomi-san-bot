@@ -105,3 +105,12 @@ def sync_schedule_for_server(table, server_id: str, server_config: dict) -> None
         logger.info(f"Updated schedule message for server {server_id}")
     else:
         logger.warning(f"Failed to update schedule message for server {server_id}")
+        if success is None:
+            notification_channel_id = server_config.get("notification_channel_id") if server_config else None
+            if notification_channel_id:
+                discord_api.send_permission_error_notification(
+                    notification_channel_id,
+                    schedule_channel_id,
+                    organizer_role=server_config.get("organizer_role"),
+                    ping_organizers=server_config.get("ping_organizers", False),
+                )

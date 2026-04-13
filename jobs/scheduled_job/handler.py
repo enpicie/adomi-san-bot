@@ -33,9 +33,19 @@ def handler(event, context):
     logger.info(f"Found {total_events} events across {len(server_events)} servers")
 
     for server_id, db_event_ids in server_events.items():
+        server_config = db.get_server_config(table, server_id)
+
         discord_events = discord_api.get_guild_events(server_id)
         if discord_events is None:
             logger.error(f"Skipping server {server_id} due to Discord API failure")
+            notification_channel_id = server_config.get("notification_channel_id") if server_config else None
+            if notification_channel_id:
+                discord_api.send_organizer_notification(
+                    notification_channel_id,
+                    "⚠️ Adomin failed to fetch Discord events for this server. Event reminders and cleanup may be delayed.",
+                    organizer_role=server_config.get("organizer_role"),
+                    ping_organizers=server_config.get("ping_organizers", False),
+                )
             continue
 
         # Map discord event id -> status for events managed by this bot
@@ -44,7 +54,6 @@ def handler(event, context):
             e["id"]: e["status"] for e in discord_events if e["id"] in db_event_id_set
         }
 
-        server_config = None  # loaded at most once per server, shared by reminder and cleanup logic
         cleaned_up_event_names = []
         for event_id in db_event_ids:
             status = discord_event_status.get(event_id)
@@ -52,7 +61,7 @@ def handler(event, context):
                 logger.info(
                     f"Event {event_id} in server {server_id} ended (status={status}), cleaning up"
                 )
-                event_name = cleanup_ended_event(table, server_id, event_id)
+                event_name = cleanup_ended_event(table, server_id, event_id, server_config)
                 if event_name:
                     cleaned_up_event_names.append(event_name)
             elif status is None:
@@ -60,32 +69,28 @@ def handler(event, context):
                     f"Event {event_id} in server {server_id} not found in Discord — "
                     f"assuming event is over, cleaning up"
                 )
-                event_name = cleanup_ended_event(table, server_id, event_id)
+                event_name = cleanup_ended_event(table, server_id, event_id, server_config)
                 if event_name:
                     cleaned_up_event_names.append(event_name)
             else:
                 logger.info(
                     f"Event {event_id} in server {server_id} still active (status={status}), checking reminders"
                 )
-                server_config = check_and_send_reminder(table, server_id, event_id, server_config)
+                check_and_send_reminder(table, server_id, event_id, server_config)
 
         if cleaned_up_event_names:
-            if server_config is None:
-                server_config = db.get_server_config(table, server_id)
             notification_channel_id = server_config.get("notification_channel_id") if server_config else None
             if notification_channel_id:
                 event_list = "\n".join(f"• {name}" for name in cleaned_up_event_names)
                 count = len(cleaned_up_event_names)
                 message = f"🧹 Cleaned up {count} ended event(s):\n{event_list}"
-                ping_organizers = server_config.get("ping_organizers", False) if server_config else False
-                if ping_organizers:
-                    organizer_role = server_config.get("organizer_role") if server_config else None
-                    if organizer_role:
-                        message = f"<@&{organizer_role}> {message}"
-                discord_api.send_channel_message(notification_channel_id, message)
+                result = discord_api.send_channel_message(notification_channel_id, message)
+                if result is None:
+                    logger.error(
+                        f"Adomin is missing permissions to send to notification channel "
+                        f"{notification_channel_id} in server {server_id}"
+                    )
             else:
                 logger.info(f"No notification_channel_id configured for server {server_id}, skipping notification")
 
-        if server_config is None:
-            server_config = db.get_server_config(table, server_id)
         sync_schedule_for_server(table, server_id, server_config)

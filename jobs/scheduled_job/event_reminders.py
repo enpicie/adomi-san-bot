@@ -67,5 +67,14 @@ def check_and_send_reminder(table, server_id, event_id, server_config):
         logger.info(f"Sent reminder for event {event_id} in server {server_id}")
     else:
         logger.error(f"Failed to send reminder for event {event_id} in server {server_id}")
+        if sent is None:
+            notification_channel_id = server_config.get("notification_channel_id") if server_config else None
+            if notification_channel_id:
+                discord_api.send_permission_error_notification(
+                    notification_channel_id,
+                    announcement_channel_id,
+                    organizer_role=server_config.get("organizer_role"),
+                    ping_organizers=server_config.get("ping_organizers", False),
+                )
 
     return server_config

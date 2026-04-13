@@ -32,14 +32,44 @@ def get_guild_events(guild_id):
 
 
 def send_channel_message(channel_id, content):
-    """Send a message to a Discord channel. Returns True on success."""
+    """Send a message to a Discord channel.
+
+    Returns True on success, None on 403 Forbidden (missing permissions), False on other failure.
+    """
     resp = _request("POST", f"{_DISCORD_API}/channels/{channel_id}/messages", json={"content": content, "flags": 4})
+    if resp.status_code in (200, 201):
+        return True
+    if resp.status_code == 403:
+        logger.error(f"Missing permissions to send message to channel {channel_id}: {resp.status_code} {resp.text}")
+        return None
+    logger.error(f"Failed to send message to channel {channel_id}: {resp.status_code} {resp.text}")
+    return False
+
+
+def send_organizer_notification(notification_channel_id, message, organizer_role=None, ping_organizers=False):
+    """Send a notification message to the organizer notification channel.
+
+    Pings the organizer role if ping_organizers is True and organizer_role is set.
+    Does not recurse — if this send fails, the error is only logged.
+    """
+    if ping_organizers and organizer_role:
+        message = f"<@&{organizer_role}> {message}"
+    resp = _request("POST", f"{_DISCORD_API}/channels/{notification_channel_id}/messages", json={"content": message, "flags": 4})
     if resp.status_code not in (200, 201):
         logger.error(
-            f"Failed to send message to channel {channel_id}: {resp.status_code} {resp.text}"
+            f"Failed to send organizer notification to channel {notification_channel_id}: {resp.status_code} {resp.text}"
         )
-        return False
-    return True
+
+
+def send_permission_error_notification(notification_channel_id, failed_channel_id, organizer_role=None, ping_organizers=False):
+    """Notify organizers that Adomin lacks permissions to send to a channel."""
+    send_organizer_notification(
+        notification_channel_id,
+        f"⚠️ Adomin is missing permission to send messages in <#{failed_channel_id}>. "
+        "Please check that Adomin has the **Send Messages** and **View Channel** permissions there.",
+        organizer_role=organizer_role,
+        ping_organizers=ping_organizers,
+    )
 
 
 def get_channel_message(channel_id, message_id):
@@ -54,13 +84,17 @@ def get_channel_message(channel_id, message_id):
 
 
 def edit_channel_message(channel_id, message_id, content):
-    """Edit an existing message in a Discord channel. Returns True on success."""
+    """Edit an existing message in a Discord channel.
+
+    Returns True on success, None on 403 Forbidden (missing permissions), False on other failure.
+    """
     resp = _request("PATCH", f"{_DISCORD_API}/channels/{channel_id}/messages/{message_id}", json={"content": content, "flags": 4})
     if resp.status_code == 200:
         return True
-    logger.error(
-        f"Failed to edit message {message_id} in channel {channel_id}: {resp.status_code} {resp.text}"
-    )
+    if resp.status_code == 403:
+        logger.error(f"Missing permissions to edit message {message_id} in channel {channel_id}: {resp.status_code} {resp.text}")
+        return None
+    logger.error(f"Failed to edit message {message_id} in channel {channel_id}: {resp.status_code} {resp.text}")
     return False
 
 

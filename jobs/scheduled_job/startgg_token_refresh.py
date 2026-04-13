@@ -7,6 +7,7 @@ import boto3
 import requests
 
 import db
+import discord_api
 
 logger = logging.getLogger()
 
@@ -64,6 +65,17 @@ def refresh_startgg_tokens(table):
 
             if not response.ok:
                 logger.error(f"Token refresh failed for server {server_id}: {response.status_code} {response.text}")
+                notification_channel_id = config.get("notification_channel_id")
+                if notification_channel_id:
+                    organizer_role = config.get("organizer_role")
+                    discord_api.send_organizer_notification(
+                        notification_channel_id,
+                        "⚠️ Adomin failed to refresh the start.gg OAuth token for this server. "
+                        "Start.gg score reporting may stop working soon. "
+                        "An organizer may need to re-link the start.gg account.",
+                        organizer_role=organizer_role,
+                        ping_organizers=bool(organizer_role),
+                    )
                 continue
 
             token_data = response.json()
@@ -81,3 +93,14 @@ def refresh_startgg_tokens(table):
 
         except Exception as e:
             logger.error(f"Exception during token refresh for server {server_id}: {e}")
+            notification_channel_id = config.get("notification_channel_id")
+            if notification_channel_id:
+                organizer_role = config.get("organizer_role")
+                discord_api.send_organizer_notification(
+                    notification_channel_id,
+                    "⚠️ Adomin encountered an unexpected error while refreshing the start.gg OAuth token for this server. "
+                    "Start.gg score reporting may stop working soon. "
+                    "An organizer may need to re-link the start.gg account.",
+                    organizer_role=organizer_role,
+                    ping_organizers=bool(organizer_role),
+                )
