@@ -38,7 +38,10 @@ def _process_record(payload: dict) -> None:
         print(traceback.format_exc())
         content = _GENERAL_ERROR
 
-    send_followup(application_id, interaction_token, content)
+    if isinstance(content, dict):
+        send_followup(application_id, interaction_token, **content)
+    else:
+        send_followup(application_id, interaction_token, content)
 
 
 def handler(event, context):

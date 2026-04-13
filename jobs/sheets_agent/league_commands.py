@@ -9,6 +9,17 @@ import db_helper
 import discord_api
 from discord_api import RoleAssignmentResult
 
+_SUPPRESS_NOTIFICATIONS = 1 << 12
+
+def _silent_reply(content: str) -> dict:
+    """Returns a followup payload dict that silently pings without triggering a notification."""
+    return {
+        "content": content,
+        "allowed_mentions": {"parse": []},
+        "flags": _SUPPRESS_NOTIFICATIONS,
+    }
+
+
 _SHEET_NOT_SHARED_MSG = (
     "📋 The bot cannot access this league's Google Sheet. "
     f"Make sure it has been shared (with Editor access) to: `{constants.GOOGLE_SERVICE_ACCOUNT_EMAIL}`\n"
@@ -84,14 +95,14 @@ def handle_league_join(event_body: dict, aws_services: AWSServices) -> str:
 
         if current_status == participants_sheet.STATUS_INACTIVE:
             sheets_helper.update_participant_status(sheets_url, row_number, participants_sheet.STATUS_QUEUED)
-            reply = f"✅ Your status in **{league_name}** (`{league_id}`) has been changed from **INACTIVE** to **QUEUED**!"
+            reply = f"✅ <@{snowflake}> Your status in **{league_name}** (`{league_id}`) has been changed from **INACTIVE** to **QUEUED**!" if snowflake else f"✅ Your status in **{league_name}** (`{league_id}`) has been changed from **INACTIVE** to **QUEUED**!"
         else:
             sheets_helper.append_league_participant(
                 spreadsheet_url=sheets_url,
                 discord_id=discord_id,
                 participant_name=participant_name,
             )
-            reply = f"✅ You've been added to **{league_name}** (`{league_id}`) as **{participant_name}**!"
+            reply = f"✅ <@{snowflake}> You've been added to **{league_name}** (`{league_id}`) as **{participant_name}**!" if snowflake else f"✅ You've been added to **{league_name}** (`{league_id}`) as **{participant_name}**!"
 
     except PermissionError:
         return _SHEET_NOT_SHARED_MSG
@@ -136,6 +147,8 @@ def handle_league_join(event_body: dict, aws_services: AWSServices) -> str:
             f"📋 **{participant_name}** (`@{discord_id}`) has {action} **{league_name}** (`{league_id}`).",
         )
 
+    if snowflake:
+        return _silent_reply(reply)
     return reply
 
 
@@ -348,9 +361,14 @@ def handle_league_deactivate(event_body: dict, aws_services: AWSServices) -> str
         print(f"[sheets_agent] league-deactivate: RuntimeError: {e}")
         return "❌ The bot's Google Sheets integration is misconfigured. Contact the bot administrator."
 
+    invoker_snowflake = event_body.get("member", {}).get("user", {}).get("id")
     if player_snowflake:
-        return f"✅ **{target_discord_id}** has been marked as **{status_label}** in **{league_name}** (`{league_id}`)."
-    return f"✅ You have been marked as **{status_label}** in **{league_name}** (`{league_id}`)."
+        msg = f"✅ <@{invoker_snowflake}> **{target_discord_id}** has been marked as **{status_label}** in **{league_name}** (`{league_id}`)." if invoker_snowflake else f"✅ **{target_discord_id}** has been marked as **{status_label}** in **{league_name}** (`{league_id}`)."
+    else:
+        msg = f"✅ <@{invoker_snowflake}> You have been marked as **{status_label}** in **{league_name}** (`{league_id}`)." if invoker_snowflake else f"✅ You have been marked as **{status_label}** in **{league_name}** (`{league_id}`)."
+    if invoker_snowflake:
+        return _silent_reply(msg)
+    return msg
 
 
 def handle_league_report_score(event_body: dict, aws_services: AWSServices) -> str:
