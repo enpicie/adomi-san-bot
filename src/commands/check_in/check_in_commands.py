@@ -26,7 +26,7 @@ def check_in_user(event: DiscordEvent, aws_services: AWSServices) -> ResponseMes
 
     if not event_data_result.check_in_enabled:
         return ResponseMessage(
-            content="😵‍💫 Check-ins are not being accepted right now.\n"
+            content=f"😵‍💫 Check-ins are not being accepted right now for **{event_data_result.event_name}**.\n"
                     "An Organizer must start check-ins before I can accept any new ones."
         )
 
