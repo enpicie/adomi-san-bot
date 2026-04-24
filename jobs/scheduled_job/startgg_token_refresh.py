@@ -31,9 +31,17 @@ def _get_oauth_credentials() -> dict:
 def refresh_startgg_tokens(table):
     """Check all servers with start.gg OAuth tokens and refresh any expiring within 24 hours."""
     server_configs = db.get_all_server_configs_with_oauth(table)
+    if not server_configs:
+        logger.info("No servers with start.gg OAuth tokens, skipping token refresh")
+        return
+
     logger.info(f"Checking start.gg token refresh for {len(server_configs)} server(s)")
 
-    credentials = _get_oauth_credentials()
+    try:
+        credentials = _get_oauth_credentials()
+    except Exception as e:
+        logger.error(f"Failed to load start.gg OAuth credentials from Secrets Manager: {e}")
+        return
 
     for config in server_configs:
         server_id = config.get("server_id")

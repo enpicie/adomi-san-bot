@@ -22,7 +22,10 @@ _STATUS_CANCELED = 4
 def handler(event, context):
     table = db.dynamodb.Table(_DYNAMODB_TABLE_NAME)
 
-    refresh_startgg_tokens(table)
+    try:
+        refresh_startgg_tokens(table)
+    except Exception as e:
+        logger.error(f"Unhandled error during start.gg token refresh: {e}")
 
     server_events = db.get_all_events_by_server(table)
     if not server_events:
