@@ -35,8 +35,7 @@ def get_events_for_server(server_id: str, table: Table) -> List[Tuple[str, str]]
     print(f"[db] QUERY EVENTS server={server_id}")
     response = table.query(
         IndexName=EVENT_NAME_INDEX,
-        KeyConditionExpression=Key(EventData.Keys.SERVER_ID).eq(server_id),
-        FilterExpression=Attr("is_ended").ne(True)
+        KeyConditionExpression=Key(EventData.Keys.SERVER_ID).eq(server_id)
     )
     items = response.get("Items", [])
     print(f"[db] -> {len(items)} active event(s) found for server={server_id}")

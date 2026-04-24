@@ -26,11 +26,10 @@ def get_server_config(table, server_id):
 
 
 def get_all_events_by_server(table):
-    """Scan EventNameIndex to get all active (not ended) event records grouped by server_id -> [event_id]."""
+    """Scan EventNameIndex to get all event records grouped by server_id -> [event_id]."""
     server_events = {}
-    filter_expr = Attr("is_ended").ne(True)
 
-    response = table.scan(IndexName=_EVENT_NAME_INDEX, FilterExpression=filter_expr)
+    response = table.scan(IndexName=_EVENT_NAME_INDEX)
     for item in response.get("Items", []):
         server_id = item.get("server_id")
         event_id = item.get("event_id")
@@ -40,7 +39,6 @@ def get_all_events_by_server(table):
     while "LastEvaluatedKey" in response:
         response = table.scan(
             IndexName=_EVENT_NAME_INDEX,
-            FilterExpression=filter_expr,
             ExclusiveStartKey=response["LastEvaluatedKey"],
         )
         for item in response.get("Items", []):
