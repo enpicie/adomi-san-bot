@@ -18,17 +18,19 @@ def process_bot_command(event_body: dict, aws_services: AWSServices) -> dict:
         raise ValueError(f"No command registered for {command_name}")
 
     command_function = command["function"]
+    print(f"[bot] command={command_name} server={event.get_server_id()} user={event.get_user_id()}")
     try:
         message = command_function(event, aws_services)
     except ValueError as e:
-        print(f"ERROR | ValueError | Exception while processing command '{command_name}': {e}")
+        print(f"[bot] ERROR ValueError | command={command_name} | {e}")
         print(traceback.format_exc())
         message = ResponseMessage(content=str(e))
     except Exception as e:
-        print(f"ERROR | {type(e).__name__} | Exception while processing command '{command_name}': {e}")
+        print(f"[bot] ERROR {type(e).__name__} | command={command_name} | {e}")
         print(traceback.format_exc())
         message = ResponseMessage.get_error_message()
     if message:
+        print(f"[bot] command={command_name} -> ok")
         return message.to_dict()
 
     raise RuntimeError(f"Error processing command '{command_name}': did not return a message.")
