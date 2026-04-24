@@ -65,9 +65,8 @@ def handler(event, context):
                 if event_name:
                     cleaned_up_event_names.append(event_name)
             elif status is None:
-                logger.warning(
-                    f"Event {event_id} in server {server_id} not found in Discord — "
-                    f"assuming event is over, cleaning up"
+                logger.info(
+                    f"Event {event_id} in server {server_id} not found in Discord, cleaning up"
                 )
                 event_name = cleanup_ended_event(table, server_id, event_id, server_config)
                 if event_name:

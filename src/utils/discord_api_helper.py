@@ -170,8 +170,8 @@ def delete_scheduled_event(guild_id: str, event_id: str) -> bool:
         print(f"[discord] -> 204")
         return True
     if response.status_code == 404:
-        print(f"[discord] ERROR -> 404 Not Found | event_id={event_id} does not exist on Discord (manually deleted from server?)")
-        return False
+        print(f"[discord] WARN -> 404 | event_id={event_id} not found on Discord (already manually deleted) — treating as success")
+        return True
     if response.status_code == 403:
         print(f"[discord] ERROR -> 403 Forbidden | bot lacks permission to delete events in guild={guild_id}")
         return False

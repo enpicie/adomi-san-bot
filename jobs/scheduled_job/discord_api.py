@@ -99,12 +99,15 @@ def edit_channel_message(channel_id, message_id, content):
 
 
 def delete_guild_event(guild_id, event_id):
-    """Delete a scheduled event from Discord. Returns True on success."""
+    """Delete a scheduled event from Discord. Returns True on success or if already gone (404)."""
     resp = _request("DELETE", f"{_DISCORD_API}/guilds/{guild_id}/scheduled-events/{event_id}")
-    if resp.status_code not in (200, 204):
-        logger.error(
-            f"Failed to delete Discord event {event_id} for guild {guild_id}: "
-            f"{resp.status_code} {resp.text}"
-        )
-        return False
-    return True
+    if resp.status_code in (200, 204):
+        return True
+    if resp.status_code == 404:
+        logger.warning(f"Discord event {event_id} for guild {guild_id} already gone (404) — treating as success")
+        return True
+    logger.error(
+        f"Failed to delete Discord event {event_id} for guild {guild_id}: "
+        f"{resp.status_code} {resp.text}"
+    )
+    return False

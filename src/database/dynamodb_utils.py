@@ -31,14 +31,15 @@ EVENT_NAME_INDEX = "EventNameIndex"
 LEAGUE_NAME_INDEX = "LeagueNameIndex"
 
 def get_events_for_server(server_id: str, table: Table) -> List[Tuple[str, str]]:
-    """Query EventNameIndex and return list of (event_name, event_id) tuples."""
+    """Query EventNameIndex and return list of (event_name, event_id) tuples for active (not ended) events."""
     print(f"[db] QUERY EVENTS server={server_id}")
     response = table.query(
         IndexName=EVENT_NAME_INDEX,
-        KeyConditionExpression=Key(EventData.Keys.SERVER_ID).eq(server_id)
+        KeyConditionExpression=Key(EventData.Keys.SERVER_ID).eq(server_id),
+        FilterExpression=Attr("is_ended").ne(True)
     )
     items = response.get("Items", [])
-    print(f"[db] -> {len(items)} event(s) found for server={server_id}")
+    print(f"[db] -> {len(items)} active event(s) found for server={server_id}")
     return [
         (item[EventData.Keys.EVENT_NAME], item[EventData.Keys.EVENT_ID])
         for item in items

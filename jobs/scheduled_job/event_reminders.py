@@ -21,7 +21,7 @@ def check_and_send_reminder(table, server_id, event_id, server_config):
     """
     event_record = db.get_event_record(table, server_id, event_id)
     if not event_record:
-        logger.warning(f"Event record not found for {event_id} in server {server_id} during reminder check")
+        logger.info(f"Event record not found for {event_id} in server {server_id} during reminder check, skipping")
         return server_config
 
     if not event_record.get("should_post_reminder"):
