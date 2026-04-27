@@ -45,6 +45,14 @@ def get_events_for_server(server_id: str, table: Table) -> List[Tuple[str, str]]
     ]
 
 def get_server_event_data_or_fail(server_id: str, event_id: str, table: Table) -> EventData | ResponseMessage:
+    # Discord may repopulate autocomplete fields with the display name instead of the snowflake ID.
+    # Resolve by name first if the input isn't numeric.
+    if not event_id.isdigit():
+        events = get_events_for_server(server_id, table)
+        resolved_id = next((eid for name, eid in events if name == event_id), None)
+        if resolved_id:
+            print(f"[db] -> resolved event by name {event_id!r} -> {resolved_id}")
+            event_id = resolved_id
     pk = build_server_pk(server_id)
     sk = EventData.Keys.SK_EVENT_PREFIX + event_id
     print(f"[db] GET EVENT server={server_id} event_id={event_id}")
@@ -177,7 +185,18 @@ def get_leagues_for_server(server_id: str, table: Table) -> List[Tuple[str, str]
     ]
 
 
+LEAGUE_ID_MAX_LENGTH = 4  # mirrors the validation limit in league_commands.py
+
+
 def get_server_league_data_or_fail(server_id: str, league_id: str, table: Table) -> LeagueData | ResponseMessage:
+    # Discord may repopulate autocomplete fields with the display name instead of the short ID.
+    # Resolve by name first if the input is longer than a valid league ID.
+    if len(league_id) > LEAGUE_ID_MAX_LENGTH:
+        leagues = get_leagues_for_server(server_id, table)
+        resolved_id = next((lid for name, lid in leagues if name == league_id), None)
+        if resolved_id:
+            print(f"[db] -> resolved league by name {league_id!r} -> {resolved_id}")
+            league_id = resolved_id
     pk = build_server_pk(server_id)
     sk = LeagueData.Keys.SK_LEAGUE_PREFIX + league_id
     print(f"[db] GET LEAGUE server={server_id} league_id={league_id}")
