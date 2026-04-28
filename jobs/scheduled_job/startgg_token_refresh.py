@@ -99,6 +99,14 @@ def refresh_startgg_tokens(table):
             db.update_server_oauth_token(table, server_id, new_access_token, new_refresh_token, new_expires_at)
             logger.info(f"Refreshed start.gg OAuth token for server {server_id}, expires_at={new_expires_at}")
 
+            notification_channel_id = config.get("notification_channel_id")
+            if notification_channel_id:
+                discord_api.send_organizer_notification(
+                    notification_channel_id,
+                    "✅ Adomin successfully refreshed the start.gg OAuth token for this server. "
+                    "Score reporting continues to work normally.",
+                )
+
         except Exception as e:
             logger.error(f"Exception during token refresh for server {server_id}: {e}")
             notification_channel_id = config.get("notification_channel_id")
