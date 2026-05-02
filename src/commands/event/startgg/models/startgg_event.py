@@ -60,9 +60,10 @@ class StartggEvent:
                 continue
 
             startgg_name = participant_data.get("gamerTag")
-            authorizations = participant_data.get("user", {}).get("authorizations")
+            user = participant_data.get("user")
+            authorizations = user.get("authorizations") if user else []
 
-            if authorizations and authorizations[0]:
+            if authorizations:
                 discord_auth = authorizations[0]
                 registered_participants.append(RegisteredParticipant(
                     display_name=startgg_name,
