@@ -43,7 +43,7 @@ def check_in_user(event: DiscordEvent, aws_services: AWSServices) -> ResponseMes
     )
 
     aws_services.dynamodb_table.update_item(
-        Key={"PK": db_helper.build_server_pk(server_id), "SK": EventData.Keys.SK_EVENT_PREFIX + event_id},
+        Key={"PK": db_helper.build_server_pk(server_id), "SK": EventData.Keys.SK_EVENT_PREFIX + (event_data_result.event_id or event_id)},
         UpdateExpression=f"SET {EventData.Keys.CHECKED_IN}.#uid = :participant_info",
         ExpressionAttributeNames={"#uid": user_id},
         ExpressionAttributeValues={":participant_info": checked_in_user.to_dict()}
@@ -121,7 +121,7 @@ def clear_checked_in(event: DiscordEvent, aws_services: AWSServices) -> Response
         )
 
     aws_services.dynamodb_table.update_item(
-        Key={"PK": db_helper.build_server_pk(server_id), "SK": EventData.Keys.SK_EVENT_PREFIX + event_id},
+        Key={"PK": db_helper.build_server_pk(server_id), "SK": EventData.Keys.SK_EVENT_PREFIX + (event_data_result.event_id or event_id)},
         UpdateExpression=f"SET {EventData.Keys.CHECKED_IN} = :empty_map",
         ExpressionAttributeValues={":empty_map": {}}
     )
@@ -223,7 +223,7 @@ def remove_checked_in(event: DiscordEvent, aws_services: AWSServices) -> Respons
         ).with_silent_pings()
 
     aws_services.dynamodb_table.update_item(
-        Key={"PK": db_helper.build_server_pk(server_id), "SK": EventData.Keys.SK_EVENT_PREFIX + event_id},
+        Key={"PK": db_helper.build_server_pk(server_id), "SK": EventData.Keys.SK_EVENT_PREFIX + (event_data_result.event_id or event_id)},
         UpdateExpression=f"REMOVE {EventData.Keys.CHECKED_IN}.#uid",
         ExpressionAttributeNames={"#uid": user_id}
     )
@@ -260,7 +260,7 @@ def toggle_check_in(event: DiscordEvent, aws_services: AWSServices) -> ResponseM
     print(f"{EventData.Keys.CHECK_IN_ENABLED}: {should_enable} via input {check_in_state}")
 
     aws_services.dynamodb_table.update_item(
-        Key={"PK": db_helper.build_server_pk(server_id), "SK": EventData.Keys.SK_EVENT_PREFIX + event_id},
+        Key={"PK": db_helper.build_server_pk(server_id), "SK": EventData.Keys.SK_EVENT_PREFIX + (event_data_result.event_id or event_id)},
         UpdateExpression=f"SET {EventData.Keys.CHECK_IN_ENABLED} = :enable",
         ExpressionAttributeValues={":enable": should_enable}
     )

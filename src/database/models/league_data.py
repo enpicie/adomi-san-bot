@@ -36,7 +36,7 @@ class LeagueData(SubscriptableMixin):
         return cls(
             google_sheets_link=record.get(cls.Keys.GOOGLE_SHEETS_LINK),
             league_name=record.get(cls.Keys.LEAGUE_NAME),
-            league_id=record.get(cls.Keys.LEAGUE_ID),
+            league_id=record.get("SK", "").removeprefix(cls.Keys.SK_LEAGUE_PREFIX) or record.get(cls.Keys.LEAGUE_ID),
             active_players=record.get(cls.Keys.ACTIVE_PLAYERS, {}),
             join_enabled=record.get(cls.Keys.JOIN_ENABLED, False),
             report_enabled=record.get(cls.Keys.REPORT_ENABLED, False),

@@ -56,7 +56,7 @@ def register_user(event: DiscordEvent, aws_services: AWSServices) -> ResponseMes
     )
 
     aws_services.dynamodb_table.update_item(
-        Key={"PK": db_helper.build_server_pk(server_id), "SK": EventData.Keys.SK_EVENT_PREFIX + event_id},
+        Key={"PK": db_helper.build_server_pk(server_id), "SK": EventData.Keys.SK_EVENT_PREFIX + (event_data_result.event_id or event_id)},
         UpdateExpression=f"SET {EventData.Keys.REGISTERED}.#uid = :participant_info",
         ExpressionAttributeNames={"#uid": user_id},
         ExpressionAttributeValues={":participant_info": participant.to_dict()}
@@ -89,7 +89,7 @@ def register_remove(event: DiscordEvent, aws_services: AWSServices) -> ResponseM
         ).with_silent_pings()
 
     aws_services.dynamodb_table.update_item(
-        Key={"PK": db_helper.build_server_pk(server_id), "SK": EventData.Keys.SK_EVENT_PREFIX + event_id},
+        Key={"PK": db_helper.build_server_pk(server_id), "SK": EventData.Keys.SK_EVENT_PREFIX + (event_data_result.event_id or event_id)},
         UpdateExpression=f"REMOVE {EventData.Keys.REGISTERED}.#uid",
         ExpressionAttributeNames={"#uid": user_id}
     )
@@ -116,7 +116,7 @@ def toggle_register(event: DiscordEvent, aws_services: AWSServices) -> ResponseM
     print(f"{EventData.Keys.REGISTER_ENABLED}: {should_enable} via input {register_state}")
 
     aws_services.dynamodb_table.update_item(
-        Key={"PK": db_helper.build_server_pk(server_id), "SK": EventData.Keys.SK_EVENT_PREFIX + event_id},
+        Key={"PK": db_helper.build_server_pk(server_id), "SK": EventData.Keys.SK_EVENT_PREFIX + (event_data_result.event_id or event_id)},
         UpdateExpression=f"SET {EventData.Keys.REGISTER_ENABLED} = :enable",
         ExpressionAttributeValues={":enable": should_enable}
     )

@@ -46,6 +46,7 @@ class EventData(SubscriptableMixin):
     end_time: Optional[str] = field(default=None, metadata={'db_key': Keys.END_TIME})
     event_location: Optional[str] = field(default=None, metadata={'db_key': Keys.EVENT_LOCATION})
     event_name: Optional[str] = field(default=None, metadata={'db_key': Keys.EVENT_NAME})
+    event_id: Optional[str] = field(default=None, metadata={'db_key': Keys.EVENT_ID})
     startgg_url: Optional[str] = field(default=None, metadata={'db_key': Keys.STARTGG_URL})
     should_post_reminder: Optional[bool] = field(default=False, metadata={'db_key': Keys.SHOULD_POST_REMINDER})
     did_post_reminder: Optional[bool] = field(default=False, metadata={'db_key': Keys.DID_POST_REMINDER})
@@ -66,6 +67,7 @@ class EventData(SubscriptableMixin):
             end_time=record.get(cls.Keys.END_TIME),
             event_location=record.get(cls.Keys.EVENT_LOCATION),
             event_name=record.get(cls.Keys.EVENT_NAME),
+            event_id=record.get("SK", "").removeprefix(cls.Keys.SK_EVENT_PREFIX) or None,
             startgg_url=record.get(cls.Keys.STARTGG_URL),
             should_post_reminder=record.get(cls.Keys.SHOULD_POST_REMINDER, False),
             did_post_reminder=record.get(cls.Keys.DID_POST_REMINDER, False),

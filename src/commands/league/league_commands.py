@@ -109,7 +109,7 @@ def update_league(event: DiscordEvent, aws_services: AWSServices) -> ResponseMes
         expression_values[":active_participant_role"] = new_role
 
     aws_services.dynamodb_table.update_item(
-        Key={"PK": db_helper.build_server_pk(server_id), "SK": LeagueData.Keys.SK_LEAGUE_PREFIX + league_id},
+        Key={"PK": db_helper.build_server_pk(server_id), "SK": LeagueData.Keys.SK_LEAGUE_PREFIX + league_data.league_id},
         UpdateExpression="SET " + ", ".join(update_expressions),
         ExpressionAttributeValues=expression_values
     )
@@ -194,7 +194,7 @@ def toggle_join_league(event: DiscordEvent, aws_services: AWSServices) -> Respon
     print(f"{LeagueData.Keys.JOIN_ENABLED}: {should_enable} via input {join_state}")
 
     aws_services.dynamodb_table.update_item(
-        Key={"PK": db_helper.build_server_pk(server_id), "SK": LeagueData.Keys.SK_LEAGUE_PREFIX + league_id},
+        Key={"PK": db_helper.build_server_pk(server_id), "SK": LeagueData.Keys.SK_LEAGUE_PREFIX + league_data.league_id},
         UpdateExpression=f"SET {LeagueData.Keys.JOIN_ENABLED} = :join_enabled",
         ExpressionAttributeValues={":join_enabled": should_enable}
     )
@@ -244,7 +244,7 @@ def toggle_report_score(event: DiscordEvent, aws_services: AWSServices) -> Respo
     print(f"{LeagueData.Keys.REPORT_ENABLED}: {should_enable} via input {report_state}")
 
     aws_services.dynamodb_table.update_item(
-        Key={"PK": db_helper.build_server_pk(server_id), "SK": LeagueData.Keys.SK_LEAGUE_PREFIX + league_id},
+        Key={"PK": db_helper.build_server_pk(server_id), "SK": LeagueData.Keys.SK_LEAGUE_PREFIX + league_data.league_id},
         UpdateExpression=f"SET {LeagueData.Keys.REPORT_ENABLED} = :report_enabled",
         ExpressionAttributeValues={":report_enabled": should_enable}
     )
@@ -270,7 +270,7 @@ def delete_league(event: DiscordEvent, aws_services: AWSServices) -> ResponseMes
         return league_data
 
     aws_services.dynamodb_table.delete_item(
-        Key={"PK": db_helper.build_server_pk(server_id), "SK": LeagueData.Keys.SK_LEAGUE_PREFIX + league_id}
+        Key={"PK": db_helper.build_server_pk(server_id), "SK": LeagueData.Keys.SK_LEAGUE_PREFIX + league_data.league_id}
     )
 
     return ResponseMessage(content=f"🗑️ League **{league_data.league_name}** (`{league_id}`) deleted.")

@@ -103,7 +103,7 @@ def update_event(event: DiscordEvent, aws_services: AWSServices) -> ResponseMess
 
     start_time_updated = update_event_record(
         server_id=server_id,
-        event_id=event_id,
+        event_id=event_data_result.event_id or event_id,
         record=EventRecord(
             name=name,
             location=location,
@@ -184,7 +184,7 @@ def configure_event_reminder(event: DiscordEvent, aws_services: AWSServices) -> 
         expr_values[":ch"] = announcement_channel
 
     aws_services.dynamodb_table.update_item(
-        Key={"PK": db_helper.build_server_pk(server_id), "SK": EventData.Keys.SK_EVENT_PREFIX + event_id},
+        Key={"PK": db_helper.build_server_pk(server_id), "SK": EventData.Keys.SK_EVENT_PREFIX + (event_data_result.event_id or event_id)},
         UpdateExpression=update_expr,
         ExpressionAttributeValues=expr_values
     )
@@ -200,12 +200,16 @@ def delete_event(event: DiscordEvent, aws_services: AWSServices) -> ResponseMess
     if error_message:
         return error_message
 
-    # autocomplete value for event_name is the event_id
+    server_id = event.get_server_id()
     event_id = event.get_command_input_value("event_name")
 
+    event_data_result = db_helper.get_server_event_data_or_fail(server_id, event_id, aws_services.dynamodb_table)
+    if isinstance(event_data_result, ResponseMessage):
+        return event_data_result
+
     delete_event_record(
-        server_id=event.get_server_id(),
-        event_id=event_id,
+        server_id=server_id,
+        event_id=event_data_result.event_id or event_id,
         table=aws_services.dynamodb_table
     )
 
@@ -361,9 +365,10 @@ def update_event_startgg(event: DiscordEvent, aws_services: AWSServices) -> Resp
     start_time_for_update = (event_data_result.start_time if start_time_in_past
                              else startgg_event.start_time_utc)
 
+    resolved_event_id = event_data_result.event_id or event_id
     start_time_updated = update_event_record(
         server_id=server_id,
-        event_id=event_id,
+        event_id=resolved_event_id,
         record=EventRecord(
             name=startgg_event.event_name,
             location=startgg_event.location or "Online",
@@ -384,7 +389,7 @@ def update_event_startgg(event: DiscordEvent, aws_services: AWSServices) -> Resp
 
     # Always write both URL and full registrants list
     aws_services.dynamodb_table.update_item(
-        Key={"PK": db_helper.build_server_pk(server_id), "SK": EventData.Keys.SK_EVENT_PREFIX + event_id},
+        Key={"PK": db_helper.build_server_pk(server_id), "SK": EventData.Keys.SK_EVENT_PREFIX + resolved_event_id},
         UpdateExpression=f"SET {EventData.Keys.STARTGG_URL} = :startgg_url, {EventData.Keys.REGISTERED} = :startgg_registered",
         ExpressionAttributeValues={":startgg_url": event_url, ":startgg_registered": all_participants_data}
     )
@@ -437,9 +442,10 @@ def event_refresh_startgg(event: DiscordEvent, aws_services: AWSServices) -> Res
             if _is_past_time(startgg_event.start_time_utc):
                 changes.append(f"⚠️ Start time not updated — `{startgg_event.start_time_utc}` is in the past")
             else:
+                resolved_event_id = event_data_result.event_id or event_id
                 start_time_updated = update_event_record(
                     server_id=server_id,
-                    event_id=event_id,
+                    event_id=resolved_event_id,
                     record=EventRecord(
                         name=event_data_result.event_name or event_id,
                         location=event_data_result.event_location or "Online",
@@ -461,7 +467,7 @@ def event_refresh_startgg(event: DiscordEvent, aws_services: AWSServices) -> Res
         all_participants_data[p.display_name] = p.to_dict()
 
     aws_services.dynamodb_table.update_item(
-        Key={"PK": db_helper.build_server_pk(server_id), "SK": EventData.Keys.SK_EVENT_PREFIX + event_id},
+        Key={"PK": db_helper.build_server_pk(server_id), "SK": EventData.Keys.SK_EVENT_PREFIX + (event_data_result.event_id or event_id)},
         UpdateExpression=f"SET {EventData.Keys.REGISTERED} = :startgg_registered",
         ExpressionAttributeValues={":startgg_registered": all_participants_data}
     )

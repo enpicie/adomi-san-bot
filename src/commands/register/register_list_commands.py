@@ -49,7 +49,7 @@ def clear_registered(event: DiscordEvent, aws_services: AWSServices) -> Response
         )
 
     aws_services.dynamodb_table.update_item(
-        Key={"PK": db_helper.build_server_pk(server_id), "SK": EventData.Keys.SK_EVENT_PREFIX + event_id},
+        Key={"PK": db_helper.build_server_pk(server_id), "SK": EventData.Keys.SK_EVENT_PREFIX + (event_data_result.event_id or event_id)},
         UpdateExpression=f"SET {EventData.Keys.REGISTERED} = :empty_map",
         ExpressionAttributeValues={":empty_map": {}}
     )
