@@ -11,6 +11,7 @@ from commands.event.startgg.startgg_api import StartggAuthError, StartggPermissi
 import database.dynamodb_utils as db_helper
 from database.models.oauth_state import OAuthState
 import utils.permissions_helper as permissions_helper
+import utils.message_helper as message_helper
 
 _SCORE_PATTERN = re.compile(r"^(\d+)-(\d+)$")
 
@@ -91,29 +92,13 @@ def notify_unlinked(event: DiscordEvent, aws_services: AWSServices) -> ResponseM
         print(f"[startgg] notify_unlinked: error querying event: {e}")
         return ResponseMessage(content="❌ Failed to fetch participant data from start.gg. Check the event link and try again.")
 
-    linked_discord_ids = {p.user_id for p in startgg_event.participants if p.user_id}
-
-    # Registered users we can ping — in our system but not linked on start.gg
-    pingable = [
-        user_id for user_id in event_data.registered
-        if user_id not in linked_discord_ids
-    ]
-    # start.gg entrants with no Discord linked and not in our system (name only)
-    name_only = startgg_event.no_discord_participants
-
-    if not pingable and not name_only:
-        return ResponseMessage(content="✅ All start.gg participants for this event have Discord linked!")
-
     lines = []
-    for user_id in pingable:
-        lines.append(f"• <@{user_id}>")
-    for p in name_only:
-        lines.append(f"• {p.display_name} *(not registered via bot)*")
+    for participant in startgg_event.no_discord_participants:
+        lines.append(f"- {participant.display_name}")
 
-    total = len(pingable) + len(name_only)
     return ResponseMessage(
         content=(
-            f"⚠️ **{total} participant(s) do not have Discord linked on start.gg:**\n"
+            f"⚠️ **{len(lines)} participant(s) do not have Discord linked on start.gg:**\n"
             + "\n".join(lines)
             + "\n\nTo link Discord: go to your start.gg profile → **Edit Profile** → **Connections** → connect Discord "
             "and ensure **Display on profile** is enabled."
