@@ -1,4 +1,5 @@
 import json
+import time
 
 import constants
 import database.dynamodb_utils as db_helper
@@ -13,7 +14,7 @@ LEAGUE_ID_MAX_LENGTH = 4
 
 
 def _dispatch_to_sheets_agent(command_name: str, event: DiscordEvent, aws_services: AWSServices) -> None:
-    payload = json.dumps({"command_name": command_name, "event_body": event.event_body})
+    payload = json.dumps({"command_name": command_name, "event_body": event.event_body, "enqueued_at": time.time()})
     aws_services.sheets_agent_sqs_queue.send_message(MessageBody=payload)
     print(f"[league_commands] dispatched {command_name!r} to sheets_agent")
 

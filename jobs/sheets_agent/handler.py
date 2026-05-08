@@ -1,4 +1,5 @@
 import json
+import time
 import traceback
 
 from aws_client import get_aws_services
@@ -23,7 +24,9 @@ def _process_record(payload: dict) -> None:
     application_id = event_body["application_id"]
     interaction_token = event_body["token"]
 
-    print(f"[sheets_agent] processing command={command_name!r}")
+    enqueued_at = payload.get("enqueued_at")
+    queue_age = f"{time.time() - enqueued_at:.1f}s" if enqueued_at else "unknown"
+    print(f"[sheets_agent] processing command={command_name!r} queue_age={queue_age}")
 
     handler_fn = _COMMAND_HANDLERS.get(command_name)
     if handler_fn is None:

@@ -11,7 +11,7 @@ def send_followup(application_id: str, interaction_token: str, content: str, *, 
         payload["allowed_mentions"] = allowed_mentions
     if flags:
         payload["flags"] = flags
-    resp = requests.post(url, json=payload)
+    resp = requests.post(url, json=payload, timeout=10)
     if resp.ok:
         print(f"[sheets_agent] followup sent OK status={resp.status_code}")
     else:
