@@ -104,6 +104,7 @@ def notify_unlinked(event: DiscordEvent, aws_services: AWSServices) -> ResponseM
             + "\n".join(lines)
             + "\n\nTo link Discord: go to your start.gg profile → **Edit Profile** → **Connections** → connect Discord "
             "and ensure **Display on profile** is enabled."
+            + "\nScore reporting requires start.gg and Discord to be linked correctly."
         )
     )
 
