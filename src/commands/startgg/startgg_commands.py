@@ -11,7 +11,6 @@ from commands.event.startgg.startgg_api import StartggAuthError, StartggPermissi
 import database.dynamodb_utils as db_helper
 from database.models.oauth_state import OAuthState
 import utils.permissions_helper as permissions_helper
-import utils.message_helper as message_helper
 
 _SCORE_PATTERN = re.compile(r"^(\d+)-(\d+)$")
 
@@ -95,6 +94,9 @@ def notify_unlinked(event: DiscordEvent, aws_services: AWSServices) -> ResponseM
     lines = []
     for participant in startgg_event.no_discord_participants:
         lines.append(f"- {participant.display_name}")
+
+    if not lines:
+        return ResponseMessage(content="✅ All start.gg participants have Discord linked on their profile.")
 
     return ResponseMessage(
         content=(
