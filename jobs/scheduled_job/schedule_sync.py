@@ -1,4 +1,5 @@
 import logging
+import re
 from datetime import datetime, timezone as dt_timezone
 from typing import Optional
 
@@ -7,6 +8,8 @@ import discord_api
 
 logger = logging.getLogger()
 
+_DISCORD_TIMESTAMP_RE = re.compile(r"<t:(\d+):[^>]+>")
+
 
 def _to_epoch(utc_iso: str) -> Optional[int]:
     try:
@@ -14,6 +17,54 @@ def _to_epoch(utc_iso: str) -> Optional[int]:
         return int(dt.timestamp())
     except Exception:
         return None
+
+
+def _get_event_name_from_line(line: str) -> Optional[str]:
+    if not line.startswith("- "):
+        return None
+    content = line[2:]
+    if content.startswith("~~") and content.endswith("~~"):
+        content = content[2:-2]
+    elif content.startswith("_") and content.endswith("_"):
+        content = content[1:-1]
+    parts = content.rsplit(" - ", 1)
+    if len(parts) < 2:
+        return None
+    display = parts[0]
+    if display.startswith("[") and "](" in display:
+        return display[1 : display.index("](")]
+    return display
+
+
+def strikethrough_schedule_event(server_config: dict, event_name: str) -> None:
+    """Apply strikethrough to a specific event entry in the tracked schedule message."""
+    schedule_message_id = server_config.get("schedule_message_id")
+    schedule_channel_id = server_config.get("schedule_channel_id")
+    if not schedule_message_id or not schedule_channel_id:
+        return
+    current = discord_api.get_channel_message(schedule_channel_id, schedule_message_id)
+    if current is None:
+        logger.warning(f"Could not fetch schedule message to strikethrough {event_name!r}")
+        return
+    lines = current.split("\n")
+    new_lines = []
+    updated = False
+    for line in lines:
+        if not updated and _get_event_name_from_line(line) == event_name:
+            entry = line[2:]
+            if not (entry.startswith("~~") and entry.endswith("~~")):
+                if entry.startswith("_") and entry.endswith("_"):
+                    entry = entry[1:-1]
+                entry = f"~~{entry}~~"
+                line = f"- {entry}"
+            updated = True
+        new_lines.append(line)
+    if updated:
+        success = discord_api.edit_channel_message(schedule_channel_id, schedule_message_id, "\n".join(new_lines))
+        if not success:
+            logger.warning(f"Failed to apply strikethrough for {event_name!r} in schedule")
+    else:
+        logger.info(f"Event {event_name!r} not found in schedule, no strikethrough applied")
 
 
 def _build_schedule_content(title: str, real_events: list, planned_events: list) -> str:

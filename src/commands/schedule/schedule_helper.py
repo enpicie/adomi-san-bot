@@ -1,3 +1,4 @@
+import re
 from datetime import datetime, timezone as dt_timezone
 from typing import List, Optional
 
@@ -14,6 +15,65 @@ def _to_epoch(utc_iso: str) -> Optional[int]:
         return int(dt.timestamp())
     except Exception:
         return None
+
+
+_DISCORD_TIMESTAMP_RE = re.compile(r"<t:(\d+):[^>]+>")
+
+
+def _epoch_from_line(line: str) -> Optional[int]:
+    m = _DISCORD_TIMESTAMP_RE.search(line)
+    return int(m.group(1)) if m else None
+
+
+def _get_event_name_from_line(line: str) -> Optional[str]:
+    """Return the plain event name from a schedule entry line, or None if not an event line."""
+    if not line.startswith("- "):
+        return None
+    content = line[2:]
+    if content.startswith("~~") and content.endswith("~~"):
+        content = content[2:-2]
+    elif content.startswith("_") and content.endswith("_"):
+        content = content[1:-1]
+    # Split on last ' - ' to isolate display_name from timestamp
+    parts = content.rsplit(" - ", 1)
+    if len(parts) < 2:
+        return None
+    display = parts[0]
+    if display.startswith("[") and "](" in display:
+        return display[1 : display.index("](")]
+    return display
+
+
+def _line_has_event(line: str, event_name: str) -> bool:
+    return _get_event_name_from_line(line) == event_name
+
+
+def _build_event_line(event_name: str, epoch: Optional[int], startgg_url: Optional[str]) -> str:
+    display_name = f"[{event_name}]({startgg_url})" if startgg_url else event_name
+    timestamp = f"**<t:{epoch}:F>**" if epoch is not None else "**TBD**"
+    return f"- {display_name} - {timestamp}"
+
+
+def _insert_event_sorted(lines: list, new_line: str, epoch: Optional[int]) -> list:
+    """Insert new_line into lines before the first event line with epoch >= new epoch."""
+    new_key = epoch if epoch is not None else float("inf")
+    for i, line in enumerate(lines):
+        if not line.startswith("- "):
+            continue
+        cmp = _epoch_from_line(line)
+        if cmp is None or cmp >= new_key:
+            return lines[:i] + [new_line] + lines[i:]
+    return lines + [new_line]
+
+
+def _apply_no_events_placeholder(lines: list) -> list:
+    """Ensure '*No events.*' appears iff no event lines remain."""
+    has_events = any(l.startswith("- ") for l in lines)
+    clean = [l for l in lines if l != "*No events.*"]
+    if has_events:
+        return clean
+    insert_at = 2 if len(clean) >= 2 else len(clean)
+    return clean[:insert_at] + ["*No events.*"] + clean[insert_at:]
 
 
 def build_schedule_content(
@@ -56,6 +116,80 @@ def build_schedule_content(
             lines.append(f"- {entry}")
 
     return "\n".join(lines)
+
+
+def strikethrough_schedule_event(server_config: ServerConfig, event_name: str) -> None:
+    """Apply strikethrough to a specific event entry in the schedule. No-op if not tracked or not found."""
+    if not server_config.schedule_message_id or not server_config.schedule_channel_id:
+        return
+    current = discord_helper.get_channel_message(
+        server_config.schedule_channel_id, server_config.schedule_message_id
+    )
+    if current is None:
+        return
+    lines = current.split("\n")
+    new_lines = []
+    updated = False
+    for line in lines:
+        if not updated and _line_has_event(line, event_name):
+            entry = line[2:]
+            if not (entry.startswith("~~") and entry.endswith("~~")):
+                if entry.startswith("_") and entry.endswith("_"):
+                    entry = entry[1:-1]
+                entry = f"~~{entry}~~"
+                line = f"- {entry}"
+            updated = True
+        new_lines.append(line)
+    if updated:
+        discord_helper.edit_channel_message(
+            server_config.schedule_channel_id, server_config.schedule_message_id, "\n".join(new_lines)
+        )
+
+
+def remove_schedule_event(server_config: ServerConfig, event_name: str) -> None:
+    """Remove a specific event entry from the schedule. No-op if not tracked or not found."""
+    if not server_config.schedule_message_id or not server_config.schedule_channel_id:
+        return
+    current = discord_helper.get_channel_message(
+        server_config.schedule_channel_id, server_config.schedule_message_id
+    )
+    if current is None:
+        return
+    lines = current.split("\n")
+    new_lines = [l for l in lines if not _line_has_event(l, event_name)]
+    if len(new_lines) == len(lines):
+        return
+    new_lines = _apply_no_events_placeholder(new_lines)
+    discord_helper.edit_channel_message(
+        server_config.schedule_channel_id, server_config.schedule_message_id, "\n".join(new_lines)
+    )
+
+
+def update_schedule_event(
+    server_config: ServerConfig,
+    old_name: str,
+    new_name: str,
+    new_start_time: Optional[str],
+    new_startgg_url: Optional[str] = None,
+) -> None:
+    """Replace the schedule entry for old_name with a rebuilt line for new_name/time. No-op if not found."""
+    if not server_config.schedule_message_id or not server_config.schedule_channel_id:
+        return
+    current = discord_helper.get_channel_message(
+        server_config.schedule_channel_id, server_config.schedule_message_id
+    )
+    if current is None:
+        return
+    epoch = _to_epoch(new_start_time) if new_start_time else None
+    new_line = _build_event_line(new_name, epoch, new_startgg_url)
+    lines = current.split("\n")
+    without_old = [l for l in lines if not _line_has_event(l, old_name)]
+    if len(without_old) == len(lines):
+        return
+    new_lines = _insert_event_sorted(without_old, new_line, epoch)
+    discord_helper.edit_channel_message(
+        server_config.schedule_channel_id, server_config.schedule_message_id, "\n".join(new_lines)
+    )
 
 
 def _delete_past_plans(

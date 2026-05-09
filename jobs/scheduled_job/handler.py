@@ -5,7 +5,7 @@ import db
 import discord_api
 from event_cleanup import cleanup_ended_event
 from event_reminders import check_and_send_reminder
-from schedule_sync import sync_schedule_for_server
+from schedule_sync import strikethrough_schedule_event
 from startgg_token_refresh import refresh_startgg_tokens
 
 logger = logging.getLogger()
@@ -67,6 +67,7 @@ def handler(event, context):
                 event_name = cleanup_ended_event(table, server_id, event_id, server_config)
                 if event_name:
                     cleaned_up_event_names.append(event_name)
+                    strikethrough_schedule_event(server_config, event_name)
             elif status is None:
                 logger.info(
                     f"Event {event_id} in server {server_id} not found in Discord, cleaning up"
@@ -74,6 +75,7 @@ def handler(event, context):
                 event_name = cleanup_ended_event(table, server_id, event_id, server_config)
                 if event_name:
                     cleaned_up_event_names.append(event_name)
+                    strikethrough_schedule_event(server_config, event_name)
             else:
                 logger.info(
                     f"Event {event_id} in server {server_id} still active (status={status}), checking reminders"
@@ -94,5 +96,3 @@ def handler(event, context):
                     )
             else:
                 logger.info(f"No notification_channel_id configured for server {server_id}, skipping notification")
-
-        sync_schedule_for_server(table, server_id, server_config)

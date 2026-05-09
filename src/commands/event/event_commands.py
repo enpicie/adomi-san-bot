@@ -5,11 +5,19 @@ import utils.permissions_helper as permissions_helper
 import commands.event.startgg.startgg_api as startgg_api
 from commands.event.event_helper import EventRecord, create_event_record, update_event_record, delete_event_record
 from commands.event.timezone_helper import to_utc_iso
-from commands.schedule.schedule_helper import sync_schedule
+from commands.schedule.schedule_helper import sync_schedule, remove_schedule_event, update_schedule_event
 from aws_services import AWSServices
 from commands.models.discord_event import DiscordEvent
 from commands.models.response_message import ResponseMessage
 from database.models.event_data import EventData
+
+
+def _to_discord_ts(utc_iso: str) -> str:
+    try:
+        dt = datetime.fromisoformat(utc_iso.replace("Z", "+00:00"))
+        return f"<t:{int(dt.timestamp())}:F>"
+    except Exception:
+        return f"`{utc_iso}`"
 
 
 def _is_past_time(utc_iso: str) -> bool:
@@ -115,6 +123,15 @@ def update_event(event: DiscordEvent, aws_services: AWSServices) -> ResponseMess
         table=aws_services.dynamodb_table
     )
 
+    if (new_name and new_name != event_data_result.event_name) or (start_time_changed and not start_time_in_past):
+        update_schedule_event(
+            server_config,
+            old_name=event_data_result.event_name,
+            new_name=name,
+            new_start_time=start_time_utc,
+            new_startgg_url=event_data_result.startgg_url,
+        )
+
     # Build change summary — only report fields that were provided AND differ from stored
     changes = []
     if new_name and new_name != event_data_result.event_name:
@@ -122,14 +139,14 @@ def update_event(event: DiscordEvent, aws_services: AWSServices) -> ResponseMess
     if location_input and location_input != event_data_result.event_location:
         changes.append(f"📍 Location updated to `{location_input}`")
     if start_time_in_past:
-        changes.append(f"⚠️ Start time not updated — `{new_start_time_utc}` is in the past")
+        changes.append(f"⚠️ Start time not updated — {_to_discord_ts(new_start_time_utc)} is in the past")
     elif start_time_changed:
         if start_time_updated:
-            changes.append(f"🕒 Start time updated to `{new_start_time_utc}`")
+            changes.append(f"🕒 Start time updated to {_to_discord_ts(new_start_time_utc)}")
         else:
             changes.append(f"⚠️ Start time unchanged — event is already active on Discord")
     if end_time_input and end_time_utc != event_data_result.end_time:
-        changes.append(f"🔚 End time updated to `{end_time_utc}`")
+        changes.append(f"🔚 End time updated to {_to_discord_ts(end_time_utc)}")
     if participant_role_input and participant_role_input != event_data_result.participant_role:
         changes.append(f"🎭 Participant role updated")
 
@@ -201,17 +218,26 @@ def delete_event(event: DiscordEvent, aws_services: AWSServices) -> ResponseMess
         return error_message
 
     server_id = event.get_server_id()
+    server_config = db_helper.get_server_config_or_fail(server_id, aws_services.dynamodb_table)
+    if isinstance(server_config, ResponseMessage):
+        return server_config
+
     event_id = event.get_command_input_value("event_name")
 
     event_data_result = db_helper.get_server_event_data_or_fail(server_id, event_id, aws_services.dynamodb_table)
     if isinstance(event_data_result, ResponseMessage):
         return event_data_result
 
+    event_name = event_data_result.event_name
+
     delete_event_record(
         server_id=server_id,
         event_id=event_data_result.event_id or event_id,
         table=aws_services.dynamodb_table
     )
+
+    if event_name:
+        remove_schedule_event(server_config, event_name)
 
     return ResponseMessage(content="Event deleted successfully.")
 
@@ -246,7 +272,7 @@ def create_event_startgg(event: DiscordEvent, aws_services: AWSServices) -> Resp
     if _is_past_time(start_time_utc):
         start_time_utc = (datetime.now(dt_timezone.utc) + timedelta(minutes=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
         past_time_warning = (
-            f"\n⚠️ The start.gg event time (`{startgg_event.start_time_utc}`) is in the past. "
+            f"\n⚠️ The start.gg event time ({_to_discord_ts(startgg_event.start_time_utc)}) is in the past. "
             "The current time has been used instead."
         )
 
@@ -398,12 +424,12 @@ def update_event_startgg(event: DiscordEvent, aws_services: AWSServices) -> Resp
 
     changes = []
     if start_time_in_past:
-        changes.append(f"⚠️ Start time not updated — `{startgg_event.start_time_utc}` is in the past")
+        changes.append(f"⚠️ Start time not updated — {_to_discord_ts(startgg_event.start_time_utc)} is in the past")
     elif start_time_changed:
         if start_time_updated:
-            changes.append(f"🕒 Start time updated to `{startgg_event.start_time_utc}`")
+            changes.append(f"🕒 Start time updated to {_to_discord_ts(startgg_event.start_time_utc)}")
         else:
-            changes.append(f"⚠️ Start time in start.gg (`{startgg_event.start_time_utc}`) differs but could not be updated — event is already active on Discord")
+            changes.append(f"⚠️ Start time in start.gg ({_to_discord_ts(startgg_event.start_time_utc)}) differs but could not be updated — event is already active on Discord")
     changes.append(f"👥 Registered list synced with {total_count} participant(s)")
     change_summary = "\n".join(f"• {c}" for c in changes)
 
@@ -440,7 +466,7 @@ def event_refresh_startgg(event: DiscordEvent, aws_services: AWSServices) -> Res
         start_time_changed = startgg_event.start_time_utc != event_data_result.start_time
         if start_time_changed:
             if _is_past_time(startgg_event.start_time_utc):
-                changes.append(f"⚠️ Start time not updated — `{startgg_event.start_time_utc}` is in the past")
+                changes.append(f"⚠️ Start time not updated — {_to_discord_ts(startgg_event.start_time_utc)} is in the past")
             else:
                 resolved_event_id = event_data_result.event_id or event_id
                 start_time_updated = update_event_record(
@@ -457,9 +483,9 @@ def event_refresh_startgg(event: DiscordEvent, aws_services: AWSServices) -> Res
                     table=aws_services.dynamodb_table
                 )
                 if start_time_updated:
-                    changes.append(f"🕒 Start time updated to `{startgg_event.start_time_utc}`")
+                    changes.append(f"🕒 Start time updated to {_to_discord_ts(startgg_event.start_time_utc)}")
                 else:
-                    changes.append(f"⚠️ Start time in start.gg (`{startgg_event.start_time_utc}`) differs but could not be updated — event is already active on Discord")
+                    changes.append(f"⚠️ Start time in start.gg ({_to_discord_ts(startgg_event.start_time_utc)}) differs but could not be updated — event is already active on Discord")
 
     # Always write the current registrants list (even if empty)
     all_participants_data = {p.user_id: p.to_dict() for p in startgg_event.participants}
