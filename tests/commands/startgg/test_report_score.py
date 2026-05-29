@@ -34,6 +34,10 @@ class TestScorePattern(unittest.TestCase):
         # fullmatch-style: pattern anchored with ^ and $
         self.assertIsNone(_SCORE_PATTERN.match("2-1 extra"))
 
+    def test_dq_does_not_match_score_pattern(self):
+        self.assertIsNone(_SCORE_PATTERN.match("dq"))
+        self.assertIsNone(_SCORE_PATTERN.match("DQ"))
+
 
 class TestGameDataConstruction(unittest.TestCase):
     """Tests the game-by-game data construction logic used in report_score."""

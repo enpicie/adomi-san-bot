@@ -116,14 +116,18 @@ def report_score(event: DiscordEvent, aws_services: AWSServices) -> ResponseMess
     loser_id = event.get_command_input_value("loser")
     score_str: str = event.get_command_input_value("score")
 
-    score_match = _SCORE_PATTERN.match(score_str.strip())
-    if not score_match:
-        return ResponseMessage(
-            content="Invalid score format. Use `<winner score>-<loser score>`, e.g. `2-1`."
-        )
-
-    winner_games = int(score_match.group(1))
-    loser_games = int(score_match.group(2))
+    is_dq = score_str.strip().lower() == "dq"
+    if is_dq:
+        winner_games = 0
+        loser_games = 0
+    else:
+        score_match = _SCORE_PATTERN.match(score_str.strip())
+        if not score_match:
+            return ResponseMessage(
+                content="Invalid score format. Use `<winner score>-<loser score>`, e.g. `2-1`, or `dq`."
+            )
+        winner_games = int(score_match.group(1))
+        loser_games = int(score_match.group(2))
 
     server_config = db_helper.get_server_config_or_fail(server_id, aws_services.dynamodb_table)
     if isinstance(server_config, ResponseMessage):
@@ -196,12 +200,13 @@ def report_score(event: DiscordEvent, aws_services: AWSServices) -> ResponseMess
         )
 
     game_data = []
-    for game_num in range(1, winner_games + loser_games + 1):
-        game_winner_id = winner_entrant_id if game_num <= winner_games else loser_entrant_id
-        game_data.append({"winnerId": game_winner_id, "gameNum": game_num})
+    if not is_dq:
+        for game_num in range(1, winner_games + loser_games + 1):
+            game_winner_id = winner_entrant_id if game_num <= winner_games else loser_entrant_id
+            game_data.append({"winnerId": game_winner_id, "gameNum": game_num})
 
     try:
-        startgg_api.report_set(set_id, entrant_ids[winner_entrant_id], game_data, server_config.startgg_oauth_token)
+        startgg_api.report_set(set_id, entrant_ids[winner_entrant_id], game_data, server_config.startgg_oauth_token, is_dq=is_dq)
     except StartggAuthError:
         return ResponseMessage(content=_AUTH_EXPIRED_MSG)
     except StartggPermissionError:
@@ -215,6 +220,7 @@ def report_score(event: DiscordEvent, aws_services: AWSServices) -> ResponseMess
     except ValueError as e:
         return ResponseMessage(content=f"❌ {e}")
 
+    result_str = f"<@{loser_id}> DQ" if is_dq else score_str
     return ResponseMessage(
-        content=f"Score reported on start.gg: <@{winner_id}> def. <@{loser_id}> ({score_str})"
+        content=f"Score reported on start.gg: <@{winner_id}> def. <@{loser_id}> ({result_str})"
     ).with_silent_pings()
