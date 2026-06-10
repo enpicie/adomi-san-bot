@@ -124,18 +124,18 @@ def mark_event_reminder_sent(table, server_id: str, event_id: str):
     )
 
 
-def update_server_oauth_token(table, server_id: str, access_token: str, refresh_token: str, expires_at: int):
-    """Write a refreshed OAuth access token, refresh token, and expiry into the server's config record."""
+def mark_startgg_expiry_notified(table, server_id: str):
+    """Flag that organizers have been notified about the start.gg token expiry, to avoid re-notifying every run."""
     table.update_item(
         Key={"PK": f"{_PK_SERVER_PREFIX}{server_id}", "SK": _SK_CONFIG},
-        UpdateExpression=(
-            "SET oauth_token_startgg = :token, "
-            "startgg_refresh_token = :refresh_token, "
-            "startgg_token_expires_at = :expires_at"
-        ),
-        ExpressionAttributeValues={
-            ":token": access_token,
-            ":refresh_token": refresh_token,
-            ":expires_at": expires_at,
-        },
+        UpdateExpression="SET startgg_expiry_notified = :val",
+        ExpressionAttributeValues={":val": True},
+    )
+
+
+def clear_startgg_expiry_notified(table, server_id: str):
+    """Clear the start.gg expiry notification flag so a future expiry will notify again (e.g. after a re-link)."""
+    table.update_item(
+        Key={"PK": f"{_PK_SERVER_PREFIX}{server_id}", "SK": _SK_CONFIG},
+        UpdateExpression="REMOVE startgg_expiry_notified",
     )

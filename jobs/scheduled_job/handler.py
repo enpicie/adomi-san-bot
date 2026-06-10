@@ -6,7 +6,7 @@ import discord_api
 from event_cleanup import cleanup_ended_event
 from event_reminders import check_and_send_reminder
 from schedule_sync import strikethrough_schedule_event
-from startgg_token_refresh import refresh_startgg_tokens
+from startgg_token_check import check_startgg_tokens
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -23,9 +23,9 @@ def handler(event, context):
     table = db.dynamodb.Table(_DYNAMODB_TABLE_NAME)
 
     try:
-        refresh_startgg_tokens(table)
+        check_startgg_tokens(table)
     except Exception as e:
-        logger.error(f"Unhandled error during start.gg token refresh: {e}")
+        logger.error(f"Unhandled error during start.gg token expiry check: {e}")
 
     server_events = db.get_all_events_by_server(table)
     if not server_events:

@@ -47,12 +47,6 @@ resource "aws_iam_role_policy" "scheduled_job_policy" {
         Effect = "Allow"
         Action = ["sqs:SendMessage", "sqs:SendMessageBatch"]
         Resource = data.aws_sqs_queue.remove_role.arn
-      },
-      {
-        Sid    = "GetStartggOAuthCredentials"
-        Effect = "Allow"
-        Action = "secretsmanager:GetSecretValue"
-        Resource = data.aws_secretsmanager_secret.startgg_oauth_credentials.arn
       }
     ]
   })

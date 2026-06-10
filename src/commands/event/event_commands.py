@@ -456,6 +456,17 @@ def event_refresh_startgg(event: DiscordEvent, aws_services: AWSServices) -> Res
                     "Use `/event-update-startgg` to link a start.gg event first."
         )
 
+    summary = refresh_event_from_startgg(server_id, event_id, event_data_result, aws_services)
+    return ResponseMessage(content=summary)
+
+
+def refresh_event_from_startgg(server_id, event_id, event_data_result, aws_services) -> str:
+    """Sync an event's registrant list (and start time) from start.gg and persist the changes.
+
+    Writes the latest registrants to DynamoDB and updates the Discord event start time if it
+    changed. Returns a human-readable summary of what changed. The caller must ensure the event
+    has a start.gg link before calling.
+    """
     startgg_event = startgg_api.query_startgg_event(event_data_result.startgg_url)
     total_count = len(startgg_event.participants) + len(startgg_event.no_discord_participants)
     no_discord_names = [p.display_name for p in startgg_event.no_discord_participants]
@@ -502,9 +513,7 @@ def event_refresh_startgg(event: DiscordEvent, aws_services: AWSServices) -> Res
     no_discord_report = _build_no_discord_report(no_discord_names)
     change_summary = "\n".join(f"• {c}" for c in changes)
 
-    return ResponseMessage(
-        content=f"👍 Event refreshed from start.gg:\n{change_summary}{no_discord_report}"
-    )
+    return f"👍 Event refreshed from start.gg:\n{change_summary}{no_discord_report}"
 
 
 def events_list(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:

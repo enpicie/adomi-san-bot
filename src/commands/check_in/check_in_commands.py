@@ -1,4 +1,5 @@
 import commands.check_in.check_in_constants as check_in_constants
+import commands.event.event_commands as event_commands
 import database.dynamodb_utils as db_helper
 import utils.discord_api_helper as discord_helper
 from utils.discord_api_helper import RoleAssignmentResult
@@ -165,10 +166,26 @@ def show_not_checked_in(event: DiscordEvent, aws_services: AWSServices) -> Respo
     if error_message:
         return error_message
 
+    server_id = event.get_server_id()
     event_id = event.get_command_input_value("event_name")
-    event_data_result = db_helper.get_server_event_data_or_fail(event.get_server_id(), event_id, aws_services.dynamodb_table)
+    event_data_result = db_helper.get_server_event_data_or_fail(server_id, event_id, aws_services.dynamodb_table)
     if isinstance(event_data_result, ResponseMessage):
         return event_data_result
+
+    # For start.gg-linked events, sync the registrant list first so the absent list reflects the
+    # latest registrations. Best-effort: if start.gg is unreachable, fall back to the saved list.
+    refresh_summary = None
+    if event_data_result.startgg_url:
+        try:
+            refresh_summary = event_commands.refresh_event_from_startgg(
+                server_id, event_id, event_data_result, aws_services
+            )
+            refreshed = db_helper.get_server_event_data_or_fail(server_id, event_id, aws_services.dynamodb_table)
+            if not isinstance(refreshed, ResponseMessage):
+                event_data_result = refreshed
+        except Exception as e:
+            print(f"[check_in] Failed to refresh start.gg event {event_id} for absent list: {e}")
+            refresh_summary = "⚠️ Could not refresh from start.gg — showing the most recent saved list."
 
     should_ping_users = event.get_command_input_value("ping_users") or False # Default to No ping
 
@@ -194,6 +211,8 @@ def show_not_checked_in(event: DiscordEvent, aws_services: AWSServices) -> Respo
     )
 
     content = f"{not_checked_in_message}\n{not_registered_message}"
+    if refresh_summary:
+        content = f"{refresh_summary}\n{content}"
     response = ResponseMessage(content)
 
     return response if should_ping_users else response.with_silent_pings()
