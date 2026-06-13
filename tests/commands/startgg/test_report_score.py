@@ -1,71 +1,80 @@
 import unittest
 
-from commands.startgg.startgg_commands import _SCORE_PATTERN
+import commands.startgg.startgg_commands as startgg_commands
 
 
-class TestScorePattern(unittest.TestCase):
-    def test_valid_score_matches(self):
-        self.assertIsNotNone(_SCORE_PATTERN.match("2-1"))
+class TestParseScore(unittest.TestCase):
+    """Tests _parse_score, which turns '<winner>-<loser>' strings into (int, int) or None."""
 
-    def test_valid_score_with_zero(self):
-        self.assertIsNotNone(_SCORE_PATTERN.match("2-0"))
+    def test_valid_score_returns_int_tuple(self):
+        self.assertEqual(startgg_commands._parse_score("2-1"), (2, 1))
 
-    def test_valid_score_extracts_groups(self):
-        m = _SCORE_PATTERN.match("3-2")
-        self.assertEqual(m.group(1), "3")
-        self.assertEqual(m.group(2), "2")
+    def test_valid_sweep_score(self):
+        self.assertEqual(startgg_commands._parse_score("3-0"), (3, 0))
 
-    def test_multi_digit_scores_match(self):
-        m = _SCORE_PATTERN.match("10-8")
-        self.assertEqual(m.group(1), "10")
-        self.assertEqual(m.group(2), "8")
+    def test_zero_winner_games_still_parses(self):
+        # _parse_score does not validate winner > loser; that happens elsewhere.
+        self.assertEqual(startgg_commands._parse_score("0-3"), (0, 3))
 
-    def test_missing_dash_does_not_match(self):
-        self.assertIsNone(_SCORE_PATTERN.match("21"))
+    def test_multi_digit_scores_parse(self):
+        self.assertEqual(startgg_commands._parse_score("10-8"), (10, 8))
 
-    def test_reversed_format_does_not_match(self):
-        # Letters not accepted
-        self.assertIsNone(_SCORE_PATTERN.match("W-L"))
+    def test_whitespace_padded_score_is_stripped_and_parses(self):
+        self.assertEqual(startgg_commands._parse_score("  2-1  "), (2, 1))
 
-    def test_empty_string_does_not_match(self):
-        self.assertIsNone(_SCORE_PATTERN.match(""))
+    def test_internal_spaces_around_dash_return_none(self):
+        self.assertIsNone(startgg_commands._parse_score("2 - 1"))
 
-    def test_extra_text_does_not_match(self):
-        # fullmatch-style: pattern anchored with ^ and $
-        self.assertIsNone(_SCORE_PATTERN.match("2-1 extra"))
+    def test_letters_return_none(self):
+        self.assertIsNone(startgg_commands._parse_score("a-b"))
 
-    def test_dq_does_not_match_score_pattern(self):
-        self.assertIsNone(_SCORE_PATTERN.match("dq"))
-        self.assertIsNone(_SCORE_PATTERN.match("DQ"))
+    def test_empty_string_returns_none(self):
+        self.assertIsNone(startgg_commands._parse_score(""))
+
+    def test_three_part_score_returns_none(self):
+        self.assertIsNone(startgg_commands._parse_score("2-1-3"))
+
+    def test_leading_negative_sign_returns_none(self):
+        self.assertIsNone(startgg_commands._parse_score("-1-2"))
+
+    def test_missing_dash_returns_none(self):
+        self.assertIsNone(startgg_commands._parse_score("21"))
+
+    def test_dq_string_returns_none(self):
+        self.assertIsNone(startgg_commands._parse_score("dq"))
+        self.assertIsNone(startgg_commands._parse_score("DQ"))
+
+    def test_extra_text_after_score_returns_none(self):
+        self.assertIsNone(startgg_commands._parse_score("2-1 extra"))
 
 
-class TestGameDataConstruction(unittest.TestCase):
-    """Tests the game-by-game data construction logic used in report_score."""
-
-    def _build_game_data(self, winner_games: int, loser_games: int,
-                         winner_id: str = "W", loser_id: str = "L") -> list:
-        game_data = []
-        for game_num in range(1, winner_games + loser_games + 1):
-            game_winner_id = winner_id if game_num <= winner_games else loser_id
-            game_data.append({"winnerId": game_winner_id, "gameNum": game_num})
-        return game_data
+class TestBuildSetGameData(unittest.TestCase):
+    """Tests the real build_set_game_data used by report_score to build start.gg gameData."""
 
     def test_game_count_matches_total_games(self):
-        self.assertEqual(len(self._build_game_data(2, 1)), 3)
+        data = startgg_commands.build_set_game_data(2, 1, "entrant-w", "entrant-l")
+        self.assertEqual(len(data), 3)
 
-    def test_winner_games_come_first(self):
-        data = self._build_game_data(2, 1, winner_id="W", loser_id="L")
-        self.assertEqual(data[0]["winnerId"], "W")
-        self.assertEqual(data[1]["winnerId"], "W")
-        self.assertEqual(data[2]["winnerId"], "L")
+    def test_winner_games_come_first_then_loser_games(self):
+        data = startgg_commands.build_set_game_data(2, 1, "entrant-w", "entrant-l")
+        self.assertEqual([g["winnerId"] for g in data], ["entrant-w", "entrant-w", "entrant-l"])
 
-    def test_game_numbers_are_sequential(self):
-        data = self._build_game_data(2, 1)
-        self.assertEqual([d["gameNum"] for d in data], [1, 2, 3])
+    def test_game_numbers_are_sequential_starting_at_one(self):
+        data = startgg_commands.build_set_game_data(2, 1, "entrant-w", "entrant-l")
+        self.assertEqual([g["gameNum"] for g in data], [1, 2, 3])
 
-    def test_sweep_all_winner_games(self):
-        data = self._build_game_data(2, 0, winner_id="W", loser_id="L")
-        self.assertTrue(all(d["winnerId"] == "W" for d in data))
+    def test_sweep_has_only_winner_games(self):
+        data = startgg_commands.build_set_game_data(2, 0, "entrant-w", "entrant-l")
+        self.assertEqual(len(data), 2)
+        self.assertTrue(all(g["winnerId"] == "entrant-w" for g in data))
+
+    def test_each_game_entry_has_exactly_winner_and_game_num_keys(self):
+        data = startgg_commands.build_set_game_data(1, 1, "entrant-w", "entrant-l")
+        for game in data:
+            self.assertEqual(set(game.keys()), {"winnerId", "gameNum"})
+
+    def test_zero_zero_returns_empty_list(self):
+        self.assertEqual(startgg_commands.build_set_game_data(0, 0, "entrant-w", "entrant-l"), [])
 
 
 if __name__ == "__main__":

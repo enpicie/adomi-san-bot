@@ -1,4 +1,3 @@
-import re
 import unittest
 
 from commands.event.timezone_helper import to_utc_iso

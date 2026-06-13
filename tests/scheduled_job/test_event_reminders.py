@@ -1,12 +1,12 @@
 import os
 import sys
 
-# Scheduled job modules read env vars at import time — set them before importing.
-os.environ.setdefault("REGION", "us-east-1")
-os.environ.setdefault("DISCORD_BOT_TOKEN", "test-token")
-os.environ.setdefault("DYNAMODB_TABLE_NAME", "test-table")
-os.environ.setdefault("REMOVE_ROLE_QUEUE_URL", "https://sqs.test")
-os.environ.setdefault("STARTGG_OAUTH_SECRET_NAME", "test-secret")
+# Scheduled job modules read env vars at import time (via scheduled_job_constants).
+# Assign deterministic test values directly so real host env vars never leak through.
+os.environ["REGION"] = "us-east-1"
+os.environ["DISCORD_BOT_TOKEN"] = "test-token"
+os.environ["DYNAMODB_TABLE_NAME"] = "test-table"
+os.environ["REMOVE_ROLE_QUEUE_URL"] = "https://sqs.test"
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "jobs", "scheduled_job"))
 
@@ -91,7 +91,7 @@ class TestCheckAndSendReminder(unittest.TestCase):
         result, _, mock_discord = self._run(record)
         mock_discord.send_channel_message.assert_not_called()
 
-    def test_skips_at_exactly_24h_boundary(self):
+    def test_sends_at_exactly_24h_boundary(self):
         # The window is exclusive on the upper end (now < start <= now + 24h),
         # so exactly 24h away should still send.
         record = _make_event_record(start_time=_EXACTLY_24H)

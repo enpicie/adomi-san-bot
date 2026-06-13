@@ -1,4 +1,5 @@
 import unittest
+from datetime import datetime, timezone as dt_timezone
 
 import utils.message_helper as message_helper
 from database.models.participant import Participant
@@ -21,6 +22,39 @@ class TestFormatHelpers(unittest.TestCase):
 
     def test_get_role_ping(self):
         self.assertEqual(message_helper.get_role_ping("789"), "<@&789>")
+
+
+class TestGetDiscordTimestamp(unittest.TestCase):
+    ISO = "2026-04-10T12:00:00Z"
+    # Epoch computed from the same fixed instant — no real "now" involved.
+    EPOCH = int(datetime(2026, 4, 10, 12, 0, 0, tzinfo=dt_timezone.utc).timestamp())
+
+    def test_known_iso_string_returns_full_style_tag_by_default(self):
+        self.assertEqual(
+            message_helper.get_discord_timestamp(self.ISO),
+            f"<t:{self.EPOCH}:F>",
+        )
+
+    def test_style_param_is_honored(self):
+        self.assertEqual(
+            message_helper.get_discord_timestamp(self.ISO, style="R"),
+            f"<t:{self.EPOCH}:R>",
+        )
+
+    def test_explicit_utc_offset_parses_same_as_z_suffix(self):
+        self.assertEqual(
+            message_helper.get_discord_timestamp("2026-04-10T12:00:00+00:00"),
+            f"<t:{self.EPOCH}:F>",
+        )
+
+    def test_garbage_string_returns_none(self):
+        self.assertIsNone(message_helper.get_discord_timestamp("not-a-date"))
+
+    def test_none_input_returns_none(self):
+        self.assertIsNone(message_helper.get_discord_timestamp(None))
+
+    def test_empty_string_returns_none(self):
+        self.assertIsNone(message_helper.get_discord_timestamp(""))
 
 
 class TestBuildParticipantsList(unittest.TestCase):

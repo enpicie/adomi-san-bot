@@ -1,11 +1,12 @@
 import os
 import sys
 
-# Scheduled job modules read env vars at import time — set them before importing.
-os.environ.setdefault("REGION", "us-east-1")
-os.environ.setdefault("DISCORD_BOT_TOKEN", "test-token")
-os.environ.setdefault("DYNAMODB_TABLE_NAME", "test-table")
-os.environ.setdefault("REMOVE_ROLE_QUEUE_URL", "https://sqs.test")
+# Scheduled job modules read env vars at import time (via scheduled_job_constants).
+# Assign deterministic test values directly so real host env vars never leak through.
+os.environ["REGION"] = "us-east-1"
+os.environ["DISCORD_BOT_TOKEN"] = "test-token"
+os.environ["DYNAMODB_TABLE_NAME"] = "test-table"
+os.environ["REMOVE_ROLE_QUEUE_URL"] = "https://sqs.test"
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "jobs", "scheduled_job"))
 
