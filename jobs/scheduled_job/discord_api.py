@@ -20,7 +20,7 @@ def _role_ping(role_id) -> str:
 
 def _request(method, url, json=None):
     while True:
-        r = requests.request(method, url, headers={"Authorization": f"Bot {constants.DISCORD_BOT_TOKEN}"}, json=json)
+        r = requests.request(method, url, headers={"Authorization": f"Bot {constants.get_discord_bot_token()}"}, json=json)
         if r.status_code != 429:
             return r
         retry_after = r.json().get("retry_after", 1)

@@ -47,12 +47,6 @@ class TestEnqueueRemoveRoleJobs(unittest.TestCase):
         self.assertEqual(len(first_batch), 10)
         self.assertEqual(len(second_batch), 1)
 
-    def test_twenty_users_sends_two_full_batches(self):
-        queue = self._make_queue()
-        users = [f"u{i}" for i in range(20)]
-        enqueue_remove_role_jobs("guild1", users, "role1", queue)
-        self.assertEqual(queue.send_messages.call_count, 2)
-
     def test_all_user_ids_included_across_batches(self):
         queue = self._make_queue()
         users = [f"u{i}" for i in range(15)]

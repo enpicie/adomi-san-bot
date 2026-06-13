@@ -637,7 +637,7 @@ See [.env.example](./.env.example) for the full list of environment variables th
 
 - `REGION`
 - `PUBLIC_KEY`
-- `DISCORD_BOT_TOKEN`
+- `DISCORD_BOT_TOKEN_SECRET_NAME` (bot token is stored in Secrets Manager and fetched at runtime)
 - `DYNAMODB_TABLE_NAME`
 - `REMOVE_ROLE_QUEUE_URL`
 - `STARTGG_SECRET_NAME`
@@ -650,7 +650,7 @@ See [.env.example](./.env.example) for the full list of environment variables th
 - `DYNAMODB_TABLE_NAME`
 - `STARTGG_OAUTH_SECRET_NAME`
 - `OAUTH_REDIRECT_URI`
-- `DISCORD_BOT_TOKEN`
+- `DISCORD_BOT_TOKEN_SECRET_NAME` (bot token is stored in Secrets Manager and fetched at runtime)
 
 Reading config in code: [src/constants.py](./src/constants.py)
 

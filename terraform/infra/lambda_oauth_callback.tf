@@ -71,12 +71,20 @@ resource "aws_iam_role_policy" "oauth_callback_secrets_policy" {
 
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [{
-      Sid      = "GetOAuthCredentials"
-      Effect   = "Allow"
-      Action   = "secretsmanager:GetSecretValue"
-      Resource = aws_secretsmanager_secret.startgg_oauth_credentials.arn
-    }]
+    Statement = [
+      {
+        Sid      = "GetOAuthCredentials"
+        Effect   = "Allow"
+        Action   = "secretsmanager:GetSecretValue"
+        Resource = aws_secretsmanager_secret.startgg_oauth_credentials.arn
+      },
+      {
+        Sid      = "GetDiscordBotToken"
+        Effect   = "Allow"
+        Action   = "secretsmanager:GetSecretValue"
+        Resource = aws_secretsmanager_secret.discord_bot_token.arn
+      }
+    ]
   })
 }
 
@@ -125,7 +133,7 @@ resource "aws_lambda_function" "oauth_callback_lambda" {
       DYNAMODB_TABLE_NAME       = aws_dynamodb_table.adomi_discord_server_table.name
       STARTGG_OAUTH_SECRET_NAME = aws_secretsmanager_secret.startgg_oauth_credentials.name
       OAUTH_REDIRECT_URI        = "${aws_apigatewayv2_stage.env_stage.invoke_url}/startgg/callback"
-      DISCORD_BOT_TOKEN         = var.discord_bot_token
+      DISCORD_BOT_TOKEN_SECRET_NAME = aws_secretsmanager_secret.discord_bot_token.name
     }
   }
 }

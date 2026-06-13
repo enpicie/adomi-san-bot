@@ -72,11 +72,15 @@ class TestRemoveCheckedIn(unittest.TestCase):
 
         result = remove_checked_in(event, aws)
 
+        # Outcome: the user was removed (single write targeting this event's record) and
+        # the response confirms the removal — not the raw UpdateExpression/placeholder names.
         self.assertIsInstance(result, ResponseMessage)
         aws.dynamodb_table.update_item.assert_called_once()
-        call_kwargs = aws.dynamodb_table.update_item.call_args.kwargs
-        self.assertIn("REMOVE", call_kwargs["UpdateExpression"])
-        self.assertEqual(call_kwargs["ExpressionAttributeNames"]["#uid"], "user_xyz")
+        targeted_key = aws.dynamodb_table.update_item.call_args.kwargs["Key"]
+        self.assertEqual(targeted_key["PK"], "SERVER#server123")
+        # event_data has no resolved event_id, so the SK falls back to the input event name.
+        self.assertEqual(targeted_key["SK"], "EVENT#event1")
+        self.assertIn("removed from check-in", result.content)
 
     @patch("commands.check_in.check_in_commands.permissions_helper")
     @patch("commands.check_in.check_in_commands.db_helper")

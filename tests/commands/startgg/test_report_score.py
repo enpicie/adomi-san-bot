@@ -1,6 +1,8 @@
 import unittest
+from unittest.mock import Mock, patch
 
 import commands.startgg.startgg_commands as startgg_commands
+from commands.models.response_message import ResponseMessage
 
 
 class TestParseScore(unittest.TestCase):
@@ -75,6 +77,102 @@ class TestBuildSetGameData(unittest.TestCase):
 
     def test_zero_zero_returns_empty_list(self):
         self.assertEqual(startgg_commands.build_set_game_data(0, 0, "entrant-w", "entrant-l"), [])
+
+
+def _make_event(**inputs):
+    event = Mock()
+    event.get_server_id.return_value = "server123"
+    event.get_command_input_value.side_effect = lambda key: inputs.get(key)
+    return event
+
+
+def _make_config(startgg_oauth_token="oauth-token"):
+    config = Mock()
+    config.startgg_oauth_token = startgg_oauth_token
+    return config
+
+
+def _make_event_data(startgg_url="https://start.gg/tournament/t/event/e", registered=None):
+    data = Mock()
+    data.startgg_url = startgg_url
+    data.registered = registered if registered is not None else {}
+    return data
+
+
+_REGISTERED = {
+    "winner_user": {"display_name": "Winner", "user_id": "winner_user", "external_id": "entrant-w"},
+    "loser_user": {"display_name": "Loser", "user_id": "loser_user", "external_id": "entrant-l"},
+}
+
+
+class TestReportScoreCommand(unittest.TestCase):
+    """Behavior of the report_score command (the start.gg score-report flow), not just helpers."""
+
+    @patch("commands.startgg.startgg_commands.startgg_api")
+    @patch("commands.startgg.startgg_commands.db_helper")
+    def test_happy_path_reports_set_and_confirms(self, mock_db, mock_api):
+        mock_db.get_server_config_or_fail.return_value = _make_config()
+        mock_db.get_server_event_data_or_fail.return_value = _make_event_data(registered=_REGISTERED)
+        mock_api.extract_startgg_slug.return_value = "tournament/t/event/e"
+        # find_set_between_players -> (set_id, entrant_ids_map, is_completed=False)
+        mock_api.find_set_between_players.return_value = (
+            "set_1", {"entrant-w": "set-entrant-w", "entrant-l": "set-entrant-l"}, False
+        )
+        aws = Mock()
+        aws.dynamodb_table = Mock()
+        event = _make_event(
+            event_name="evt1", winner="winner_user", loser="loser_user", score="2-1"
+        )
+
+        result = startgg_commands.report_score(event, aws)
+
+        # Outcome: the set is reported to start.gg and the user gets a confirmation.
+        mock_api.report_set.assert_called_once()
+        self.assertIsInstance(result, ResponseMessage)
+        self.assertIn("Score reported on start.gg", result.content)
+
+    @patch("commands.startgg.startgg_commands.startgg_api")
+    @patch("commands.startgg.startgg_commands.db_helper")
+    def test_no_oauth_token_returns_auth_required_without_reporting(self, mock_db, mock_api):
+        mock_db.get_server_config_or_fail.return_value = _make_config(startgg_oauth_token=None)
+        aws = Mock()
+        event = _make_event(
+            event_name="evt1", winner="winner_user", loser="loser_user", score="2-1"
+        )
+
+        result = startgg_commands.report_score(event, aws)
+
+        self.assertIn("must be linked", result.content)
+        mock_api.report_set.assert_not_called()
+
+    @patch("commands.startgg.startgg_commands.startgg_api")
+    @patch("commands.startgg.startgg_commands.db_helper")
+    def test_no_open_set_found_returns_error_without_reporting(self, mock_db, mock_api):
+        mock_db.get_server_config_or_fail.return_value = _make_config()
+        mock_db.get_server_event_data_or_fail.return_value = _make_event_data(registered=_REGISTERED)
+        mock_api.extract_startgg_slug.return_value = "tournament/t/event/e"
+        mock_api.find_set_between_players.return_value = None
+        aws = Mock()
+        event = _make_event(
+            event_name="evt1", winner="winner_user", loser="loser_user", score="2-1"
+        )
+
+        result = startgg_commands.report_score(event, aws)
+
+        self.assertIn("Could not find an open set", result.content)
+        mock_api.report_set.assert_not_called()
+
+    @patch("commands.startgg.startgg_commands.db_helper")
+    def test_invalid_score_format_returns_error_before_lookups(self, mock_db):
+        aws = Mock()
+        event = _make_event(
+            event_name="evt1", winner="winner_user", loser="loser_user", score="not-a-score"
+        )
+
+        result = startgg_commands.report_score(event, aws)
+
+        self.assertIn("Invalid score format", result.content)
+        mock_db.get_server_config_or_fail.assert_not_called()
 
 
 if __name__ == "__main__":

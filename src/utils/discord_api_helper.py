@@ -3,6 +3,7 @@ from typing import Optional
 
 from enum import Enum
 
+import boto3
 import requests
 import constants
 
@@ -17,10 +18,24 @@ SUPPRESS_EMBEDS = 4  # Discord message flag
 
 _START_TIME_LOCKED_CODE = "GUILD_SCHEDULED_EVENT_SCHEDULE_INVALID_START_BY_STATUS"
 
+_secretsmanager_client = None
+_bot_token: str | None = None
+
+
+def _get_bot_token() -> str:
+    """Fetches the Discord bot token from Secrets Manager, caching it for the lifetime of the warm Lambda."""
+    global _secretsmanager_client, _bot_token
+    if _bot_token is None:
+        if _secretsmanager_client is None:
+            _secretsmanager_client = boto3.client("secretsmanager", region_name=constants.AWS_REGION)
+        response = _secretsmanager_client.get_secret_value(SecretId=constants.DISCORD_BOT_TOKEN_SECRET_NAME)
+        _bot_token = response["SecretString"]
+    return _bot_token
+
 
 def _bot_auth_headers() -> dict:
     return {
-        "Authorization": f"Bot {constants.DISCORD_BOT_TOKEN}",
+        "Authorization": f"Bot {_get_bot_token()}",
         "Content-Type": "application/json",
     }
 

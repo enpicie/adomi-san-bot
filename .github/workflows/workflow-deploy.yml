@@ -289,6 +289,7 @@ jobs:
             TF_VAR_sheets_agent_lambda_layer_hash_s3_key=${{ steps.build_layer_sheets_agent.outputs.s3_requirements_key }}
             TF_VAR_discord_public_key=${{ inputs.discord_public_key }}
             TF_VAR_discord_bot_token=${{ secrets.DISCORD_BOT_TOKEN }}
+            TF_VAR_discord_bot_token_secret_name=${{ inputs.app_name }}-discord-bot-token-${{ inputs.deployment_env }}
             TF_VAR_startgg_api_key=${{ secrets.STARTGG_API_KEY }}
             TF_VAR_startgg_oauth_client_id=${{ secrets.STARTGG_OAUTH_CLIENT_ID }}
             TF_VAR_startgg_oauth_client_secret=${{ secrets.STARTGG_OAUTH_CLIENT_SECRET }}
@@ -313,4 +314,4 @@ jobs:
             TF_VAR_bucket_name=${{ inputs.artifact_s3_bucket }}
             TF_VAR_scheduled_job_layer_s3_key=${{ steps.build_layer_scheduled_job.outputs.s3_artifact_key }}
             TF_VAR_scheduled_job_layer_hash_s3_key=${{ steps.build_layer_scheduled_job.outputs.s3_requirements_key }}
-            TF_VAR_discord_bot_token=${{ secrets.DISCORD_BOT_TOKEN }}
+            TF_VAR_discord_bot_token_secret_name=${{ inputs.app_name }}-discord-bot-token-${{ inputs.deployment_env }}

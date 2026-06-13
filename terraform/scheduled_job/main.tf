@@ -8,6 +8,12 @@ data "aws_sqs_queue" "remove_role" {
   name = "${var.sqs_worker_name}-${var.deployment_env}"
 }
 
+# Bot token secret is owned by the infra root; looked up by name (single-sourced
+# from the deploy workflow) so this root can grant itself read access.
+data "aws_secretsmanager_secret" "discord_bot_token" {
+  name = var.discord_bot_token_secret_name
+}
+
 data "aws_s3_object" "scheduled_job_zip_latest" {
   bucket = var.bucket_name
   key    = "${var.scheduled_job_name}/${var.scheduled_job_name}-latest.zip"
@@ -53,9 +59,9 @@ module "scheduled_job" {
   layers       = [aws_lambda_layer_version.scheduled_job_layer.arn]
 
   environment_variables = {
-    REGION                = var.aws_region
-    DISCORD_BOT_TOKEN     = var.discord_bot_token
-    DYNAMODB_TABLE_NAME   = data.aws_dynamodb_table.adomi_table.name
-    REMOVE_ROLE_QUEUE_URL = data.aws_sqs_queue.remove_role.url
+    REGION                        = var.aws_region
+    DISCORD_BOT_TOKEN_SECRET_NAME = data.aws_secretsmanager_secret.discord_bot_token.name
+    DYNAMODB_TABLE_NAME           = data.aws_dynamodb_table.adomi_table.name
+    REMOVE_ROLE_QUEUE_URL         = data.aws_sqs_queue.remove_role.url
   }
 }

@@ -76,9 +76,14 @@ variable "discord_public_key" {
 }
 
 variable "discord_bot_token" {
-  description = "Discord bot token for authenticating with Discord API"
+  description = "Discord bot token — stored in Secrets Manager, fetched by Lambdas at runtime"
   type        = string
   sensitive   = true
+}
+
+variable "discord_bot_token_secret_name" {
+  description = "Name of the Secrets Manager secret holding the Discord bot token (assembled by the deploy workflow)"
+  type        = string
 }
 
 variable "startgg_api_key" {

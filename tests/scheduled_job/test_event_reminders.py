@@ -4,7 +4,7 @@ import sys
 # Scheduled job modules read env vars at import time (via scheduled_job_constants).
 # Assign deterministic test values directly so real host env vars never leak through.
 os.environ["REGION"] = "us-east-1"
-os.environ["DISCORD_BOT_TOKEN"] = "test-token"
+os.environ["DISCORD_BOT_TOKEN_SECRET_NAME"] = "test-secret-name"
 os.environ["DYNAMODB_TABLE_NAME"] = "test-table"
 os.environ["REMOVE_ROLE_QUEUE_URL"] = "https://sqs.test"
 

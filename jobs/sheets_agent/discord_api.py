@@ -22,20 +22,23 @@ DISCORD_API_BASE = "https://discord.com/api/v10"
 # SQS SendMessageBatch accepts at most 10 entries per call
 _SQS_BATCH_LIMIT = 10
 
-_BOT_AUTH_HEADERS = {
-    "Authorization": f"Bot {constants.DISCORD_BOT_TOKEN}",
-    "Content-Type": "application/json",
-}
+def _bot_auth_headers() -> dict:
+    """Builds the Discord bot auth headers, fetching the token from Secrets Manager (cached)."""
+    return {
+        "Authorization": f"Bot {constants.get_discord_bot_token()}",
+        "Content-Type": "application/json",
+    }
 
 
 def discord_request(method: str, url: str, **kwargs) -> requests.Response:
     """Make a Discord API request with automatic 429 retry."""
-    response = requests.request(method, url, headers=_BOT_AUTH_HEADERS, timeout=10, **kwargs)
+    headers = _bot_auth_headers()
+    response = requests.request(method, url, headers=headers, timeout=10, **kwargs)
     if response.status_code == 429:
         retry_after = response.json().get("retry_after", 1.0)
         logger.warning(f"[discord] rate limited on {method} {url}, sleeping {retry_after}s")
         time.sleep(retry_after)
-        response = requests.request(method, url, headers=_BOT_AUTH_HEADERS, timeout=10, **kwargs)
+        response = requests.request(method, url, headers=headers, timeout=10, **kwargs)
     _log_response(method, url, response)
     return response
 

@@ -35,6 +35,12 @@ resource "aws_iam_role_policy" "worker_sqs_policy" {
           "sqs:ChangeMessageVisibility"
         ]
         Resource = aws_sqs_queue.remove_role.arn
+      },
+      {
+        Sid      = "GetDiscordBotToken"
+        Effect   = "Allow"
+        Action   = "secretsmanager:GetSecretValue"
+        Resource = aws_secretsmanager_secret.discord_bot_token.arn
       }
     ]
   })

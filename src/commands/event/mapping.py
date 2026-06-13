@@ -193,6 +193,13 @@ event_commands_mapping: CommandMapping = {
                 autocomplete_handler=autocomplete_handlers.autocomplete_event_timezone
             ),
             CommandParam(
+                name="event_name",
+                description="Custom name for the event. Defaults to the start.gg event name if not provided.",
+                param_type=AppCommandOptionType.string,
+                required=False,
+                choices=None
+            ),
+            CommandParam(
                 name="participant_role",
                 description="Role for participants. Defaults to server default if not provided.",
                 param_type=AppCommandOptionType.role,

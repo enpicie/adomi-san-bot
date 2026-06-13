@@ -32,7 +32,7 @@ def send_oauth_notification(server_config: dict, discord_user_id: str):
     logger.info(f"[oauth:discord] Sending notification to channel_id={notification_channel_id!r}")
     response = requests.post(
         f"{_DISCORD_API}/channels/{notification_channel_id}/messages",
-        headers={"Authorization": f"Bot {constants.DISCORD_BOT_TOKEN}", "Content-Type": "application/json"},
+        headers={"Authorization": f"Bot {constants.get_discord_bot_token()}", "Content-Type": "application/json"},
         json={"content": message},
         timeout=5,
     )

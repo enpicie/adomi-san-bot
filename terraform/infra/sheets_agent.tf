@@ -50,7 +50,7 @@ resource "aws_lambda_function" "sheets_agent" {
   environment {
     variables = {
       REGION                       = var.aws_region
-      DISCORD_BOT_TOKEN            = var.discord_bot_token
+      DISCORD_BOT_TOKEN_SECRET_NAME = aws_secretsmanager_secret.discord_bot_token.name
       DYNAMODB_TABLE_NAME          = aws_dynamodb_table.adomi_discord_server_table.name
       REMOVE_ROLE_QUEUE_URL        = aws_sqs_queue.remove_role.url
       GOOGLE_SHEETS_SECRET_NAME    = data.aws_secretsmanager_secret.sheets_credentials.name
@@ -129,6 +129,12 @@ resource "aws_iam_role_policy" "sheets_agent_policy" {
         Effect   = "Allow"
         Action   = "secretsmanager:GetSecretValue"
         Resource = data.aws_secretsmanager_secret.sheets_credentials.arn
+      },
+      {
+        Sid      = "GetDiscordBotToken"
+        Effect   = "Allow"
+        Action   = "secretsmanager:GetSecretValue"
+        Resource = aws_secretsmanager_secret.discord_bot_token.arn
       }
     ]
   })

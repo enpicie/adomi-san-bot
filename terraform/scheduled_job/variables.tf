@@ -44,10 +44,9 @@ variable "scheduled_job_layer_hash_s3_key" {
   type        = string
 }
 
-variable "discord_bot_token" {
-  description = "Discord bot token for authenticating with Discord API"
+variable "discord_bot_token_secret_name" {
+  description = "Name of the Secrets Manager secret holding the Discord bot token (owned by the infra root, assembled by the deploy workflow)"
   type        = string
-  sensitive   = true
 }
 
 variable "dynamodb_table_name" {

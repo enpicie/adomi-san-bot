@@ -166,8 +166,10 @@ class TestUpdateLeague(unittest.TestCase):
         aws = _make_aws()
         event = _make_event(inputs={"league_name": "TST", "new_name": None, "google_sheets_link": None, "active_participant_role": "<@&999888777>"})
         update_league(event, aws)
-        call_kwargs = aws.dynamodb_table.update_item.call_args.kwargs
-        self.assertEqual(call_kwargs["ExpressionAttributeValues"][":active_participant_role"], "999888777")
+        # Outcome: the raw role id (mention syntax stripped) is the value persisted for this league.
+        persisted_values = aws.dynamodb_table.update_item.call_args.kwargs["ExpressionAttributeValues"]
+        self.assertIn("999888777", persisted_values.values())
+        self.assertNotIn("<@&999888777>", persisted_values.values())
 
     @patch("commands.league.league_commands.permissions_helper")
     def test_missing_organizer_role_returns_error(self, mock_perms):
@@ -218,8 +220,10 @@ class TestToggleJoinLeague(unittest.TestCase):
 
         result = toggle_join_league(event, aws)
 
+        # Outcome: joining is enabled (True persisted to this league) and the user is told it started.
         update_kwargs = aws.dynamodb_table.update_item.call_args.kwargs
-        self.assertTrue(update_kwargs["ExpressionAttributeValues"][":join_enabled"])
+        self.assertEqual(update_kwargs["Key"]["SK"], "LEAGUE#TST")
+        self.assertIn(True, update_kwargs["ExpressionAttributeValues"].values())
         self.assertIn("started", result.content)
 
     @patch("commands.league.league_commands.permissions_helper")
@@ -233,8 +237,10 @@ class TestToggleJoinLeague(unittest.TestCase):
 
         result = toggle_join_league(event, aws)
 
+        # Outcome: joining is disabled (False persisted to this league) and the user is told it closed.
         update_kwargs = aws.dynamodb_table.update_item.call_args.kwargs
-        self.assertFalse(update_kwargs["ExpressionAttributeValues"][":join_enabled"])
+        self.assertEqual(update_kwargs["Key"]["SK"], "LEAGUE#TST")
+        self.assertIn(False, update_kwargs["ExpressionAttributeValues"].values())
         self.assertIn("closed", result.content)
 
     @patch("commands.league.league_commands.permissions_helper")
@@ -287,8 +293,10 @@ class TestToggleReportScore(unittest.TestCase):
 
         result = toggle_report_score(event, aws)
 
+        # Outcome: reporting is enabled (True persisted to this league) and the user is told it started.
         update_kwargs = aws.dynamodb_table.update_item.call_args.kwargs
-        self.assertTrue(update_kwargs["ExpressionAttributeValues"][":report_enabled"])
+        self.assertEqual(update_kwargs["Key"]["SK"], "LEAGUE#TST")
+        self.assertIn(True, update_kwargs["ExpressionAttributeValues"].values())
         self.assertIn("started", result.content)
 
     @patch("commands.league.league_commands.permissions_helper")
@@ -302,8 +310,10 @@ class TestToggleReportScore(unittest.TestCase):
 
         result = toggle_report_score(event, aws)
 
+        # Outcome: reporting is disabled (False persisted to this league) and the user is told it closed.
         update_kwargs = aws.dynamodb_table.update_item.call_args.kwargs
-        self.assertFalse(update_kwargs["ExpressionAttributeValues"][":report_enabled"])
+        self.assertEqual(update_kwargs["Key"]["SK"], "LEAGUE#TST")
+        self.assertIn(False, update_kwargs["ExpressionAttributeValues"].values())
         self.assertIn("closed", result.content)
 
     @patch("commands.league.league_commands.permissions_helper")

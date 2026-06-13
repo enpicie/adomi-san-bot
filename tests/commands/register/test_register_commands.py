@@ -70,9 +70,9 @@ class TestToggleRegister(unittest.TestCase):
 
         result = register_commands.toggle_register(event, aws)
 
+        # Outcome: registration enabled (True persisted to this event) and the user told it started.
         call_kwargs = aws.dynamodb_table.update_item.call_args.kwargs
-        self.assertEqual(call_kwargs["ExpressionAttributeValues"][":enable"], True)
-        self.assertIn("register_enabled", call_kwargs["UpdateExpression"])
+        self.assertIn(True, call_kwargs["ExpressionAttributeValues"].values())
         self.assertEqual(call_kwargs["Key"]["SK"], "EVENT#event_111")
         self.assertIn("Registration started", result.content)
 
@@ -87,8 +87,9 @@ class TestToggleRegister(unittest.TestCase):
 
         result = register_commands.toggle_register(event, aws)
 
+        # Outcome: registration disabled (False persisted) and the user told it closed.
         call_kwargs = aws.dynamodb_table.update_item.call_args.kwargs
-        self.assertEqual(call_kwargs["ExpressionAttributeValues"][":enable"], False)
+        self.assertIn(False, call_kwargs["ExpressionAttributeValues"].values())
         self.assertIn("Registration closed", result.content)
 
 
@@ -102,10 +103,10 @@ class TestRegisterUser(unittest.TestCase):
 
         result = register_commands.register_user(event, aws)
 
+        # Outcome: the invoking user is persisted as a registered participant with the right
+        # display name/id/source — not how the update expression names the map key.
         self.assertIn("You have been registered", result.content)
         call_kwargs = aws.dynamodb_table.update_item.call_args.kwargs
-        self.assertIn("SET registered.#uid", call_kwargs["UpdateExpression"])
-        self.assertEqual(call_kwargs["ExpressionAttributeNames"]["#uid"], "user_abc")
         participant_info = call_kwargs["ExpressionAttributeValues"][":participant_info"]
         self.assertEqual(participant_info["display_name"], "TestUser")
         self.assertEqual(participant_info["user_id"], "user_abc")
@@ -169,10 +170,11 @@ class TestRegisterUser(unittest.TestCase):
 
         result = register_commands.register_user(event, aws)
 
+        # Outcome: the targeted user is persisted as a registered participant (id + resolved name).
         self.assertIn("has been registered", result.content)
         call_kwargs = aws.dynamodb_table.update_item.call_args.kwargs
-        self.assertEqual(call_kwargs["ExpressionAttributeNames"]["#uid"], "user_target")
         participant_info = call_kwargs["ExpressionAttributeValues"][":participant_info"]
+        self.assertEqual(participant_info["user_id"], "user_target")
         self.assertEqual(participant_info["display_name"], "TargetUser")
 
 

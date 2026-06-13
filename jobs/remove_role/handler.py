@@ -3,11 +3,11 @@ import logging
 import os
 import time
 
+import boto3
 import requests
 
-TOKEN = os.environ["DISCORD_BOT_TOKEN"]
+DISCORD_BOT_TOKEN_SECRET_NAME = os.environ["DISCORD_BOT_TOKEN_SECRET_NAME"]
 _DISCORD_API = "https://discord.com/api/v10"
-_HEADERS = {"Authorization": f"Bot {TOKEN}"}
 
 # Discord message flag: suppress link-preview embeds
 # https://discord.com/developers/docs/resources/message#message-object-message-flags
@@ -16,14 +16,35 @@ _SUPPRESS_EMBEDS = 4
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
+_bot_token = None
+_secretsmanager_client = None
+
+
+def _get_secretsmanager_client():
+    """Returns the shared Secrets Manager client, creating it on first use."""
+    global _secretsmanager_client
+    if _secretsmanager_client is None:
+        _secretsmanager_client = boto3.client("secretsmanager")
+    return _secretsmanager_client
+
+
+def _get_bot_token() -> str:
+    """Fetches and caches the Discord bot token from Secrets Manager (once per cold start)."""
+    global _bot_token
+    if _bot_token is None:
+        response = _get_secretsmanager_client().get_secret_value(SecretId=DISCORD_BOT_TOKEN_SECRET_NAME)
+        _bot_token = response["SecretString"]
+    return _bot_token
+
 
 def _role_ping(role_id) -> str:
     return f"<@&{role_id}>"
 
 
 def _discord_request(method, url, **kwargs):
+    headers = {"Authorization": f"Bot {_get_bot_token()}"}
     while True:
-        r = requests.request(method, url, headers=_HEADERS, **kwargs)
+        r = requests.request(method, url, headers=headers, **kwargs)
         if r.status_code != 429:
             return r
         time.sleep(r.json().get("retry_after", 1))

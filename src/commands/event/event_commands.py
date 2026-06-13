@@ -7,6 +7,7 @@ import commands.schedule.schedule_helper as schedule_helper
 import database.dynamodb_utils as db_helper
 import utils.message_helper as message_helper
 import utils.permissions_helper as permissions_helper
+import utils.queue_role_removal as queue_role_removal
 from aws_services import AWSServices
 from commands.event.event_helper import EventRecord
 from commands.models.discord_event import DiscordEvent
@@ -248,6 +249,18 @@ def delete_event(event: DiscordEvent, aws_services: AWSServices) -> ResponseMess
 
     event_name = event_data_result.event_name
 
+    # Queue participant role removals before deleting the record — once the record
+    # is gone the scheduled cleanup can no longer recover who is holding the role.
+    role_removal_note = ""
+    if event_data_result.participant_role and event_data_result.checked_in:
+        queue_role_removal.enqueue_remove_role_jobs(
+            server_id=server_id,
+            user_ids=list(event_data_result.checked_in.keys()),
+            role_id=event_data_result.participant_role,
+            sqs_queue=aws_services.remove_role_sqs_queue
+        )
+        role_removal_note = " Participant role removals have been queued 🫡"
+
     event_helper.delete_event_record(
         server_id=server_id,
         event_id=event_data_result.event_id or event_id,
@@ -257,7 +270,7 @@ def delete_event(event: DiscordEvent, aws_services: AWSServices) -> ResponseMess
     if event_name:
         schedule_helper.remove_schedule_event(server_config, event_name)
 
-    return ResponseMessage(content="Event deleted successfully.")
+    return ResponseMessage(content=f"Event deleted successfully.{role_removal_note}")
 
 
 def create_event_startgg(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
@@ -300,7 +313,7 @@ def create_event_startgg(event: DiscordEvent, aws_services: AWSServices) -> Resp
     timezone = event.get_command_input_value("timezone")
     end_time_utc = timezone_helper.to_utc_iso(event.get_command_input_value("end_time"), timezone)
 
-    event_name = startgg_event.event_name
+    event_name = event.get_command_input_value("event_name") or startgg_event.event_name
 
     event_id = event_helper.create_event_record(
         server_id=server_id,

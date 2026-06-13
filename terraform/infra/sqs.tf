@@ -48,7 +48,7 @@ resource "aws_lambda_function" "remove_role_worker" {
   ]
   environment {
     variables = {
-      DISCORD_BOT_TOKEN = var.discord_bot_token
+      DISCORD_BOT_TOKEN_SECRET_NAME = aws_secretsmanager_secret.discord_bot_token.name
     }
   }
 
