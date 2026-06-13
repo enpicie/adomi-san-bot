@@ -4,16 +4,22 @@ import traceback
 import bot
 import constants
 import utils.discord_auth_helper as auth_helper
-from aws_client import get_aws_services
+import aws_client
 from commands.models.response_message import ResponseMessage
-from enums import DiscordInteractionType, DiscordCallbackType
+from enums import DiscordInteractionType
 
 
 def lambda_handler(event, context):
-    print(f"Received Event: {event}")
+    """Entry point for Discord interaction requests. Verifies the request
+    signature, dispatches commands/autocomplete to the bot, and returns the
+    Discord interaction response dict."""
+    route = event.get("routeKey") or event.get("rawPath") or event.get("path")
+    print(f"[lambda_handler] Received event: route={route} body_length={len(event.get('body') or '')}")
 
     try:
         auth_helper.verify_signature(event)
+    except auth_helper.SignatureVerificationError as e:
+        raise Exception(f"[UNAUTHORIZED] Invalid request signature: {e}") from e
     except Exception as e:
         raise Exception(f"[UNAUTHORIZED] Invalid request signature: {e}") from e
 
@@ -23,22 +29,23 @@ def lambda_handler(event, context):
     body = json.loads(event["body"])
 
     if auth_helper.is_ping_pong(body):
-        print("discord_auth_helper.is_ping_pong: True")
+        print("[lambda_handler] discord_auth_helper.is_ping_pong: True")
         response = constants.PING_PONG_RESPONSE
     else:
         try:
             interaction_type = body.get("type")
-            print(f"Interaction type: {interaction_type}")
+            print(f"[lambda_handler] Interaction type: {interaction_type}")
             if interaction_type == DiscordInteractionType.APPLICATION_COMMAND:
-                response = bot.process_bot_command(body, get_aws_services())
+                response = bot.process_bot_command(body, aws_client.get_aws_services())
             elif interaction_type == DiscordInteractionType.APPLICATION_COMMAND_AUTOCOMPLETE:
-                response = bot.process_input_autocomplete(body, get_aws_services())
+                response = bot.process_input_autocomplete(body, aws_client.get_aws_services())
             else:
                 raise ValueError(f"Unsupported interaction type: {interaction_type}")
         except Exception as e:
             print(f"[lambda_handler] unhandled error: {type(e).__name__}: {e}")
-            print(traceback.format_exc())
+            print(f"[lambda_handler] {traceback.format_exc()}")
             response = ResponseMessage.get_error_message().to_dict()
 
-    print(f"Response: {response}")
+    response_data = response.get("data") or {}
+    print(f"[lambda_handler] Response: type={response.get('type')} content_length={len(str(response_data.get('content') or ''))}")
     return response

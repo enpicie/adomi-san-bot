@@ -1,23 +1,44 @@
 from datetime import datetime, timedelta, timezone as dt_timezone
 
-import database.dynamodb_utils as db_helper
-import utils.permissions_helper as permissions_helper
+import commands.event.event_helper as event_helper
 import commands.event.startgg.startgg_api as startgg_api
-from commands.event.event_helper import EventRecord, create_event_record, update_event_record, delete_event_record
-from commands.event.timezone_helper import to_utc_iso
-from commands.schedule.schedule_helper import sync_schedule, remove_schedule_event, update_schedule_event
+import commands.event.timezone_helper as timezone_helper
+import commands.schedule.schedule_helper as schedule_helper
+import database.dynamodb_utils as db_helper
+import utils.message_helper as message_helper
+import utils.permissions_helper as permissions_helper
 from aws_services import AWSServices
+from commands.event.event_helper import EventRecord
 from commands.models.discord_event import DiscordEvent
 from commands.models.response_message import ResponseMessage
 from database.models.event_data import EventData
 
+NO_PARTICIPANT_ROLE_WARNING = (
+    "\n⚠️ No participant role is set for this event. "
+    "Use `/event-update` or `/set-default-participant-role` to add one."
+)
+
+INVALID_STARTGG_LINK_MESSAGE = (
+    "😖 Sorry! This start.gg event link is not valid. "
+    "Make sure it is a link to an event in a tournament like this: "
+    "https://www.start.gg/tournament/midweek-melting/event/mbaacc-double-elim"
+)
+
+DEFAULT_EVENT_LOCATION = "Online"
+
+
+def _build_register_description(event_url: str) -> str:
+    """Builds the standard event description pointing at a start.gg registration link."""
+    return f"Register here: {event_url}"
+
 
 def _to_discord_ts(utc_iso: str) -> str:
-    try:
-        dt = datetime.fromisoformat(utc_iso.replace("Z", "+00:00"))
-        return f"<t:{int(dt.timestamp())}:F>"
-    except Exception:
+    """Formats a UTC ISO 8601 string as a Discord timestamp, falling back to the raw string in backticks."""
+    timestamp = message_helper.get_discord_timestamp(utc_iso)
+    if timestamp is None:
+        print(f"[event] Failed to parse timestamp {utc_iso!r}")
         return f"`{utc_iso}`"
+    return timestamp
 
 
 def _is_past_time(utc_iso: str) -> bool:
@@ -25,11 +46,13 @@ def _is_past_time(utc_iso: str) -> bool:
     try:
         dt = datetime.fromisoformat(utc_iso.replace("Z", "+00:00"))
         return dt < datetime.now(dt_timezone.utc)
-    except Exception:
+    except (ValueError, TypeError):
+        print(f"[event] Failed to parse timestamp {utc_iso!r}")
         return False
 
 
 def create_event(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
+    """Creates a Discord scheduled event from user input and persists it. Organizer only."""
     server_id = event.get_server_id()
     server_config = db_helper.get_server_config_or_fail(server_id, aws_services.dynamodb_table)
     if isinstance(server_config, ResponseMessage):
@@ -42,21 +65,17 @@ def create_event(event: DiscordEvent, aws_services: AWSServices) -> ResponseMess
         event.get_command_input_value("participant_role")
         or server_config.default_participant_role
     )
-    no_role_warning = (
-        "\n⚠️ No participant role is set for this event. "
-        "Use `/event-update` or `/set-default-participant-role` to add one."
-        if not participant_role else ""
-    )
+    no_role_warning = NO_PARTICIPANT_ROLE_WARNING if not participant_role else ""
 
     timezone = event.get_command_input_value("timezone")
 
-    create_event_record(
+    event_helper.create_event_record(
         server_id=server_id,
         record=EventRecord(
             name=event.get_command_input_value("event_name"),
             location=event.get_command_input_value("event_location"),
-            start_time_utc=to_utc_iso(event.get_command_input_value("start_time"), timezone),
-            end_time_utc=to_utc_iso(event.get_command_input_value("end_time"), timezone),
+            start_time_utc=timezone_helper.to_utc_iso(event.get_command_input_value("start_time"), timezone),
+            end_time_utc=timezone_helper.to_utc_iso(event.get_command_input_value("end_time"), timezone),
             description=event.get_command_input_value("event_description"),
             participant_role=participant_role,
             should_post_reminder=server_config.should_always_remind or False
@@ -65,11 +84,12 @@ def create_event(event: DiscordEvent, aws_services: AWSServices) -> ResponseMess
     )
 
     event_name = event.get_command_input_value("event_name")
-    sync_schedule(server_id, server_config, aws_services.dynamodb_table)
+    schedule_helper.sync_schedule(server_id, server_config, aws_services.dynamodb_table)
     return ResponseMessage(content=f"Event '{event_name}' created successfully.{no_role_warning}")
 
 
 def update_event(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
+    """Updates an existing event's details and returns a summary of the changes. Organizer only."""
     server_id = event.get_server_id()
     server_config = db_helper.get_server_config_or_fail(server_id, aws_services.dynamodb_table)
     if isinstance(server_config, ResponseMessage):
@@ -98,8 +118,8 @@ def update_event(event: DiscordEvent, aws_services: AWSServices) -> ResponseMess
     # Resolve final values — fall back to stored values for fields not provided
     name = new_name or event_data_result.event_name or event_id
     location = location_input or event_data_result.event_location
-    new_start_time_utc = to_utc_iso(start_time_input, timezone) if start_time_input else None
-    end_time_utc = to_utc_iso(end_time_input, timezone) if end_time_input else event_data_result.end_time
+    new_start_time_utc = timezone_helper.to_utc_iso(start_time_input, timezone) if start_time_input else None
+    end_time_utc = timezone_helper.to_utc_iso(end_time_input, timezone) if end_time_input else event_data_result.end_time
     # For updates, only change participant_role if explicitly provided — don't apply server default
     participant_role = participant_role_input if participant_role_input else event_data_result.participant_role
 
@@ -109,7 +129,7 @@ def update_event(event: DiscordEvent, aws_services: AWSServices) -> ResponseMess
     start_time_utc = (new_start_time_utc if start_time_changed and not start_time_in_past
                       else event_data_result.start_time)
 
-    start_time_updated = update_event_record(
+    start_time_updated = event_helper.update_event_record(
         server_id=server_id,
         event_id=event_data_result.event_id or event_id,
         record=EventRecord(
@@ -124,7 +144,7 @@ def update_event(event: DiscordEvent, aws_services: AWSServices) -> ResponseMess
     )
 
     if (new_name and new_name != event_data_result.event_name) or (start_time_changed and not start_time_in_past):
-        update_schedule_event(
+        schedule_helper.update_schedule_event(
             server_config,
             old_name=event_data_result.event_name,
             new_name=name,
@@ -144,17 +164,13 @@ def update_event(event: DiscordEvent, aws_services: AWSServices) -> ResponseMess
         if start_time_updated:
             changes.append(f"🕒 Start time updated to {_to_discord_ts(new_start_time_utc)}")
         else:
-            changes.append(f"⚠️ Start time unchanged — event is already active on Discord")
+            changes.append("⚠️ Start time unchanged — event is already active on Discord")
     if end_time_input and end_time_utc != event_data_result.end_time:
         changes.append(f"🔚 End time updated to {_to_discord_ts(end_time_utc)}")
     if participant_role_input and participant_role_input != event_data_result.participant_role:
-        changes.append(f"🎭 Participant role updated")
+        changes.append("🎭 Participant role updated")
 
-    no_role_warning = (
-        "\n⚠️ No participant role is set for this event. "
-        "Use `/event-update` or `/set-default-participant-role` to add one."
-        if not participant_role else ""
-    )
+    no_role_warning = NO_PARTICIPANT_ROLE_WARNING if not participant_role else ""
     startgg_start_note = (
         "\nℹ️ This event is linked to start.gg — use `/event-refresh-startgg` to sync the start time from there."
         if event_data_result.startgg_url and start_time_input else ""
@@ -168,6 +184,7 @@ def update_event(event: DiscordEvent, aws_services: AWSServices) -> ResponseMess
 
 
 def configure_event_reminder(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
+    """Configures the reminder announcement settings for an event. Organizer only."""
     server_id = event.get_server_id()
     server_config = db_helper.get_server_config_or_fail(server_id, aws_services.dynamodb_table)
     if isinstance(server_config, ResponseMessage):
@@ -207,12 +224,13 @@ def configure_event_reminder(event: DiscordEvent, aws_services: AWSServices) -> 
     )
 
     reminder_label = "On" if send_reminder else "Off"
-    role_note = f" Reminder will ping <@&{announcement_role}>." if announcement_role else ""
-    channel_note = f" Reminder will post in <#{announcement_channel}>." if announcement_channel else ""
+    role_note = f" Reminder will ping {message_helper.get_role_ping(announcement_role)}." if announcement_role else ""
+    channel_note = f" Reminder will post in {message_helper.get_channel_mention(announcement_channel)}." if announcement_channel else ""
     return ResponseMessage(content=f"✅ Reminder for **{event_data_result.event_name}** set to **{reminder_label}**.{role_note}{channel_note}")
 
 
 def delete_event(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
+    """Deletes an event from Discord and DynamoDB and removes it from the schedule. Organizer only."""
     error_message = permissions_helper.verify_has_organizer_role(event, aws_services)
     if error_message:
         return error_message
@@ -230,19 +248,20 @@ def delete_event(event: DiscordEvent, aws_services: AWSServices) -> ResponseMess
 
     event_name = event_data_result.event_name
 
-    delete_event_record(
+    event_helper.delete_event_record(
         server_id=server_id,
         event_id=event_data_result.event_id or event_id,
         table=aws_services.dynamodb_table
     )
 
     if event_name:
-        remove_schedule_event(server_config, event_name)
+        schedule_helper.remove_schedule_event(server_config, event_name)
 
     return ResponseMessage(content="Event deleted successfully.")
 
 
 def create_event_startgg(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
+    """Creates an event from a start.gg link and imports its registered participants. Organizer only."""
     server_id = event.get_server_id()
     server_config = db_helper.get_server_config_or_fail(server_id, aws_services.dynamodb_table)
     if isinstance(server_config, ResponseMessage):
@@ -253,11 +272,7 @@ def create_event_startgg(event: DiscordEvent, aws_services: AWSServices) -> Resp
 
     event_url = event.get_command_input_value("event_link")
     if not startgg_api.is_valid_startgg_url(event_url):
-        return ResponseMessage(
-            content="😖 Sorry! This start.gg event link is not valid. "
-                    "Make sure it is a link to an event in a tournament like this: "
-                    "https://www.start.gg/tournament/midweek-melting/event/mbaacc-double-elim"
-        )
+        return ResponseMessage(content=INVALID_STARTGG_LINK_MESSAGE)
 
     startgg_event = startgg_api.query_startgg_event(event_url)
 
@@ -280,24 +295,24 @@ def create_event_startgg(event: DiscordEvent, aws_services: AWSServices) -> Resp
         event.get_command_input_value("participant_role")
         or server_config.default_participant_role
     )
-    no_role_warning = (
-        "\n⚠️ No participant role is set for this event. "
-        "Use `/event-update` or `/set-default-participant-role` to add one."
-        if not participant_role else ""
-    )
+    no_role_warning = NO_PARTICIPANT_ROLE_WARNING if not participant_role else ""
 
     timezone = event.get_command_input_value("timezone")
-    end_time_utc = to_utc_iso(event.get_command_input_value("end_time"), timezone)
+    end_time_utc = timezone_helper.to_utc_iso(event.get_command_input_value("end_time"), timezone)
 
-    event_id = create_event_record(
+    event_name = startgg_event.event_name
+
+    event_id = event_helper.create_event_record(
         server_id=server_id,
         record=EventRecord(
-            name=startgg_event.event_name,
-            location=startgg_event.location or "Online",
+            name=event_name,
+            # StartggEvent.from_dict guarantees a non-empty location (defaults to "Online")
+            location=startgg_event.location,
             start_time_utc=start_time_utc,
             end_time_utc=end_time_utc,
-            description=f"Register here: {event_url}",
-            participant_role=participant_role
+            description=_build_register_description(event_url),
+            participant_role=participant_role,
+            should_post_reminder=server_config.should_always_remind or False
         ),
         table=aws_services.dynamodb_table
     )
@@ -326,13 +341,14 @@ def create_event_startgg(event: DiscordEvent, aws_services: AWSServices) -> Resp
 
     no_discord_report = _build_no_discord_report(no_discord_names)
 
-    sync_schedule(server_id, server_config, aws_services.dynamodb_table)
+    schedule_helper.sync_schedule(server_id, server_config, aws_services.dynamodb_table)
     return ResponseMessage(
-        content=f"✅ Event **{startgg_event.event_name}** created with {total_count} registered participants!{past_time_warning}{no_discord_report}{no_role_warning}"
+        content=f"✅ Event **{event_name}** created with {total_count} registered participants!{past_time_warning}{no_discord_report}{no_role_warning}"
     )
 
 
 def update_event_startgg(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
+    """Links an event to a start.gg event and syncs its details and registrants. Organizer only."""
     server_id = event.get_server_id()
     server_config = db_helper.get_server_config_or_fail(server_id, aws_services.dynamodb_table)
     if isinstance(server_config, ResponseMessage):
@@ -346,22 +362,9 @@ def update_event_startgg(event: DiscordEvent, aws_services: AWSServices) -> Resp
     if isinstance(event_data_result, ResponseMessage):
         return event_data_result
 
-    # event_link is optional — fall back to the stored startgg URL if not provided
     event_url = event.get_command_input_value("event_link")
-    if event_url:
-        if not startgg_api.is_valid_startgg_url(event_url):
-            return ResponseMessage(
-                content="😖 Sorry! This start.gg event link is not valid. "
-                        "Make sure it is a link to an event in a tournament like this: "
-                        "https://www.start.gg/tournament/midweek-melting/event/mbaacc-double-elim"
-            )
-    else:
-        event_url = event_data_result.startgg_url
-        if not event_url:
-            return ResponseMessage(
-                content="😔 This event has no start.gg link. "
-                        "Provide an event link to set one."
-            )
+    if not event_url or not startgg_api.is_valid_startgg_url(event_url):
+        return ResponseMessage(content=INVALID_STARTGG_LINK_MESSAGE)
 
     startgg_event = startgg_api.query_startgg_event(event_url)
 
@@ -372,18 +375,14 @@ def update_event_startgg(event: DiscordEvent, aws_services: AWSServices) -> Resp
         )
 
     timezone = event.get_command_input_value("timezone")
-    end_time_utc = to_utc_iso(event.get_command_input_value("end_time"), timezone) or event_data_result.end_time
+    end_time_utc = timezone_helper.to_utc_iso(event.get_command_input_value("end_time"), timezone) or event_data_result.end_time
 
     # Resolve participant_role: input → existing event role only
     participant_role = (
         event.get_command_input_value("participant_role")
         or event_data_result.participant_role
     )
-    no_role_warning = (
-        "\n⚠️ No participant role is set for this event. "
-        "Use `/event-update` or `/set-default-participant-role` to add one."
-        if not participant_role else ""
-    )
+    no_role_warning = NO_PARTICIPANT_ROLE_WARNING if not participant_role else ""
 
     # Check if startgg's start time differs and is in the past — warn but don't block
     start_time_changed = startgg_event.start_time_utc != event_data_result.start_time
@@ -392,15 +391,16 @@ def update_event_startgg(event: DiscordEvent, aws_services: AWSServices) -> Resp
                              else startgg_event.start_time_utc)
 
     resolved_event_id = event_data_result.event_id or event_id
-    start_time_updated = update_event_record(
+    start_time_updated = event_helper.update_event_record(
         server_id=server_id,
         event_id=resolved_event_id,
         record=EventRecord(
             name=startgg_event.event_name,
-            location=startgg_event.location or "Online",
+            # StartggEvent.from_dict guarantees a non-empty location (defaults to "Online")
+            location=startgg_event.location,
             start_time_utc=start_time_for_update,
             end_time_utc=end_time_utc,
-            description=f"Register here: {event_url}",
+            description=_build_register_description(event_url),
             participant_role=participant_role
         ),
         table=aws_services.dynamodb_table
@@ -439,6 +439,7 @@ def update_event_startgg(event: DiscordEvent, aws_services: AWSServices) -> Resp
 
 
 def event_refresh_startgg(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
+    """Refreshes an event's registrants (and start time) from its linked start.gg event. Organizer only."""
     error_message = permissions_helper.verify_has_organizer_role(event, aws_services)
     if error_message:
         return error_message
@@ -480,15 +481,15 @@ def refresh_event_from_startgg(server_id, event_id, event_data_result, aws_servi
                 changes.append(f"⚠️ Start time not updated — {_to_discord_ts(startgg_event.start_time_utc)} is in the past")
             else:
                 resolved_event_id = event_data_result.event_id or event_id
-                start_time_updated = update_event_record(
+                start_time_updated = event_helper.update_event_record(
                     server_id=server_id,
                     event_id=resolved_event_id,
                     record=EventRecord(
                         name=event_data_result.event_name or event_id,
-                        location=event_data_result.event_location or "Online",
+                        location=event_data_result.event_location or DEFAULT_EVENT_LOCATION,
                         start_time_utc=startgg_event.start_time_utc,
                         end_time_utc=event_data_result.end_time,
-                        description=f"Register here: {event_data_result.startgg_url}",
+                        description=_build_register_description(event_data_result.startgg_url),
                         participant_role=event_data_result.participant_role
                     ),
                     table=aws_services.dynamodb_table
@@ -517,6 +518,7 @@ def refresh_event_from_startgg(server_id, event_id, event_data_result, aws_servi
 
 
 def events_list(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
+    """Lists all active events for the server. Organizer only."""
     error_message = permissions_helper.verify_has_organizer_role(event, aws_services)
     if error_message:
         return error_message

@@ -5,9 +5,9 @@ from database.models.subscriptable_mixin import SubscriptableMixin
 
 @dataclass
 class LeagueData(SubscriptableMixin):
+    LEAGUE_ID_MAX_LENGTH = 4  # validation limit for league_id
+
     class Keys:
-        PK_FIELD = "pk"
-        SK_FIELD = "sk"
         SK_LEAGUE_PREFIX = "LEAGUE#"
         SERVER_ID = "server_id"
         GOOGLE_SHEETS_LINK = "google_sheets_link"

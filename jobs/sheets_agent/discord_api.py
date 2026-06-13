@@ -1,4 +1,5 @@
 import json
+import logging
 import time
 
 import requests
@@ -6,6 +7,8 @@ import requests
 from enum import Enum
 
 import constants
+
+logger = logging.getLogger()
 
 
 class RoleAssignmentResult(Enum):
@@ -15,6 +18,9 @@ class RoleAssignmentResult(Enum):
 
 
 DISCORD_API_BASE = "https://discord.com/api/v10"
+
+# SQS SendMessageBatch accepts at most 10 entries per call
+_SQS_BATCH_LIMIT = 10
 
 _BOT_AUTH_HEADERS = {
     "Authorization": f"Bot {constants.DISCORD_BOT_TOKEN}",
@@ -27,7 +33,7 @@ def discord_request(method: str, url: str, **kwargs) -> requests.Response:
     response = requests.request(method, url, headers=_BOT_AUTH_HEADERS, timeout=10, **kwargs)
     if response.status_code == 429:
         retry_after = response.json().get("retry_after", 1.0)
-        print(f"[discord] rate limited on {method} {url}, sleeping {retry_after}s")
+        logger.warning(f"[discord] rate limited on {method} {url}, sleeping {retry_after}s")
         time.sleep(retry_after)
         response = requests.request(method, url, headers=_BOT_AUTH_HEADERS, timeout=10, **kwargs)
     _log_response(method, url, response)
@@ -36,9 +42,9 @@ def discord_request(method: str, url: str, **kwargs) -> requests.Response:
 
 def _log_response(method: str, url: str, response: requests.Response) -> None:
     if response.ok:
-        print(f"[discord] {method} {url} -> {response.status_code}")
+        logger.info(f"[discord] {method} {url} -> {response.status_code}")
     else:
-        print(f"[discord] {method} {url} -> {response.status_code} body={response.text}")
+        logger.error(f"[discord] {method} {url} -> {response.status_code} body={response.text}")
 
 
 def _extract_role_id(role_id: str) -> str:
@@ -101,11 +107,15 @@ def search_member_by_display_name(guild_id: str, display_name: str) -> tuple[str
 
 
 def send_channel_message(channel_id: str, content: str) -> None:
+    """Post a message to a Discord channel (fire-and-forget; failures are only logged)."""
     url = f"{DISCORD_API_BASE}/channels/{channel_id}/messages"
     discord_request("POST", url, json={"content": content})
 
 
+# MIRROR: src/utils/queue_role_removal.py — keep in sync (independent Lambda packaging prevents imports)
 def enqueue_remove_roles(server_id: str, user_ids: list, role_id: str, sqs_queue) -> None:
+    """Enqueue SQS messages (in batches) asking the remove_role Lambda to strip
+    role_id from each user in user_ids."""
     clean_role_id = _extract_role_id(role_id)
     batch = []
     for idx, uid in enumerate(user_ids):
@@ -113,7 +123,7 @@ def enqueue_remove_roles(server_id: str, user_ids: list, role_id: str, sqs_queue
             "Id": str(idx),
             "MessageBody": json.dumps({"guild_id": server_id, "user_id": uid, "role_id": clean_role_id}),
         })
-        if len(batch) == 10:
+        if len(batch) == _SQS_BATCH_LIMIT:
             sqs_queue.send_messages(Entries=batch)
             batch = []
     if batch:

@@ -1,25 +1,20 @@
 import json
 import logging
-import os
 
 import boto3
 import requests
 
+import oauth_constants as constants
 import db
 import discord
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-DYNAMODB_TABLE_NAME = os.environ["DYNAMODB_TABLE_NAME"]
-REGION = os.environ["REGION"]
-STARTGG_OAUTH_SECRET_NAME = os.environ["STARTGG_OAUTH_SECRET_NAME"]
-OAUTH_REDIRECT_URI = os.environ["OAUTH_REDIRECT_URI"]
-
 STARTGG_TOKEN_URL = "https://api.start.gg/oauth/access_token"
 
-dynamodb = boto3.resource("dynamodb", region_name=REGION)
-secrets_client = boto3.client("secretsmanager", region_name=REGION)
+dynamodb = boto3.resource("dynamodb", region_name=constants.REGION)
+secrets_client = boto3.client("secretsmanager", region_name=constants.REGION)
 
 _oauth_credentials: dict | None = None
 
@@ -27,7 +22,7 @@ _oauth_credentials: dict | None = None
 def _get_oauth_credentials() -> dict:
     global _oauth_credentials
     if _oauth_credentials is None:
-        response = secrets_client.get_secret_value(SecretId=STARTGG_OAUTH_SECRET_NAME)
+        response = secrets_client.get_secret_value(SecretId=constants.STARTGG_OAUTH_SECRET_NAME)
         _oauth_credentials = json.loads(response["SecretString"])
     return _oauth_credentials
 
@@ -45,17 +40,20 @@ def _html_response(status_code: int, title: str, message: str) -> dict:
 
 
 def handler(event, context):
+    """OAuth callback Lambda: validates the state nonce, exchanges the start.gg
+    authorization code for tokens, stores them on the server config, and notifies
+    the server's notification channel."""
     params = event.get("queryStringParameters") or {}
     code = params.get("code")
     state = params.get("state")
 
-    logger.info(f"[oauth:handler] Callback received — code_present={bool(code)}, state_present={bool(state)}, table={DYNAMODB_TABLE_NAME!r}")
+    logger.info(f"[oauth:handler] Callback received — code_present={bool(code)}, state_present={bool(state)}, table={constants.DYNAMODB_TABLE_NAME!r}")
 
     if not code or not state:
         logger.warning("OAuth callback missing code or state params")
         return _html_response(400, "Authorization Failed", "Missing required parameters. Please try connecting again.")
 
-    table = dynamodb.Table(DYNAMODB_TABLE_NAME)
+    table = dynamodb.Table(constants.DYNAMODB_TABLE_NAME)
     state_data = db.consume_state(table, state)
 
     if not state_data:
@@ -75,7 +73,7 @@ def handler(event, context):
             "client_secret": credentials["client_secret"],
             "code": code,
             "grant_type": "authorization_code",
-            "redirect_uri": OAUTH_REDIRECT_URI,
+            "redirect_uri": constants.OAUTH_REDIRECT_URI,
         },
         timeout=10,
     )
@@ -90,7 +88,8 @@ def handler(event, context):
     expires_in = token_data.get("expires_in", 7776000)  # start.gg default: 90 days
 
     if not access_token:
-        logger.error(f"No access_token in token response: {token_data}")
+        # Log only the keys — the payload may contain tokens.
+        logger.error(f"No access_token in token response: keys={list(token_data.keys())}")
         return _html_response(500, "Authorization Failed", "Could not retrieve access token. Please try again.")
 
     if server_id:
@@ -116,5 +115,5 @@ def handler(event, context):
             "headers": {"Location": redirect_url},
             "body": "",
         }
-    logger.warning(f"[oauth:handler] Missing server_id or channel_id, returning HTML success page")
+    logger.warning("[oauth:handler] Missing server_id or channel_id, returning HTML success page")
     return _html_response(200, "Connected!", "Your start.gg account has been linked to Discord. You can close this window.")

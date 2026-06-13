@@ -6,8 +6,6 @@ from database.models.subscriptable_mixin import SubscriptableMixin
 @dataclass
 class ServerConfig(SubscriptableMixin):
     class Keys:
-        PK_FIELD = "pk"
-        SK_FIELD = "sk"
         SK_CONFIG = "CONFIG"
 
         SERVER_ID = "server_id"

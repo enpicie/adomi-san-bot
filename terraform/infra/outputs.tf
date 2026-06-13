@@ -1,21 +1,26 @@
 output "lambda_function_name" {
-  value = aws_lambda_function.bot_lambda.function_name
+  description = "Name of the main bot Lambda function"
+  value       = aws_lambda_function.bot_lambda.function_name
 }
 
 output "api_url" {
-  value = aws_apigatewayv2_api.api.api_endpoint
+  description = "Base endpoint of the API Gateway HTTP API receiving Discord interactions"
+  value       = aws_apigatewayv2_api.api.api_endpoint
 }
 
 output "dynamodb_table_name" {
-  value = aws_dynamodb_table.adomi_discord_server_table.name
+  description = "Name of the DynamoDB table storing server, event, and league data"
+  value       = aws_dynamodb_table.adomi_discord_server_table.name
 }
 
 output "remove_role_queue_url" {
-  value = aws_sqs_queue.remove_role.url
+  description = "URL of the SQS queue for async participant role removal"
+  value       = aws_sqs_queue.remove_role.url
 }
 
 output "remove_role_queue_arn" {
-  value = aws_sqs_queue.remove_role.arn
+  description = "ARN of the SQS queue for async participant role removal"
+  value       = aws_sqs_queue.remove_role.arn
 }
 
 output "oauth_callback_url" {

@@ -2,9 +2,9 @@ from discord import AppCommandOptionType
 
 from commands.models.command_mapping import CommandMapping
 from commands.models.command_param import CommandParam, ParamChoice
+import commands.event.autocomplete_handlers as event_autocomplete_handlers
 import commands.schedule.autocomplete_handlers as autocomplete_handlers
 import commands.schedule.schedule_commands as schedule_commands
-from commands.event.autocomplete_handlers import autocomplete_event_timezone
 
 
 schedule_commands_mapping: CommandMapping = {
@@ -76,7 +76,7 @@ schedule_commands_mapping: CommandMapping = {
                 required=True,
                 choices=None,
                 autocomplete=True,
-                autocomplete_handler=autocomplete_event_timezone,
+                autocomplete_handler=event_autocomplete_handlers.autocomplete_event_timezone,
             ),
             CommandParam(
                 name="event_link",

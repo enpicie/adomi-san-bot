@@ -1,13 +1,14 @@
+# MIRROR: src/database/dynamodb_utils.py — keep in sync (independent Lambda packaging prevents imports).
+# Plan-name normalization here is plan_name.strip().lower(), identical to
+# SchedulePlan.normalize_name in src — keep both in sync if either changes.
 import logging
-import os
-import time
 
 import boto3
 from boto3.dynamodb.conditions import Attr, Key
 
-logger = logging.getLogger()
+import scheduled_job_constants as constants
 
-REGION = os.environ["REGION"]
+logger = logging.getLogger()
 
 _EVENT_NAME_INDEX = "EventNameIndex"
 _PK_SERVER_PREFIX = "SERVER#"
@@ -15,7 +16,7 @@ _SK_EVENT_PREFIX = "EVENT#"
 _SK_CONFIG = "CONFIG"
 _SK_PLAN_PREFIX = "SCHEDULE_PLAN#"
 
-dynamodb = boto3.resource("dynamodb", region_name=REGION)
+dynamodb = boto3.resource("dynamodb", region_name=constants.REGION)
 
 
 def get_server_config(table, server_id):
@@ -29,26 +30,19 @@ def get_all_events_by_server(table):
     """Scan EventNameIndex to get all event records grouped by server_id -> [event_id]."""
     server_events = {}
 
-    response = table.scan(IndexName=_EVENT_NAME_INDEX)
-    for item in response.get("Items", []):
-        server_id = item.get("server_id")
-        event_id = item.get("event_id")
-        if server_id and event_id:
-            server_events.setdefault(server_id, []).append(event_id)
-
-    while "LastEvaluatedKey" in response:
-        response = table.scan(
-            IndexName=_EVENT_NAME_INDEX,
-            ExclusiveStartKey=response["LastEvaluatedKey"],
-        )
+    scan_kwargs = {"IndexName": _EVENT_NAME_INDEX}
+    while True:
+        response = table.scan(**scan_kwargs)
         for item in response.get("Items", []):
             server_id = item.get("server_id")
             event_id = item.get("event_id")
             if server_id and event_id:
                 server_events.setdefault(server_id, []).append(event_id)
+        if "LastEvaluatedKey" not in response:
+            break
+        scan_kwargs["ExclusiveStartKey"] = response["LastEvaluatedKey"]
 
     return server_events
-
 
 
 def get_all_server_configs_with_oauth(table):

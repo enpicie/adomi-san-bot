@@ -10,15 +10,17 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 SRC_DIR = ROOT_DIR / "src"
 sys.path.append(str(SRC_DIR))
 
-from commands.command_map import command_map
+import commands.command_map as command_map  # noqa: E402 — imported after sys.path bootstrap
+import constants  # noqa: E402 — imported after sys.path bootstrap
 
 APP_ID = os.environ.get("DISCORD_APP_ID") # Repo Var
-TOKEN = os.environ.get("DISCORD_BOT_TOKEN") # Repo Secret
+TOKEN = constants.DISCORD_BOT_TOKEN # Repo Secret
 COMMAND_NAME = os.environ.get("COMMAND_NAME") # Workflow Input
 
 if not TOKEN or not APP_ID:
     raise RuntimeError("DISCORD_BOT_TOKEN and DISCORD_APP_ID must be set as environment variables")
 
+# MIRROR: keep in sync with utils/discord_api_helper.DISCORD_API_BASE_URL
 API_URL = f"https://discord.com/api/v10/applications/{APP_ID}/commands"
 
 
@@ -43,11 +45,12 @@ def _matches(name: str, target: str) -> bool:
 
 
 def main():
+    """Register the commands matching COMMAND_NAME (or all) with the Discord API."""
     normalized = COMMAND_NAME.strip().lower()
     should_register_all = normalized == "all"
     # Prefix mode when input has no hyphen and isn't 'all' (e.g. "league", "startgg")
     # but also supports exact names like "league-join" or prefixes like "check-in"
-    is_multi = should_register_all or not any(normalized == name for name in command_map)
+    is_multi = should_register_all or not any(normalized == name for name in command_map.command_map)
     headers = {
         "Authorization": f"Bot {TOKEN}",
         "Content-Type": "application/json",
@@ -56,7 +59,7 @@ def main():
     failed_commands = []
     matched_any = False
 
-    for name, entry in command_map.items():
+    for name, entry in command_map.command_map.items():
         if should_register_all or _matches(name, normalized):
             matched_any = True
             print(f"Registering command `{name}`")

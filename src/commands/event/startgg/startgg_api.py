@@ -19,11 +19,19 @@ class StartggPermissionError(Exception):
 
 _startgg_api_token: str | None = None
 
+_secretsmanager_client = None
+
+def _get_secretsmanager_client():
+    """Returns the shared Secrets Manager client, creating it on first use."""
+    global _secretsmanager_client
+    if _secretsmanager_client is None:
+        _secretsmanager_client = boto3.client("secretsmanager", region_name=constants.AWS_REGION)
+    return _secretsmanager_client
+
 def _get_startgg_api_token() -> str:
     global _startgg_api_token
     if _startgg_api_token is None:
-        client = boto3.client("secretsmanager", region_name=constants.AWS_REGION)
-        response = client.get_secret_value(SecretId=constants.STARTGG_SECRET_NAME)
+        response = _get_secretsmanager_client().get_secret_value(SecretId=constants.STARTGG_SECRET_NAME)
         _startgg_api_token = response["SecretString"]
     return _startgg_api_token
 
@@ -46,27 +54,62 @@ def _post_graphql(variables: dict, query: str, headers: dict) -> requests.Respon
         headers=headers,
         timeout=10
     )
-    print(f"[startgg] Response status: {response.status_code} | body: {response.text}")
+    print(f"[startgg] Response status: {response.status_code} | body length: {len(response.text)}")
     return response
+
+# Hard safety cap on entrant pagination: 20 pages * 75 perPage = 1500 entrants.
+_MAX_ENTRANT_PAGES = 20
 
 def query_startgg_event(tourney_url: str) -> StartggEvent:
     """
     Executes the start.gg GraphQL query and returns a populated StartggEvent object.
+    Pages through entrants (75 per page) until all entrants are fetched.
     """
     headers = {"Authorization": f"Bearer {_get_startgg_api_token()}"}
-    variables = {"slug": extract_startgg_slug(tourney_url)}
+    slug = extract_startgg_slug(tourney_url)
 
-    response = _post_graphql(variables, startgg_graphql.EVENT_PARTICIPANTS_QUERY, headers)
+    event_data = None
+    all_nodes = []
+    page = 1
 
-    if not response.ok:
-        print(f"[startgg] Error querying event: status {response.status_code}, body: {response.text}")
-    response.raise_for_status()
+    while True:
+        variables = {"slug": slug, "page": page}
 
-    data = response.json()
-    if "errors" in data:
-        print(f"[startgg] GraphQL errors for slug '{tourney_url}': {data['errors']}")
+        response = _post_graphql(variables, startgg_graphql.EVENT_PARTICIPANTS_QUERY, headers)
 
-    return StartggEvent.from_dict(data["data"]["event"])
+        if not response.ok:
+            print(f"[startgg] Error querying event: status {response.status_code}, body: {response.text[:2000]}")
+        response.raise_for_status()
+
+        data = response.json()
+        if "errors" in data:
+            print(f"[startgg] GraphQL errors for slug '{tourney_url}': {data['errors']}")
+
+        page_event = data["data"]["event"]
+        if event_data is None:
+            event_data = page_event
+
+        nodes = ((page_event or {}).get("entrants") or {}).get("nodes") or []
+        all_nodes.extend(nodes)
+
+        total = ((event_data or {}).get("entrants") or {}).get("pageInfo", {}).get("total") or 0
+
+        if len(all_nodes) >= total or not nodes:
+            break
+
+        if page >= _MAX_ENTRANT_PAGES:
+            print(
+                f"[startgg] WARNING: entrant pagination cap of {_MAX_ENTRANT_PAGES} pages reached for "
+                f"slug '{tourney_url}'; truncating at {len(all_nodes)} of {total} entrants"
+            )
+            break
+
+        page += 1
+
+    if event_data is not None and event_data.get("entrants") is not None:
+        event_data["entrants"]["nodes"] = all_nodes
+
+    return StartggEvent.from_dict(event_data)
 
 def find_set_between_players(
     event_slug: str, player_ids: list[str]
@@ -82,7 +125,7 @@ def find_set_between_players(
     response = _post_graphql(variables, startgg_graphql.FIND_SET_QUERY, headers)
 
     if not response.ok:
-        print(f"[startgg] Error querying sets: status {response.status_code}, body: {response.text}")
+        print(f"[startgg] Error querying sets: status {response.status_code}, body: {response.text[:2000]}")
     response.raise_for_status()
 
     data = response.json()
@@ -126,7 +169,7 @@ def report_set(set_id: str, winner_entrant_id: str, game_data: list[dict], oauth
         raise StartggAuthError("start.gg OAuth token is invalid or expired.")
 
     if not response.ok:
-        print(f"[startgg] Error reporting set: status {response.status_code}, body: {response.text}")
+        print(f"[startgg] Error reporting set: status {response.status_code}, body: {response.text[:2000]}")
     response.raise_for_status()
 
     data = response.json()

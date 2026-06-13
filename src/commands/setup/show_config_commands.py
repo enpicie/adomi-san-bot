@@ -1,5 +1,3 @@
-from datetime import datetime, timezone
-
 import database.dynamodb_utils as db_helper
 import utils.message_helper as message_helper
 import utils.permissions_helper as permissions_helper
@@ -8,6 +6,7 @@ from commands.models.discord_event import DiscordEvent
 from commands.models.response_message import ResponseMessage
 
 def event_view(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
+    """Shows an event's configuration: times, registration/check-in state, role, and links. Organizer only."""
     error_message = permissions_helper.verify_has_organizer_role(event, aws_services)
     if error_message:
         return error_message
@@ -32,8 +31,11 @@ def event_view(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessag
     )
 
     def _discord_timestamp(iso_str):
-        dt = datetime.fromisoformat(iso_str.replace("Z", "+00:00")).astimezone(timezone.utc)
-        return f"<t:{int(dt.timestamp())}:f>"
+        timestamp = message_helper.get_discord_timestamp(iso_str, style="f")
+        if timestamp is None:
+            print(f"[setup] Failed to parse timestamp {iso_str!r}")
+            return f"`{iso_str}`"
+        return timestamp
 
     start_str = _discord_timestamp(event_data_result.start_time) if event_data_result.start_time else "Not set"
     end_str = _discord_timestamp(event_data_result.end_time) if event_data_result.end_time else "Not set"
@@ -58,6 +60,7 @@ def event_view(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessag
 
 
 def show_event_roles(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
+    """Shows the server's organizer role and an event's participant role."""
     server_id = event.get_server_id()
 
     config_result = db_helper.get_server_config_or_fail(server_id, aws_services.dynamodb_table)

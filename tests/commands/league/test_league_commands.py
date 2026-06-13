@@ -4,7 +4,7 @@ from unittest.mock import Mock, patch
 
 from commands.league.league_commands import (
     create_league, update_league, sync_active_participants,
-    join_league, setup_league, toggle_join_league, toggle_report_score, LEAGUE_ID_MAX_LENGTH,
+    join_league, setup_league, toggle_join_league, toggle_report_score,
     deactivate_league_participant, report_score,
 )
 from commands.models.response_message import ResponseMessage
@@ -70,7 +70,7 @@ class TestCreateLeague(unittest.TestCase):
         })
         result = create_league(event, aws)
         self.assertIsInstance(result, ResponseMessage)
-        self.assertIn(str(LEAGUE_ID_MAX_LENGTH), result.content)
+        self.assertIn(str(LeagueData.LEAGUE_ID_MAX_LENGTH), result.content)
         aws.dynamodb_table.put_item.assert_not_called()
 
     @patch("commands.league.league_commands.permissions_helper")

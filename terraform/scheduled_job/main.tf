@@ -1,5 +1,7 @@
 data "aws_dynamodb_table" "adomi_table" {
-  name = "adomi-discord-server-data-${var.deployment_env}"
+  # Table is owned by the infra root; name is single-sourced from config.env
+  # (DYNAMODB_TABLE_BASE_NAME) via the deploy workflow.
+  name = var.dynamodb_table_name
 }
 
 data "aws_sqs_queue" "remove_role" {
@@ -35,6 +37,8 @@ module "scheduled_job" {
   source = "github.com/enpicie/tf-module-eventbridge-scheduled-lambda?ref=v1.3.0"
 
   name                = "${var.scheduled_job_name}-${var.deployment_env}"
+  # 15-minute poller cadence: frequent enough for timely event cleanup and 24h reminders,
+  # infrequent enough to keep Lambda/Discord API usage negligible.
   schedule_expression = "rate(15 minutes)"
   handler             = "handler.handler"
   runtime             = "python${var.python_runtime}"

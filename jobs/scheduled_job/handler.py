@@ -1,17 +1,15 @@
 import logging
-import os
 
+import scheduled_job_constants as constants
 import db
 import discord_api
-from event_cleanup import cleanup_ended_event
-from event_reminders import check_and_send_reminder
-from schedule_sync import strikethrough_schedule_event
-from startgg_token_check import check_startgg_tokens
+import event_cleanup
+import event_reminders
+import schedule_sync
+import startgg_token_check
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
-
-_DYNAMODB_TABLE_NAME = os.environ["DYNAMODB_TABLE_NAME"]
 
 # Discord guild scheduled event statuses
 # https://discord.com/developers/docs/resources/guild-scheduled-event#guild-scheduled-event-object-guild-scheduled-event-status
@@ -20,10 +18,12 @@ _STATUS_CANCELED = 4
 
 
 def handler(event, context):
-    table = db.dynamodb.Table(_DYNAMODB_TABLE_NAME)
+    """Scheduled Lambda entry point: checks start.gg token expiry, cleans up
+    ended/removed Discord events, and sends event reminders for every server."""
+    table = db.dynamodb.Table(constants.DYNAMODB_TABLE_NAME)
 
     try:
-        check_startgg_tokens(table)
+        startgg_token_check.check_startgg_tokens(table)
     except Exception as e:
         logger.error(f"Unhandled error during start.gg token expiry check: {e}")
 
@@ -60,27 +60,25 @@ def handler(event, context):
         cleaned_up_event_names = []
         for event_id in db_event_ids:
             status = discord_event_status.get(event_id)
-            if status in (_STATUS_COMPLETED, _STATUS_CANCELED):
-                logger.info(
-                    f"Event {event_id} in server {server_id} ended (status={status}), cleaning up"
-                )
-                event_name = cleanup_ended_event(table, server_id, event_id, server_config)
+            if status in (_STATUS_COMPLETED, _STATUS_CANCELED) or status is None:
+                if status is None:
+                    logger.info(
+                        f"Event {event_id} in server {server_id} not found in Discord, cleaning up"
+                    )
+                else:
+                    logger.info(
+                        f"Event {event_id} in server {server_id} ended (status={status}), cleaning up"
+                    )
+                event_name = event_cleanup.cleanup_ended_event(table, server_id, event_id, server_config)
                 if event_name:
                     cleaned_up_event_names.append(event_name)
-                    strikethrough_schedule_event(server_config, event_name)
-            elif status is None:
-                logger.info(
-                    f"Event {event_id} in server {server_id} not found in Discord, cleaning up"
-                )
-                event_name = cleanup_ended_event(table, server_id, event_id, server_config)
-                if event_name:
-                    cleaned_up_event_names.append(event_name)
-                    strikethrough_schedule_event(server_config, event_name)
+                    if server_config:
+                        schedule_sync.strikethrough_schedule_event(server_config, event_name)
             else:
                 logger.info(
                     f"Event {event_id} in server {server_id} still active (status={status}), checking reminders"
                 )
-                check_and_send_reminder(table, server_id, event_id, server_config)
+                event_reminders.check_and_send_reminder(table, server_id, event_id, server_config)
 
         if cleaned_up_event_names:
             notification_channel_id = server_config.get("notification_channel_id") if server_config else None

@@ -22,7 +22,7 @@ def setup_server(event: DiscordEvent, aws_services: AWSServices) -> ResponseMess
     result = db_helper.get_server_config_or_fail(server_id, aws_services.dynamodb_table)
     if not isinstance(result, ResponseMessage):
         return ResponseMessage(
-            content=f"This server is already set up! Check out other commands to configure the settings for this server."
+            content="This server is already set up! Check out other commands to configure the settings for this server."
         )
 
     organizer_role = event.get_command_input_value("organizer_role")
@@ -49,9 +49,9 @@ def setup_server(event: DiscordEvent, aws_services: AWSServices) -> ResponseMess
     return ResponseMessage(
         content=(
             "👍 Server setup complete"
-            f"with organizer role {message_helper.get_role_ping(organizer_role)}"
+            f" with organizer role {message_helper.get_role_ping(organizer_role)}"
             f" and notifications sent to {message_helper.get_channel_mention(notification_channel)}."
-            " Please ensure I have access to the notificaton channel and high role priority."
+            " Please ensure I have access to the notification channel and high role priority."
         )
     )
 
@@ -78,7 +78,7 @@ def set_organizer_role(event: DiscordEvent, aws_services: AWSServices) -> Respon
     )
 
     return ResponseMessage(
-        content=f"👍 Organizer role updated successfully."
+        content="👍 Organizer role updated successfully."
     )
 
 def setup_notifications(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
@@ -181,5 +181,5 @@ def set_default_participant_role(event: DiscordEvent, aws_services: AWSServices)
     )
 
     return ResponseMessage(
-        content=f"👍 Default participant role updated successfully."
+        content="👍 Default participant role updated successfully."
     )

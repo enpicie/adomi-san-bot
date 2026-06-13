@@ -204,3 +204,19 @@ cython_debug/
 # Example data used locally
 .claude/
 examples/
+
+# Environment — never commit real values
+.env
+.env.local
+.env.*.local
+
+# Platform architecture docs — may contain sensitive decisions
+.platform/
+
+# OS artifacts
+.DS_Store
+Thumbs.db
+
+# Local build output (make build) — dist/ is also covered by the packaging
+# section above; listed explicitly for clarity
+dist/

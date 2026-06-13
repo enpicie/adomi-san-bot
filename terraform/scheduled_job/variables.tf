@@ -1,9 +1,4 @@
 # config.env settings passed in as ENV variables from GitHub Actions workflow
-variable "app_name" {
-  description = "The name of the application"
-  type        = string
-}
-
 variable "scheduled_job_name" {
   description = "The name of the scheduled job Lambda function"
   type        = string
@@ -27,7 +22,6 @@ variable "python_runtime" {
 variable "architecture" {
   description = "Architecture for Lambda (e.g., x86_64, arm64)"
   type        = string
-  default     = "x86_64"
 }
 
 variable "deployment_env" {
@@ -54,4 +48,9 @@ variable "discord_bot_token" {
   description = "Discord bot token for authenticating with Discord API"
   type        = string
   sensitive   = true
+}
+
+variable "dynamodb_table_name" {
+  description = "Full name of the DynamoDB table (base name + env, assembled by the deploy workflow)"
+  type        = string
 }

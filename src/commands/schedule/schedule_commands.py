@@ -1,12 +1,12 @@
+import commands.event.timezone_helper as timezone_helper
+import commands.schedule.schedule_helper as schedule_helper
 import database.dynamodb_utils as db_helper
 import utils.discord_api_helper as discord_helper
 import utils.message_helper as message_helper
 import utils.permissions_helper as permissions_helper
 from aws_services import AWSServices
-from commands.event.timezone_helper import to_utc_iso
 from commands.models.discord_event import DiscordEvent
 from commands.models.response_message import ResponseMessage
-from commands.schedule.schedule_helper import build_schedule_content, remove_matched_plans, sync_schedule
 from database.models.schedule_plan import SchedulePlan
 from database.models.server_config import ServerConfig
 
@@ -25,13 +25,13 @@ def post_schedule(event: DiscordEvent, aws_services: AWSServices) -> ResponseMes
 
     channel = event.get_command_input_value("channel")
     create_new = event.get_command_input_value("create_new_post") or False
-    title = event.get_command_input_value("title") or "Upcoming Events"
+    title = event.get_command_input_value("title") or schedule_helper.DEFAULT_SCHEDULE_TITLE
 
     real_events = db_helper.get_full_events_for_server(server_id, aws_services.dynamodb_table)
     planned_events = db_helper.get_schedule_plans_for_server(server_id, aws_services.dynamodb_table)
-    planned_events = remove_matched_plans(server_id, real_events, planned_events, aws_services.dynamodb_table)
+    planned_events = schedule_helper.remove_matched_plans(server_id, real_events, planned_events, aws_services.dynamodb_table)
 
-    content = build_schedule_content(title, real_events, planned_events)
+    content = schedule_helper.build_schedule_content(title, real_events, planned_events)
 
     existing_message_id = server_config.schedule_message_id
     existing_channel_id = server_config.schedule_channel_id
@@ -91,7 +91,7 @@ def update_schedule(event: DiscordEvent, aws_services: AWSServices) -> ResponseM
         )
 
     new_title = event.get_command_input_value("new_title")
-    sync_schedule(server_id, server_config, aws_services.dynamodb_table, title=new_title)
+    schedule_helper.sync_schedule(server_id, server_config, aws_services.dynamodb_table, title=new_title)
     return ResponseMessage(
         content=f"✅ Schedule updated in {message_helper.get_channel_mention(server_config.schedule_channel_id)}."
     )
@@ -114,7 +114,7 @@ def add_plan(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
     timezone = event.get_command_input_value("timezone")
     event_link = event.get_command_input_value("event_link")
 
-    start_time_utc = to_utc_iso(start_time_input, timezone)
+    start_time_utc = timezone_helper.to_utc_iso(start_time_input, timezone)
 
     plan = SchedulePlan(
         plan_name=name,
@@ -122,7 +122,7 @@ def add_plan(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
         event_link=event_link or None,
     )
     db_helper.put_schedule_plan(server_id, plan, aws_services.dynamodb_table)
-    sync_schedule(server_id, server_config, aws_services.dynamodb_table)
+    schedule_helper.sync_schedule(server_id, server_config, aws_services.dynamodb_table)
 
     return ResponseMessage(content=f"✅ Planned event **{name}** added to the schedule.")
 
@@ -148,6 +148,7 @@ def clear_past_plans(event: DiscordEvent, aws_services: AWSServices) -> Response
         try:
             epoch = int(datetime.fromisoformat(plan.start_time.replace("Z", "+00:00")).timestamp())
         except Exception:
+            print(f"[schedule] Skipping plan {plan.plan_name!r} — could not parse start_time {plan.start_time!r}")
             continue
         if epoch < now_epoch:
             past_plans.append(plan)
@@ -161,7 +162,7 @@ def clear_past_plans(event: DiscordEvent, aws_services: AWSServices) -> Response
     if total == 0:
         return ResponseMessage(content="ℹ️ No past events to clear.")
 
-    sync_schedule(server_id, server_config, aws_services.dynamodb_table)
+    schedule_helper.sync_schedule(server_id, server_config, aws_services.dynamodb_table)
 
     all_names = [f"**{p.plan_name}**" for p in past_plans] + [f"**{n}**" for n in past_real_names]
     return ResponseMessage(content=f"✅ Removed {total} past event(s): {', '.join(all_names)}")
@@ -181,6 +182,6 @@ def remove_plan(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessa
 
     plan_name = event.get_command_input_value("plan_name")
     db_helper.delete_schedule_plan(server_id, plan_name, aws_services.dynamodb_table)
-    sync_schedule(server_id, server_config, aws_services.dynamodb_table)
+    schedule_helper.sync_schedule(server_id, server_config, aws_services.dynamodb_table)
 
     return ResponseMessage(content=f"✅ Planned event **{plan_name}** removed from the schedule.")

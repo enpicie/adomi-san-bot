@@ -12,6 +12,7 @@ MANUAL_SOURCE = "manual"
 
 
 def register_user(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
+    """Registers the calling user (or, for organizers, a target user) for an event."""
     server_id = event.get_server_id()
     event_id = event.get_command_input_value("event_name")
     target_user_id = event.get_command_input_value("user")
@@ -71,6 +72,7 @@ def register_user(event: DiscordEvent, aws_services: AWSServices) -> ResponseMes
 
 
 def register_remove(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
+    """Removes a user from an event's registered list. Organizer only."""
     error_message = permissions_helper.verify_has_organizer_role(event, aws_services)
     if error_message:
         return error_message
@@ -100,6 +102,7 @@ def register_remove(event: DiscordEvent, aws_services: AWSServices) -> ResponseM
 
 
 def toggle_register(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
+    """Opens or closes registration for an event based on the 'state' input. Organizer only."""
     error_message = permissions_helper.verify_has_organizer_role(event, aws_services)
     if error_message:
         return error_message
@@ -113,7 +116,7 @@ def toggle_register(event: DiscordEvent, aws_services: AWSServices) -> ResponseM
 
     register_state = event.get_command_input_value("state")
     should_enable = register_state == register_constants.START_PARAM
-    print(f"{EventData.Keys.REGISTER_ENABLED}: {should_enable} via input {register_state}")
+    print(f"[register] {EventData.Keys.REGISTER_ENABLED}: {should_enable} via input {register_state}")
 
     aws_services.dynamodb_table.update_item(
         Key={"PK": db_helper.build_server_pk(server_id), "SK": EventData.Keys.SK_EVENT_PREFIX + (event_data_result.event_id or event_id)},

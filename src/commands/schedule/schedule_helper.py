@@ -8,12 +8,16 @@ from database.models.event_data import EventData
 from database.models.schedule_plan import SchedulePlan
 from database.models.server_config import ServerConfig
 
+DEFAULT_SCHEDULE_TITLE = "Upcoming Events"
+NO_EVENTS_LINE = "*No events.*"
+
 
 def _to_epoch(utc_iso: str) -> Optional[int]:
     try:
         dt = datetime.fromisoformat(utc_iso.replace("Z", "+00:00"))
         return int(dt.timestamp())
-    except Exception:
+    except (ValueError, AttributeError, TypeError):
+        print(f"[schedule] Failed to parse start_time {utc_iso!r}")
         return None
 
 
@@ -67,13 +71,13 @@ def _insert_event_sorted(lines: list, new_line: str, epoch: Optional[int]) -> li
 
 
 def _apply_no_events_placeholder(lines: list) -> list:
-    """Ensure '*No events.*' appears iff no event lines remain."""
-    has_events = any(l.startswith("- ") for l in lines)
-    clean = [l for l in lines if l != "*No events.*"]
+    """Ensure the no-events placeholder appears iff no event lines remain."""
+    has_events = any(line.startswith("- ") for line in lines)
+    clean = [line for line in lines if line != NO_EVENTS_LINE]
     if has_events:
         return clean
     insert_at = 2 if len(clean) >= 2 else len(clean)
-    return clean[:insert_at] + ["*No events.*"] + clean[insert_at:]
+    return clean[:insert_at] + [NO_EVENTS_LINE] + clean[insert_at:]
 
 
 def build_schedule_content(
@@ -81,6 +85,7 @@ def build_schedule_content(
     real_events: List[EventData],
     planned_events: List[SchedulePlan],
 ) -> str:
+    """Builds the full schedule message content from real and planned events, sorted by start time."""
     now_epoch = int(datetime.now(dt_timezone.utc).timestamp())
 
     items = []
@@ -105,7 +110,7 @@ def build_schedule_content(
 
     lines = [f"# {title}", ""]
     if not items:
-        lines.append("*No events.*")
+        lines.append(NO_EVENTS_LINE)
     else:
         for _, display_name, timestamp, is_past, is_planned in items:
             entry = f"{display_name} - {timestamp}"
@@ -156,7 +161,7 @@ def remove_schedule_event(server_config: ServerConfig, event_name: str) -> None:
     if current is None:
         return
     lines = current.split("\n")
-    new_lines = [l for l in lines if not _line_has_event(l, event_name)]
+    new_lines = [line for line in lines if not _line_has_event(line, event_name)]
     if len(new_lines) == len(lines):
         return
     new_lines = _apply_no_events_placeholder(new_lines)
@@ -183,7 +188,7 @@ def update_schedule_event(
     epoch = _to_epoch(new_start_time) if new_start_time else None
     new_line = _build_event_line(new_name, epoch, new_startgg_url)
     lines = current.split("\n")
-    without_old = [l for l in lines if not _line_has_event(l, old_name)]
+    without_old = [line for line in lines if not _line_has_event(line, old_name)]
     if len(without_old) == len(lines):
         return
     new_lines = _insert_event_sorted(without_old, new_line, epoch)
@@ -231,7 +236,7 @@ def extract_title(message_content: str) -> str:
     first_line = (message_content or "").split("\n")[0]
     if first_line.startswith("# "):
         return first_line[2:]
-    return "Upcoming Events"
+    return DEFAULT_SCHEDULE_TITLE
 
 
 def sync_schedule(server_id: str, server_config: ServerConfig, table, title: Optional[str] = None) -> None:
@@ -245,7 +250,7 @@ def sync_schedule(server_id: str, server_config: ServerConfig, table, title: Opt
         current_content = discord_helper.get_channel_message(
             server_config.schedule_channel_id, server_config.schedule_message_id
         )
-        title = extract_title(current_content) if current_content is not None else "Upcoming Events"
+        title = extract_title(current_content) if current_content is not None else DEFAULT_SCHEDULE_TITLE
     real_events = db_helper.get_full_events_for_server(server_id, table)
     planned_events = db_helper.get_schedule_plans_for_server(server_id, table)
     planned_events = remove_matched_plans(server_id, real_events, planned_events, table)

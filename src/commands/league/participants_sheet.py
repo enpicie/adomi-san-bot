@@ -1,3 +1,5 @@
+# MIRROR: jobs/sheets_agent/participants_sheet.py — keep in sync (independent Lambda packaging).
+# NOTE: the jobs copy has extra columns and SHEET_RANGE differs (A:I vs A:G) — verify before syncing.
 from enum import IntEnum
 from typing import List
 

@@ -12,12 +12,23 @@ class RoleAssignmentResult(Enum):
     FORBIDDEN = "forbidden"
     ERROR = "error"
 
-BOT_AUTH_HEADERS = {
-    "Authorization": f"Bot {constants.DISCORD_BOT_TOKEN}",
-    "Content-Type": "application/json",
-}
+DISCORD_API_BASE_URL = "https://discord.com/api/v10"
+SUPPRESS_EMBEDS = 4  # Discord message flag
 
 _START_TIME_LOCKED_CODE = "GUILD_SCHEDULED_EVENT_SCHEDULE_INVALID_START_BY_STATUS"
+
+
+def _bot_auth_headers() -> dict:
+    return {
+        "Authorization": f"Bot {constants.DISCORD_BOT_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+
+def _request(method: str, path: str, json: dict | None = None, log_suffix: str = "") -> requests.Response:
+    """Execute a Discord API request against DISCORD_API_BASE_URL and return the raw Response."""
+    print(f"[discord] {method} {path}{log_suffix}")
+    return requests.request(method, f"{DISCORD_API_BASE_URL}{path}", headers=_bot_auth_headers(), json=json, timeout=8)
 
 
 def _extract_discord_error(response: requests.Response) -> str:
@@ -33,11 +44,10 @@ def _extract_discord_error(response: requests.Response) -> str:
 
 
 def get_guild_name(guild_id: str) -> Optional[str]:
-    url = f"https://discord.com/api/v10/guilds/{guild_id}"
-    print(f"[discord] GET /guilds/{guild_id}")
-    response = requests.get(url, headers=BOT_AUTH_HEADERS)
+    """Fetch a guild's display name. Returns the name string on success, None on any error."""
+    response = _request("GET", f"/guilds/{guild_id}")
     if response.status_code == 200:
-        print(f"[discord] -> 200")
+        print("[discord] -> 200")
         return response.json().get("name")
     print(f"[discord] ERROR -> {response.status_code} | {_extract_discord_error(response)}")
     return None
@@ -48,11 +58,14 @@ class EventAlreadyActiveError(Exception):
     pass
 
 def add_role_to_user(guild_id: str, user_id: str, role_id: str) -> RoleAssignmentResult:
-    url = f"https://discord.com/api/v10/guilds/{guild_id}/members/{user_id}/roles/{role_id}"
-    print(f"[discord] PUT /guilds/{guild_id}/members/{user_id}/roles/{role_id}")
-    response = requests.put(url, headers=BOT_AUTH_HEADERS)
+    """Assign a role to a guild member.
+
+    :return: RoleAssignmentResult.OK on success, FORBIDDEN if the bot lacks
+        permission, ERROR for any other failure. Never raises.
+    """
+    response = _request("PUT", f"/guilds/{guild_id}/members/{user_id}/roles/{role_id}")
     if response.status_code == 204:
-        print(f"[discord] -> 204")
+        print("[discord] -> 204")
         return RoleAssignmentResult.OK
     if response.status_code == 403:
         print(f"[discord] ERROR -> 403 Forbidden | bot lacks permission to assign role={role_id} to user={user_id}")
@@ -70,7 +83,11 @@ class ScheduledEventParams:
 
 
 def create_scheduled_event(guild_id: str, params: ScheduledEventParams) -> Optional[str]:
-    url = f"https://discord.com/api/v10/guilds/{guild_id}/scheduled-events"
+    """Create an EXTERNAL scheduled event in the guild.
+
+    :return: The new event's ID on success.
+    :raises ValueError: with the Discord error message on any non-200 response.
+    """
     body = {
         "name": params.name,
         "privacy_level": 2, # = GUILD_ONLY (only option Discord currently supports)
@@ -82,8 +99,12 @@ def create_scheduled_event(guild_id: str, params: ScheduledEventParams) -> Optio
     if params.description:
         body["description"] = params.description
 
-    print(f"[discord] POST /guilds/{guild_id}/scheduled-events | name={params.name!r} start={params.scheduled_start_time}")
-    response = requests.post(url, headers=BOT_AUTH_HEADERS, json=body)
+    response = _request(
+        "POST",
+        f"/guilds/{guild_id}/scheduled-events",
+        json=body,
+        log_suffix=f" | name={params.name!r} start={params.scheduled_start_time}",
+    )
     if response.status_code == 200:
         event_id = response.json()["id"]
         print(f"[discord] -> 200 | event_id={event_id}")
@@ -98,7 +119,6 @@ def update_scheduled_event(guild_id: str, event_id: str, params: ScheduledEventP
     :return: True if successful (200 response), False otherwise
     :raises EventAlreadyActiveError: if Discord rejects the start time update because the event is active.
     """
-    url = f"https://discord.com/api/v10/guilds/{guild_id}/scheduled-events/{event_id}"
     body = {
         "name": params.name,
         "scheduled_end_time": params.scheduled_end_time,
@@ -109,10 +129,14 @@ def update_scheduled_event(guild_id: str, event_id: str, params: ScheduledEventP
     if params.description:
         body["description"] = params.description
 
-    print(f"[discord] PATCH /guilds/{guild_id}/scheduled-events/{event_id} | name={params.name!r} skip_start_time={skip_start_time}")
-    response = requests.patch(url, headers=BOT_AUTH_HEADERS, json=body)
+    response = _request(
+        "PATCH",
+        f"/guilds/{guild_id}/scheduled-events/{event_id}",
+        json=body,
+        log_suffix=f" | name={params.name!r} skip_start_time={skip_start_time}",
+    )
     if response.status_code == 200:
-        print(f"[discord] -> 200")
+        print("[discord] -> 200")
         return True
 
     print(f"[discord] ERROR -> {response.status_code} | {_extract_discord_error(response)}")
@@ -123,26 +147,27 @@ def update_scheduled_event(guild_id: str, event_id: str, params: ScheduledEventP
             raise EventAlreadyActiveError("Event is already active; start time cannot be changed.")
     except EventAlreadyActiveError:
         raise
-    except Exception:
-        pass
+    except (ValueError, KeyError, AttributeError, TypeError) as e:
+        print(f"[discord] body probe for start-time lock code failed: {type(e).__name__}")
     return False
 
 
 def get_channel_message(channel_id: str, message_id: str) -> Optional[str]:
-    url = f"https://discord.com/api/v10/channels/{channel_id}/messages/{message_id}"
-    print(f"[discord] GET /channels/{channel_id}/messages/{message_id}")
-    response = requests.get(url, headers=BOT_AUTH_HEADERS)
+    """Fetch a message's text content. Returns the content string on success, None on any error."""
+    response = _request("GET", f"/channels/{channel_id}/messages/{message_id}")
     if response.status_code == 200:
-        print(f"[discord] -> 200")
+        print("[discord] -> 200")
         return response.json().get("content")
     print(f"[discord] ERROR -> {response.status_code} | {_extract_discord_error(response)}")
     return None
 
 
 def send_channel_message(channel_id: str, content: str) -> Optional[str]:
-    url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
-    print(f"[discord] POST /channels/{channel_id}/messages")
-    response = requests.post(url, headers=BOT_AUTH_HEADERS, json={"content": content, "flags": 4})
+    """Post a message (with embeds suppressed) to a channel.
+
+    :return: The new message's ID on success, None on any error.
+    """
+    response = _request("POST", f"/channels/{channel_id}/messages", json={"content": content, "flags": SUPPRESS_EMBEDS})
     if response.status_code in (200, 201):
         message_id = response.json()["id"]
         print(f"[discord] -> {response.status_code} | message_id={message_id}")
@@ -152,22 +177,24 @@ def send_channel_message(channel_id: str, content: str) -> Optional[str]:
 
 
 def edit_channel_message(channel_id: str, message_id: str, content: str) -> bool:
-    url = f"https://discord.com/api/v10/channels/{channel_id}/messages/{message_id}"
-    print(f"[discord] PATCH /channels/{channel_id}/messages/{message_id}")
-    response = requests.patch(url, headers=BOT_AUTH_HEADERS, json={"content": content, "flags": 4})
+    """Replace a message's content (with embeds suppressed). Returns True on success, False on any error."""
+    response = _request("PATCH", f"/channels/{channel_id}/messages/{message_id}", json={"content": content, "flags": SUPPRESS_EMBEDS})
     if response.status_code == 200:
-        print(f"[discord] -> 200")
+        print("[discord] -> 200")
         return True
     print(f"[discord] ERROR -> {response.status_code} | channel_id={channel_id} message_id={message_id} | {_extract_discord_error(response)}")
     return False
 
 
 def delete_scheduled_event(guild_id: str, event_id: str) -> bool:
-    url = f"https://discord.com/api/v10/guilds/{guild_id}/scheduled-events/{event_id}"
-    print(f"[discord] DELETE /guilds/{guild_id}/scheduled-events/{event_id}")
-    response = requests.delete(url, headers=BOT_AUTH_HEADERS)
+    """Delete a guild scheduled event.
+
+    :return: True on success (204) or if the event is already gone (404);
+        False on 403 or any other error. Never raises.
+    """
+    response = _request("DELETE", f"/guilds/{guild_id}/scheduled-events/{event_id}")
     if response.status_code == 204:
-        print(f"[discord] -> 204")
+        print("[discord] -> 204")
         return True
     if response.status_code == 404:
         print(f"[discord] WARN -> 404 | event_id={event_id} not found on Discord (already manually deleted) — treating as success")

@@ -1,3 +1,5 @@
 -r requirements.txt
-pytest>=7.0
-moto
+pytest>=7.0,<9
+moto>=5,<6
+ruff>=0.8,<1
+tzdata>=2024.1  # IANA zone data for zoneinfo on Windows dev machines; no-op on Linux/CI

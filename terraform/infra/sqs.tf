@@ -1,5 +1,9 @@
 resource "aws_sqs_queue" "remove_role" {
-  name                       = "${var.sqs_worker_name}-${var.deployment_env}"
+  name = "${var.sqs_worker_name}-${var.deployment_env}"
+
+  # review: the remove_role_worker Lambda below sets timeout = 30 (it makes up to
+  # 10 sequential Discord calls per batch), and the queue allows 60s of visibility —
+  # headroom for retries; revisit if role removals grow.
   visibility_timeout_seconds = 60
   message_retention_seconds  = 86400
 }
@@ -37,6 +41,7 @@ resource "aws_lambda_function" "remove_role_worker" {
   runtime       = "python${var.python_runtime}"
   architectures = [var.architecture]
   role          = aws_iam_role.worker_role.arn
+  timeout       = 30
 
   layers = [
     aws_lambda_layer_version.worker_layer.arn

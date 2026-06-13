@@ -1,13 +1,15 @@
-import constants
 import database.dynamodb_utils as db_helper
+import utils.adomin_messages as adomin_messages
 import utils.message_helper as message_helper
 from aws_services import AWSServices
 from commands.models.discord_event import DiscordEvent
 from commands.models.response_message import ResponseMessage
 from database.models.event_data import EventData
+from database.models.server_config import ServerConfig
 
-# IN PROGRESS!!
-# Pulled to main to include commits for get_role_ping in message_helper
+# Planned future feature: event start/end announcements.
+# This package is intentionally NOT registered in command_map.py — these commands
+# are not exposed to Discord until the feature is completed.
 
 def announce_event(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
     """
@@ -20,20 +22,20 @@ def announce_event(event: DiscordEvent, aws_services: AWSServices) -> ResponseMe
 
     pk = db_helper.build_server_pk(event.get_server_id())
 
-    response = aws_services.dynamotb_table.get_item(
-        Key={"PK": pk, "SK": EventData.Keys.SK_SERVER},
+    db_response = aws_services.dynamodb_table.get_item(
+        Key={"PK": pk, "SK": ServerConfig.Keys.SK_CONFIG},
         ProjectionExpression=f"{message_key}, {EventData.Keys.PARTICIPANT_ROLE}"
     )
+    existing_data = db_response.get("Item")
+    if not existing_data:
+        return ResponseMessage(content=adomin_messages.SERVER_EVENT_DATA_MISSING)
 
-    response_obj = EventData.from_dynamodb(response)
+    event_data = EventData.from_dynamodb(existing_data)
 
-    # If ping_participants flag is set, build the announcement message starting with the role ping
-    role_ping = message_helper.get_role_ping(response_obj.participant_role) + "\n" if ping_participants else ""
+    role_ping = message_helper.get_role_ping(event_data.participant_role) + "\n" if ping_participants else ""
 
-    # Select event start or end message depending on value of announce_type param
-    response_message = response_obj.start_message if announce_type == "start" else response_obj.end_message
+    response_message = event_data.start_message if announce_type == "start" else event_data.end_message
 
-    # Concatenate the role ping and announcement message and return as response
     return ResponseMessage(
         content= role_ping + response_message
     )
@@ -48,11 +50,11 @@ def set_event_message(event: DiscordEvent, aws_services: AWSServices) -> Respons
 
     message_key = EventData.Keys.START_MESSAGE if announce_type == "start" else EventData.Keys.END_MESSAGE
 
-    pk = db_helper.get_server_pk(event.get_server_id())
+    pk = db_helper.build_server_pk(event.get_server_id())
 
-    aws_services.dynamotb_table.update_item(
+    aws_services.dynamodb_table.update_item(
         # Announcements configured at level of event data, not server config
-        Key={"PK": pk, "SK": constants.SK_SERVER},
+        Key={"PK": pk, "SK": ServerConfig.Keys.SK_CONFIG},
         UpdateExpression=f"SET {message_key} = :msg",
         ExpressionAttributeValues={":msg": message_text}
     )

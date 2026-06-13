@@ -68,7 +68,6 @@ class Participant(SubscriptableMixin):
         """
         Returns a human-readable, relative string for when the participant was added
         (e.g., 'Just now', '5 minutes ago', 'Yesterday', or 'On Nov 28, 2025').
-        This is the cleanest and most natural way to display time to users.
         """
         try:
             now = datetime.now(timezone.utc)

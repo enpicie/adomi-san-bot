@@ -1,5 +1,7 @@
 # adomi-san-bot
 
+![Status: Beta](https://img.shields.io/badge/status-beta-yellow)
+
 This is Adomi-san, a Discord bot to help streamline and automate workflows for managing netplay brackets run via start.gg.
 
 But you can call her Adomin ~☆！
@@ -32,6 +34,7 @@ But you can call her Adomin ~☆！
   - [Registering Commands with Discord](#registering-commands-with-discord)
   - [Adding AWS Services](#adding-aws-services)
 - [Testing](#testing)
+- [Initial Setup TODOs](#initial-setup-todos)
 
 ---
 
@@ -71,7 +74,7 @@ bot.py  ──── Routes command name → handler function (via command_map.p
 EventBridge (every 15 min)
        │
        ▼
-Lambda: jobs/event_poller/handler.py
+Lambda: jobs/scheduled_job/handler.py
        │
        ├── Scans DynamoDB for active events
        ├── Checks Discord Guild Scheduled Events for completion/cancellation
@@ -81,12 +84,12 @@ Lambda: jobs/event_poller/handler.py
 
 **Stack:**
 
-- Runtime: Python 3.11
+- Runtime: Python 3.12
 - Hosting: AWS Lambda + API Gateway v2
 - Database: DynamoDB (pay-per-request)
 - Queue: SQS (async role removals)
 - Secrets: AWS Secrets Manager (start.gg API token)
-- IaC: Terraform (HCP Terraform Cloud)
+- IaC: Terraform (S3 remote state via org composite action)
 - CI/CD: GitHub Actions
 
 ---
@@ -530,14 +533,9 @@ Configure reminder behavior per-server with `/setup-event-reminders`. Toggle per
 
 ### Schedule Sync
 
-After cleanup and reminder processing for each server, the job syncs the tracked schedule message if one is configured (`schedule_message_id` is set in `ServerConfig`):
+When the job cleans up an ended event, it applies ~~strikethrough~~ to that event's entry in the tracked schedule message (if one is configured via `schedule_message_id` in `ServerConfig`). That is the only schedule maintenance the job currently performs.
 
-1. Fetches the current schedule message from Discord to extract the title from the first line (`# Title`).
-2. Queries all real events and all `SCHEDULE_PLAN#` records for the server.
-3. Removes any plan whose name case-insensitively matches a real event name.
-4. Rebuilds the message content and edits the Discord message in place.
-
-The sync only runs for servers that have active events (since the handler loops over servers from `EventNameIndex`). Servers with no active events but a configured schedule are not synced by the job — use `/schedule-post` or `/schedule-update` to manually refresh in that case.
+A full rebuild/sync (`sync_schedule_for_server` in `jobs/scheduled_job/schedule_sync.py`) exists in code but is not yet wired into the handler — it is planned. Until then, use `/schedule-post` or `/schedule-update` to manually refresh the schedule message.
 
 ---
 
@@ -610,6 +608,8 @@ Planned event placeholders added via `/schedule-plan-event`. The SK key uses the
 
 [config.env](./config.env) is the single source of truth for non-secret configuration. Values are read into GitHub Actions environment variables and passed to Terraform as variables during deployment.
 
+See [.env.example](./.env.example) for the full list of environment variables the Lambdas receive at runtime (injected by Terraform — the file exists for local reference and testing).
+
 | Variable                       | Description                     |
 | ------------------------------ | ------------------------------- |
 | `APP_NAME`                     | Lambda function name prefix     |
@@ -674,11 +674,11 @@ Provisions the main bot infrastructure:
 - **Secrets Manager** — `startgg_api_token`
 - **IAM roles** — separate roles for the main Lambda and the SQS worker
 
-### `terraform/event_poller/`
+### `terraform/scheduled_job/`
 
 Provisions the scheduled cleanup job:
 
-- **Lambda** (`{EVENT_POLLER_NAME}-{env}`) — scans for ended events and cleans up
+- **Lambda** (`{SCHEDULED_JOB_NAME}-{env}`) — scans for ended events and cleans up
   - Handler: `handler.handler`
   - Timeout: 60 seconds
   - Layers: application dependencies
@@ -809,3 +809,15 @@ Or manually:
    ```bash
    pytest tests/
    ```
+
+---
+
+## Initial Setup TODOs
+
+Generated during retroactive platform-spec conformance (see [specs/](./specs/)). Remove items as completed.
+
+- [ ] Copy `.env.example` to `.env.local` and fill in real values for local testing
+- [ ] Complete `.platform/data-model.md` (verify against the live table)
+- [ ] Complete `.platform/scaling-plan.md` (fill in cost figures)
+- [ ] Update README status badge to correct value
+- [ ] Review `CLAUDE.md` — confirm conventions match the actual project

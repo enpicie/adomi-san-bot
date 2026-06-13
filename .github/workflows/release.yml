@@ -15,21 +15,21 @@ on:
         default: false
         type: boolean
 
-permissions:
-  id-token: write
-  contents: write
-
 jobs:
   read-config:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     outputs:
       APP_NAME: ${{ steps.set-vars.outputs.APP_NAME }}
       SQS_WORKER_NAME: ${{ steps.set-vars.outputs.SQS_WORKER_NAME }}
       SCHEDULED_JOB_NAME: ${{ steps.set-vars.outputs.SCHEDULED_JOB_NAME }}
       STARTGG_OAUTH_NAME: ${{ steps.set-vars.outputs.STARTGG_OAUTH_NAME }}
       SHEETS_AGENT_NAME: ${{ steps.set-vars.outputs.SHEETS_AGENT_NAME }}
+      DYNAMODB_TABLE_BASE_NAME: ${{ steps.set-vars.outputs.DYNAMODB_TABLE_BASE_NAME }}
       GOOGLE_SHEETS_SECRET_NAME: ${{ steps.set-vars.outputs.GOOGLE_SHEETS_SECRET_NAME }}
       AWS_REGION: ${{ steps.set-vars.outputs.AWS_REGION }}
+      ARTIFACT_S3_BUCKET_PROD: ${{ steps.set-vars.outputs.ARTIFACT_S3_BUCKET_PROD }}
       PYTHON_RUNTIME: ${{ steps.set-vars.outputs.PYTHON_RUNTIME }}
       LAMBDA_ARCHITECTURE: ${{ steps.set-vars.outputs.LAMBDA_ARCHITECTURE }}
       DISCORD_PUBLIC_KEY: ${{ steps.set-vars.outputs.DISCORD_PUBLIC_KEY }}
@@ -61,8 +61,10 @@ jobs:
           echo "SCHEDULED_JOB_NAME=$SCHEDULED_JOB_NAME" >> $GITHUB_OUTPUT
           echo "STARTGG_OAUTH_NAME=$STARTGG_OAUTH_NAME" >> $GITHUB_OUTPUT
           echo "SHEETS_AGENT_NAME=$SHEETS_AGENT_NAME" >> $GITHUB_OUTPUT
+          echo "DYNAMODB_TABLE_BASE_NAME=$DYNAMODB_TABLE_BASE_NAME" >> $GITHUB_OUTPUT
           echo "GOOGLE_SHEETS_SECRET_NAME=$GOOGLE_SHEETS_SECRET_NAME" >> $GITHUB_OUTPUT
           echo "AWS_REGION=$AWS_REGION" >> $GITHUB_OUTPUT
+          echo "ARTIFACT_S3_BUCKET_PROD=$ARTIFACT_S3_BUCKET_PROD" >> $GITHUB_OUTPUT
           echo "PYTHON_RUNTIME=$PYTHON_RUNTIME" >> $GITHUB_OUTPUT
           echo "LAMBDA_ARCHITECTURE=$LAMBDA_ARCHITECTURE" >> $GITHUB_OUTPUT
           echo "DISCORD_PUBLIC_KEY=$DISCORD_PUBLIC_KEY_PROD" >> $GITHUB_OUTPUT
@@ -72,6 +74,8 @@ jobs:
   unit-test:
     needs:
       - read-config
+    permissions:
+      contents: read
     uses: ./.github/workflows/workflow-run-unit-tests.yml
     with:
       python_runtime: ${{ needs.read-config.outputs.PYTHON_RUNTIME }}
@@ -80,6 +84,9 @@ jobs:
     needs:
       - read-config
       - unit-test
+    permissions:
+      id-token: write
+      contents: read
     uses: ./.github/workflows/workflow-deploy.yml
     with:
       app_name: ${{ needs.read-config.outputs.APP_NAME }}
@@ -87,6 +94,7 @@ jobs:
       scheduled_job_name: ${{ needs.read-config.outputs.SCHEDULED_JOB_NAME }}
       startgg_oauth_name: ${{ needs.read-config.outputs.STARTGG_OAUTH_NAME }}
       sheets_agent_name: ${{ needs.read-config.outputs.SHEETS_AGENT_NAME }}
+      dynamodb_table_base_name: ${{ needs.read-config.outputs.DYNAMODB_TABLE_BASE_NAME }}
       aws_region: ${{ needs.read-config.outputs.AWS_REGION }}
       python_runtime: ${{ needs.read-config.outputs.PYTHON_RUNTIME }}
       lambda_architecture: ${{ needs.read-config.outputs.LAMBDA_ARCHITECTURE }}
@@ -94,7 +102,7 @@ jobs:
       discord_public_key: ${{ needs.read-config.outputs.DISCORD_PUBLIC_KEY }}
       google_service_account_email: ${{ needs.read-config.outputs.GOOGLE_SERVICE_ACCOUNT_EMAIL }}
       deployment_env: 'prod'
-      artifact_s3_bucket: 'enpicie-prod-lambda-artifacts'
+      artifact_s3_bucket: ${{ needs.read-config.outputs.ARTIFACT_S3_BUCKET_PROD }}
       force_rebuild_layer: ${{ github.event.inputs.force_rebuild_layer == 'true' }}
       google_sheets_secret_name: ${{ needs.read-config.outputs.GOOGLE_SHEETS_SECRET_NAME }}
     secrets:
@@ -108,6 +116,8 @@ jobs:
 
   register-commands:
     needs: deploy
+    permissions:
+      contents: read
     uses: ./.github/workflows/workflow-register-commands.yml
     with:
       environment: 'prod'

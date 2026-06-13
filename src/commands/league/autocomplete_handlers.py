@@ -8,11 +8,13 @@ import database.dynamodb_utils as db_helper
 
 
 def autocomplete_league_name(event: DiscordEvent, aws_services: AWSServices) -> AutocompleteResponse:
+    """Returns the server's leagues as choices (label: league name, value: league_id)."""
     server_id = event.get_server_id()
     leagues = db_helper.get_leagues_for_server(server_id, aws_services.dynamodb_table)
     # name is the display label; value is the league_id for easy indexing
     choices = [ParamChoice(name=name, value=league_id) for name, league_id in leagues]
-    return AutocompleteResponse(choices)
+    # Discord rejects autocomplete payloads with more than 25 choices
+    return AutocompleteResponse(choices[:25])
 
 
 # Shared param used by any command that needs to target a specific league.

@@ -10,8 +10,6 @@ class SubscriptableMixin:
         Allows access via object[key]. Internally, it treats the object
         as a dictionary using dataclasses.asdict().
         """
-        # asdict() converts the dataclass instance into a standard Python dict.
-        # We then look up the key in that dictionary.
         try:
             return asdict(self)[key]
         except KeyError as e:

@@ -1,10 +1,13 @@
 import json
+import logging
 import time
-import traceback
 
-from aws_client import get_aws_services
-from discord_followup import send_followup
+import aws_client
+import discord_followup
 import league_commands
+
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
 
 # Mirrors adomin_messages.GENERAL_ERROR from the main bot
 _GENERAL_ERROR = "🙀 AH! Something went wrong! Hang tight while I take a look. This might be a case for my supervisor `@enpicie`."
@@ -26,28 +29,29 @@ def _process_record(payload: dict) -> None:
 
     enqueued_at = payload.get("enqueued_at")
     queue_age = f"{time.time() - enqueued_at:.1f}s" if enqueued_at else "unknown"
-    print(f"[sheets_agent] processing command={command_name!r} queue_age={queue_age}")
+    logger.info(f"[sheets_agent] processing command={command_name!r} queue_age={queue_age}")
 
     handler_fn = _COMMAND_HANDLERS.get(command_name)
     if handler_fn is None:
-        print(f"[sheets_agent] unknown command={command_name!r}")
-        send_followup(application_id, interaction_token, f"❌ Unknown sheets command: `{command_name}`")
+        logger.warning(f"[sheets_agent] unknown command={command_name!r}")
+        discord_followup.send_followup(application_id, interaction_token, f"❌ Unknown sheets command: `{command_name}`")
         return
 
     try:
-        content = handler_fn(event_body, get_aws_services())
+        content = handler_fn(event_body, aws_client.get_aws_services())
     except Exception as e:
-        print(f"[sheets_agent] unhandled error in {command_name!r}: {type(e).__name__}: {e}")
-        print(traceback.format_exc())
+        logger.exception(f"[sheets_agent] unhandled error in {command_name!r}: {type(e).__name__}: {e}")
         content = _GENERAL_ERROR
 
     if isinstance(content, dict):
-        send_followup(application_id, interaction_token, **content)
+        discord_followup.send_followup(application_id, interaction_token, **content)
     else:
-        send_followup(application_id, interaction_token, content)
+        discord_followup.send_followup(application_id, interaction_token, content)
 
 
 def handler(event, context):
+    """SQS-triggered Lambda: dispatches queued league slash-command payloads to
+    their handlers and posts the result as a Discord interaction followup."""
     for record in event["Records"]:
         payload = json.loads(record["body"])
         _process_record(payload)

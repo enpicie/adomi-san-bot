@@ -1,15 +1,19 @@
+import logging
 import time
 
 import constants
 import sheets_helper
-from sheets_helper import SheetNotSetupError
 from aws_services import AWSServices
 import participants_sheet
 import db_helper
 import discord_api
-from discord_api import RoleAssignmentResult
+
+logger = logging.getLogger()
 
 _SUPPRESS_NOTIFICATIONS = 1 << 12
+
+# Brief pause between Discord API calls to avoid rate limits
+_API_CALL_PAUSE_SECONDS = 0.5
 
 def _silent_reply(content: str) -> dict:
     """Returns a followup payload dict that silently pings without triggering a notification."""
@@ -26,8 +30,11 @@ _SHEET_NOT_SHARED_MSG = (
     "If you already shared it, verify the email above matches what you used — then try again."
 )
 
+_SHEETS_MISCONFIGURED_MSG = "❌ The bot's Google Sheets integration is misconfigured. Contact the bot administrator."
+
 
 def handle_league_setup(event_body: dict, aws_services: AWSServices) -> str:
+    """Create and style the Participants sheet tab for a league (organizer only)."""
     error = db_helper.verify_organizer(event_body, aws_services.dynamodb_table)
     if error:
         return error
@@ -44,8 +51,8 @@ def handle_league_setup(event_body: dict, aws_services: AWSServices) -> str:
     except PermissionError:
         return _SHEET_NOT_SHARED_MSG
     except RuntimeError as e:
-        print(f"[sheets_agent] league-setup: RuntimeError: {e}")
-        return "❌ The bot's Google Sheets integration is misconfigured. Contact the bot administrator."
+        logger.error(f"[sheets_agent] league-setup: RuntimeError: {e}")
+        return _SHEETS_MISCONFIGURED_MSG
 
     league_name = league_data["league_name"]
     if already_existed:
@@ -54,6 +61,8 @@ def handle_league_setup(event_body: dict, aws_services: AWSServices) -> str:
 
 
 def handle_league_join(event_body: dict, aws_services: AWSServices) -> str:
+    """Add the invoking user to a league's Participants sheet as QUEUED (or
+    re-queue them if INACTIVE), caching their snowflake for later role sync."""
     server_id = event_body["guild_id"]
     league_id = db_helper.get_command_input(event_body, "league_name")
 
@@ -106,7 +115,7 @@ def handle_league_join(event_body: dict, aws_services: AWSServices) -> str:
 
     except PermissionError:
         return _SHEET_NOT_SHARED_MSG
-    except SheetNotSetupError:
+    except sheets_helper.SheetNotSetupError:
         return (
             f"⚠️ The Participants sheet hasn't been set up for **{league_name}** yet. "
             "An organizer needs to run `/league-setup` first."
@@ -114,8 +123,8 @@ def handle_league_join(event_body: dict, aws_services: AWSServices) -> str:
     except ValueError:
         return "❌ This league's Google Sheets link is invalid. An organizer needs to update it with `/league-update`."
     except RuntimeError as e:
-        print(f"[sheets_agent] league-join: RuntimeError: {e}")
-        return "❌ The bot's Google Sheets integration is misconfigured. Contact the bot administrator."
+        logger.error(f"[sheets_agent] league-join: RuntimeError: {e}")
+        return _SHEETS_MISCONFIGURED_MSG
 
     # Cache participant data so sync can assign Discord roles before their sheet status becomes ACTIVE.
     # DynamoDB rejects overlapping paths in one expression (parent map + nested key), so we init the
@@ -153,6 +162,9 @@ def handle_league_join(event_body: dict, aws_services: AWSServices) -> str:
 
 
 def handle_league_sync_participants(event_body: dict, aws_services: AWSServices) -> str:
+    """Sync ACTIVE sheet participants into DynamoDB and Discord roles: resolves
+    snowflakes, assigns the active participant role, and queues removals for
+    players no longer active (organizer only)."""
     error = db_helper.verify_organizer(event_body, aws_services.dynamodb_table)
     if error:
         return error
@@ -169,8 +181,8 @@ def handle_league_sync_participants(event_body: dict, aws_services: AWSServices)
     except PermissionError:
         return _SHEET_NOT_SHARED_MSG
     except RuntimeError as e:
-        print(f"[sheets_agent] league-sync-participants: RuntimeError: {e}")
-        return "❌ The bot's Google Sheets integration is misconfigured. Contact the bot administrator."
+        logger.error(f"[sheets_agent] league-sync-participants: RuntimeError: {e}")
+        return _SHEETS_MISCONFIGURED_MSG
 
     current_active = participants_result["active"]
     missing_id = participants_result["missing_id"]
@@ -197,11 +209,11 @@ def handle_league_sync_participants(event_body: dict, aws_services: AWSServices)
         snowflake = discord_api.search_discord_member(server_id, handle, participant_name=current_active.get(handle))
         if snowflake:
             resolved_snowflakes[handle] = snowflake
-            print(f"[sync] resolved snowflake via API for handle={handle!r}")
+            logger.info(f"[sync] resolved snowflake via API for handle={handle!r}")
         else:
             api_unresolved.append(handle)
-            print(f"[sync] could not resolve snowflake for handle={handle!r}")
-        time.sleep(0.5)
+            logger.warning(f"[sync] could not resolve snowflake for handle={handle!r}")
+        time.sleep(_API_CALL_PAUSE_SECONDS)
 
     # Build enriched active_players: {handle -> {"discord_id": snowflake, "display_name": name}}
     new_active_players = {
@@ -228,16 +240,16 @@ def handle_league_sync_participants(event_body: dict, aws_services: AWSServices)
             snowflake = new_active_players[handle]["discord_id"]
             if snowflake:
                 result = discord_api.add_discord_role(guild_id=server_id, user_id=snowflake, role_id=active_participant_role)
-                if result == RoleAssignmentResult.OK:
+                if result == discord_api.RoleAssignmentResult.OK:
                     role_assigned_handles.append(handle)
-                elif result == RoleAssignmentResult.FORBIDDEN:
+                elif result == discord_api.RoleAssignmentResult.FORBIDDEN:
                     role_forbidden = True
                     role_failed_handles.append(handle)
                 else:
                     role_failed_handles.append(handle)
-                time.sleep(0.5)
+                time.sleep(_API_CALL_PAUSE_SECONDS)
             else:
-                print(f"[sync] skipping role assignment for handle={handle!r}: no snowflake")
+                logger.warning(f"[sync] skipping role assignment for handle={handle!r}: no snowflake")
 
         for handle in removed_handles:
             old_player = old_active_players.get(handle, {})
@@ -245,7 +257,7 @@ def handle_league_sync_participants(event_body: dict, aws_services: AWSServices)
             if snowflake:
                 remove_snowflakes.append(snowflake)
             else:
-                print(f"[sync] skipping role removal for handle={handle!r}: no snowflake")
+                logger.warning(f"[sync] skipping role removal for handle={handle!r}: no snowflake")
 
         if remove_snowflakes:
             discord_api.enqueue_remove_roles(
@@ -309,6 +321,8 @@ def handle_league_sync_participants(event_body: dict, aws_services: AWSServices)
 
 
 def handle_league_deactivate(event_body: dict, aws_services: AWSServices) -> str:
+    """Mark a participant INACTIVE (or DNF) in the Participants sheet — for the
+    invoking user, or another player when the organizer passes the user option."""
     server_id = event_body["guild_id"]
     league_id = db_helper.get_command_input(event_body, "league_name")
 
@@ -327,8 +341,8 @@ def handle_league_deactivate(event_body: dict, aws_services: AWSServices) -> str
         member = event_body.get("member", {})
         target_discord_id = member.get("user", {}).get("username")
 
-    dnf = db_helper.get_command_input(event_body, "dnf")
-    new_status = participants_sheet.STATUS_DNF if dnf else participants_sheet.STATUS_INACTIVE
+    is_dnf = db_helper.get_command_input(event_body, "dnf")
+    new_status = participants_sheet.STATUS_DNF if is_dnf else participants_sheet.STATUS_INACTIVE
     status_label = "DNF" if new_status == participants_sheet.STATUS_DNF else "INACTIVE"
     league_name = league_data["league_name"]
 
@@ -340,8 +354,8 @@ def handle_league_deactivate(event_body: dict, aws_services: AWSServices) -> str
     except PermissionError:
         return _SHEET_NOT_SHARED_MSG
     except RuntimeError as e:
-        print(f"[sheets_agent] league-deactivate: RuntimeError: {e}")
-        return "❌ The bot's Google Sheets integration is misconfigured. Contact the bot administrator."
+        logger.error(f"[sheets_agent] league-deactivate: RuntimeError: {e}")
+        return _SHEETS_MISCONFIGURED_MSG
 
     if row_number is None:
         if player_snowflake:
@@ -358,8 +372,8 @@ def handle_league_deactivate(event_body: dict, aws_services: AWSServices) -> str
     except PermissionError:
         return _SHEET_NOT_SHARED_MSG
     except RuntimeError as e:
-        print(f"[sheets_agent] league-deactivate: RuntimeError: {e}")
-        return "❌ The bot's Google Sheets integration is misconfigured. Contact the bot administrator."
+        logger.error(f"[sheets_agent] league-deactivate: RuntimeError: {e}")
+        return _SHEETS_MISCONFIGURED_MSG
 
     invoker_snowflake = event_body.get("member", {}).get("user", {}).get("id")
     if player_snowflake:
@@ -372,6 +386,8 @@ def handle_league_deactivate(event_body: dict, aws_services: AWSServices) -> str
 
 
 def handle_league_report_score(event_body: dict, aws_services: AWSServices) -> str:
+    """Record a match result: writes both players' scores into the current
+    rotation's score matrix and appends a row to the ReportLog sheet."""
     server_id = event_body["guild_id"]
     league_id = db_helper.get_command_input(event_body, "league_name")
 
@@ -408,15 +424,15 @@ def handle_league_report_score(event_body: dict, aws_services: AWSServices) -> s
     except PermissionError:
         return _SHEET_NOT_SHARED_MSG
     except RuntimeError as e:
-        print(f"[sheets_agent] league-report-score: get_score_report_data error: {e}")
-        return "❌ The bot's Google Sheets integration is misconfigured. Contact the bot administrator."
+        logger.error(f"[sheets_agent] league-report-score: get_score_report_data error: {e}")
+        return _SHEETS_MISCONFIGURED_MSG
 
     try:
         prev_winner, prev_loser = sheets_helper.update_score_cells(sheets_url, score_data, winner_score, loser_score)
     except PermissionError:
         return _SHEET_NOT_SHARED_MSG
     except RuntimeError as e:
-        print(f"[sheets_agent] league-report-score: update_score_cells error: {e}")
+        logger.error(f"[sheets_agent] league-report-score: update_score_cells error: {e}")
         return "❌ Failed to update score cells. Contact the bot administrator."
 
     try:
@@ -427,7 +443,7 @@ def handle_league_report_score(event_body: dict, aws_services: AWSServices) -> s
         )
     except Exception as e:
         # Non-fatal — score was already written; log and continue
-        print(f"[sheets_agent] league-report-score: append_report_log error: {e}")
+        logger.error(f"[sheets_agent] league-report-score: append_report_log error: {e}")
 
     league_name = league_data["league_name"]
     lines = [f"✅ Score reported for **{league_name}** (`{league_id}`):"]

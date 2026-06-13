@@ -1,6 +1,7 @@
 resource "aws_dynamodb_table" "adomi_discord_server_table" {
-  # Shorten app name for brevity in DynamoDB table name
-  name         = "adomi-discord-server-data-${var.deployment_env}"
+  # Table name is single-sourced from config.env (DYNAMODB_TABLE_BASE_NAME) via the
+  # deploy workflow; base name is shortened from the app name for brevity.
+  name         = var.dynamodb_table_name
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "PK" # Will be Discord Server ID as "SERVER#<server_id>"
   range_key    = "SK" # Will be sort key as "CONFIG" or "CHANNEL#<channel_id>" or "SERVER"
@@ -32,6 +33,13 @@ resource "aws_dynamodb_table" "adomi_discord_server_table" {
   attribute {
     name = "league_name"
     type = "S"
+  }
+
+  # Expire OAuth state records automatically. Only OAUTH_STATE# items carry an
+  # expires_at attribute — items without it (configs, events, etc.) are unaffected.
+  ttl {
+    attribute_name = "expires_at"
+    enabled        = true
   }
 
   global_secondary_index {

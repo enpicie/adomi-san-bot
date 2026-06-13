@@ -8,6 +8,7 @@ from database.models.event_data import EventData
 
 
 def show_registered(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
+    """Shows the list of users registered for an event. Organizer only."""
     error_message = permissions_helper.verify_has_organizer_role(event, aws_services)
     if error_message:
         return error_message
@@ -32,6 +33,7 @@ def show_registered(event: DiscordEvent, aws_services: AWSServices) -> ResponseM
 
 
 def clear_registered(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
+    """Clears all registered users from an event. Organizer only."""
     error_message = permissions_helper.verify_has_organizer_role(event, aws_services)
     if error_message:
         return error_message

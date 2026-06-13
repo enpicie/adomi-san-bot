@@ -1,18 +1,26 @@
 import logging
-import os
 import time
 
 import requests
 
+import scheduled_job_constants as constants
+
 logger = logging.getLogger()
 
-_TOKEN = os.environ["DISCORD_BOT_TOKEN"]
 _DISCORD_API = "https://discord.com/api/v10"
+
+# Discord message flag: suppress link-preview embeds
+# https://discord.com/developers/docs/resources/message#message-object-message-flags
+_SUPPRESS_EMBEDS = 4
+
+
+def _role_ping(role_id) -> str:
+    return f"<@&{role_id}>"
 
 
 def _request(method, url, json=None):
     while True:
-        r = requests.request(method, url, headers={"Authorization": f"Bot {_TOKEN}"}, json=json)
+        r = requests.request(method, url, headers={"Authorization": f"Bot {constants.DISCORD_BOT_TOKEN}"}, json=json)
         if r.status_code != 429:
             return r
         retry_after = r.json().get("retry_after", 1)
@@ -36,7 +44,7 @@ def send_channel_message(channel_id, content):
 
     Returns True on success, None on 403 Forbidden (missing permissions), False on other failure.
     """
-    resp = _request("POST", f"{_DISCORD_API}/channels/{channel_id}/messages", json={"content": content, "flags": 4})
+    resp = _request("POST", f"{_DISCORD_API}/channels/{channel_id}/messages", json={"content": content, "flags": _SUPPRESS_EMBEDS})
     if resp.status_code in (200, 201):
         return True
     if resp.status_code == 403:
@@ -53,8 +61,8 @@ def send_organizer_notification(notification_channel_id, message, organizer_role
     Does not recurse — if this send fails, the error is only logged.
     """
     if ping_organizers and organizer_role:
-        message = f"<@&{organizer_role}> {message}"
-    resp = _request("POST", f"{_DISCORD_API}/channels/{notification_channel_id}/messages", json={"content": message, "flags": 4})
+        message = f"{_role_ping(organizer_role)} {message}"
+    resp = _request("POST", f"{_DISCORD_API}/channels/{notification_channel_id}/messages", json={"content": message, "flags": _SUPPRESS_EMBEDS})
     if resp.status_code not in (200, 201):
         logger.error(
             f"Failed to send organizer notification to channel {notification_channel_id}: {resp.status_code} {resp.text}"
@@ -88,7 +96,7 @@ def edit_channel_message(channel_id, message_id, content):
 
     Returns True on success, None on 403 Forbidden (missing permissions), False on other failure.
     """
-    resp = _request("PATCH", f"{_DISCORD_API}/channels/{channel_id}/messages/{message_id}", json={"content": content, "flags": 4})
+    resp = _request("PATCH", f"{_DISCORD_API}/channels/{channel_id}/messages/{message_id}", json={"content": content, "flags": _SUPPRESS_EMBEDS})
     if resp.status_code == 200:
         return True
     if resp.status_code == 403:

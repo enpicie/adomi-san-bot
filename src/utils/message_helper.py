@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import List, Dict
 
 from database.models.participant import Participant
@@ -11,6 +12,18 @@ def get_channel_mention(channel_id: str) -> str:
 def get_role_ping(role_id: str) -> str:
     return f"<@&{role_id}>"
 
+def get_discord_timestamp(utc_iso: str, style: str = "F") -> str | None:
+    """
+    Converts a UTC ISO-8601 string into a Discord timestamp tag (e.g. <t:1700000000:F>)
+    that Discord renders in each viewer's local timezone.
+    Returns None if the input cannot be parsed.
+    """
+    try:
+        dt = datetime.fromisoformat(utc_iso.replace("Z", "+00:00"))
+        return f"<t:{int(dt.timestamp())}:{style}>"
+    except (ValueError, AttributeError, TypeError):
+        return None
+
 def build_participants_list(list_header: str, participants: List[Dict]) -> str:
     """
     Builds a sorted, numbered list of participants using direct attribute access.
@@ -19,9 +32,8 @@ def build_participants_list(list_header: str, participants: List[Dict]) -> str:
     if len(participants) == 0:
         return f"{list_header}\nNo participants"
 
-    print(f"Building participants list for {participants}")
+    print(f"[message] Building participants list for {len(participants)} participants")
 
-    # Sort the participants list by their display_name attribute
     sorted_participants = sorted(
         participants,
         key=lambda p: p[Participant.Keys.DISPLAY_NAME]

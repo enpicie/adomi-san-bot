@@ -1,6 +1,7 @@
 import json
 import time
 
+import commands.check_in.check_in_constants as check_in_constants
 import constants
 import database.dynamodb_utils as db_helper
 import utils.message_helper as message_helper
@@ -10,13 +11,11 @@ from commands.models.discord_event import DiscordEvent
 from commands.models.response_message import ResponseMessage
 from database.models.league_data import LeagueData
 
-LEAGUE_ID_MAX_LENGTH = 4
-
 
 def _dispatch_to_sheets_agent(command_name: str, event: DiscordEvent, aws_services: AWSServices) -> None:
     payload = json.dumps({"command_name": command_name, "event_body": event.event_body, "enqueued_at": time.time()})
     aws_services.sheets_agent_sqs_queue.send_message(MessageBody=payload)
-    print(f"[league_commands] dispatched {command_name!r} to sheets_agent")
+    print(f"[league] dispatched {command_name!r} to sheets_agent")
 
 
 def _parse_role_id(role_input: str) -> str:
@@ -28,12 +27,13 @@ def _parse_role_id(role_input: str) -> str:
 
 def _validate_league_id(league_id: str) -> str | None:
     """Returns an error message string if invalid, otherwise None."""
-    if len(league_id) > LEAGUE_ID_MAX_LENGTH:
-        return f"❌ League ID must be {LEAGUE_ID_MAX_LENGTH} characters or fewer."
+    if len(league_id) > LeagueData.LEAGUE_ID_MAX_LENGTH:
+        return f"❌ League ID must be {LeagueData.LEAGUE_ID_MAX_LENGTH} characters or fewer."
     return None
 
 
 def create_league(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
+    """Creates a new league record linked to a Google Sheet. Organizer only."""
     error_message = permissions_helper.verify_has_organizer_role(event, aws_services)
     if error_message:
         return error_message
@@ -78,6 +78,7 @@ def create_league(event: DiscordEvent, aws_services: AWSServices) -> ResponseMes
 
 
 def update_league(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
+    """Updates a league's name, sheet link, and/or active participant role. Organizer only."""
     error_message = permissions_helper.verify_has_organizer_role(event, aws_services)
     if error_message:
         return error_message
@@ -119,15 +120,16 @@ def update_league(event: DiscordEvent, aws_services: AWSServices) -> ResponseMes
     if new_name:
         changes.append(f"📝 Name: `{league_data.league_name}` → `{new_name}`")
     if new_link:
-        changes.append(f"📊 Google Sheets link updated")
+        changes.append("📊 Google Sheets link updated")
     if new_role:
-        changes.append(f"🎭 Active participant role updated")
+        changes.append("🎭 Active participant role updated")
 
     change_summary = "\n".join(f"• {c}" for c in changes)
     return ResponseMessage(content=f"✅ League `{league_id}` updated:\n{change_summary}")
 
 
 def list_leagues(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
+    """Lists all leagues for this server. Organizer only."""
     error_message = permissions_helper.verify_has_organizer_role(event, aws_services)
     if error_message:
         return error_message
@@ -143,6 +145,7 @@ def list_leagues(event: DiscordEvent, aws_services: AWSServices) -> ResponseMess
 
 
 def view_league(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
+    """Shows a league's details: sheet link, player count, toggles, and role. Organizer only."""
     error_message = permissions_helper.verify_has_organizer_role(event, aws_services)
     if error_message:
         return error_message
@@ -169,16 +172,19 @@ def view_league(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessa
 
 
 def setup_league(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
+    """Dispatches a job to initialize the Participants sheet in the league's Google Sheet."""
     _dispatch_to_sheets_agent("league-setup", event, aws_services)
     return ResponseMessage(content="⏳ Setting up the Participants sheet...")
 
 
 def join_league(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
+    """Dispatches a job to add the calling user to the league's participant sheet."""
     _dispatch_to_sheets_agent("league-join", event, aws_services)
     return ResponseMessage(content="⏳ Adding you to the league...")
 
 
 def toggle_join_league(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
+    """Opens or closes joining for a league based on the 'state' input. Organizer only."""
     error_message = permissions_helper.verify_has_organizer_role(event, aws_services)
     if error_message:
         return error_message
@@ -191,8 +197,8 @@ def toggle_join_league(event: DiscordEvent, aws_services: AWSServices) -> Respon
         return league_data
 
     join_state = event.get_command_input_value("state")
-    should_enable = join_state == "Start"
-    print(f"{LeagueData.Keys.JOIN_ENABLED}: {should_enable} via input {join_state}")
+    should_enable = join_state == check_in_constants.START_PARAM
+    print(f"[league] {LeagueData.Keys.JOIN_ENABLED}: {should_enable} via input {join_state}")
 
     aws_services.dynamodb_table.update_item(
         Key={"PK": db_helper.build_server_pk(server_id), "SK": LeagueData.Keys.SK_LEAGUE_PREFIX + league_data.league_id},
@@ -209,11 +215,13 @@ def toggle_join_league(event: DiscordEvent, aws_services: AWSServices) -> Respon
 
 
 def sync_active_participants(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
+    """Dispatches a job to sync active participants (and their role) from the league's sheet."""
     _dispatch_to_sheets_agent("league-sync-participants", event, aws_services)
     return ResponseMessage(content="⏳ Syncing participants from the sheet... This may take a few minutes.")
 
 
 def report_score(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
+    """Dispatches a job to record a league match result in the score sheet, if reporting is open."""
     server_id = event.get_server_id()
     league_id = event.get_command_input_value("league_name")  # autocomplete value = league_id
 
@@ -229,6 +237,7 @@ def report_score(event: DiscordEvent, aws_services: AWSServices) -> ResponseMess
 
 
 def toggle_report_score(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
+    """Opens or closes score reporting for a league based on the 'state' input. Organizer only."""
     error_message = permissions_helper.verify_has_organizer_role(event, aws_services)
     if error_message:
         return error_message
@@ -241,8 +250,8 @@ def toggle_report_score(event: DiscordEvent, aws_services: AWSServices) -> Respo
         return league_data
 
     report_state = event.get_command_input_value("state")
-    should_enable = report_state == "Start"
-    print(f"{LeagueData.Keys.REPORT_ENABLED}: {should_enable} via input {report_state}")
+    should_enable = report_state == check_in_constants.START_PARAM
+    print(f"[league] {LeagueData.Keys.REPORT_ENABLED}: {should_enable} via input {report_state}")
 
     aws_services.dynamodb_table.update_item(
         Key={"PK": db_helper.build_server_pk(server_id), "SK": LeagueData.Keys.SK_LEAGUE_PREFIX + league_data.league_id},
@@ -259,6 +268,7 @@ def toggle_report_score(event: DiscordEvent, aws_services: AWSServices) -> Respo
 
 
 def delete_league(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
+    """Deletes a league record from DynamoDB. Organizer only."""
     error_message = permissions_helper.verify_has_organizer_role(event, aws_services)
     if error_message:
         return error_message
@@ -278,6 +288,7 @@ def delete_league(event: DiscordEvent, aws_services: AWSServices) -> ResponseMes
 
 
 def deactivate_league_participant(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
+    """Dispatches a job to mark the caller (or, for organizers, another player) inactive in the sheet."""
     if event.get_command_input_value("player"):
         error_message = permissions_helper.verify_has_organizer_role(event, aws_services)
         if error_message:

@@ -1,5 +1,6 @@
 from discord import AppCommandOptionType
 
+import commands.check_in.check_in_constants as check_in_constants
 from commands.models.command_mapping import CommandMapping
 from commands.models.command_param import CommandParam, ParamChoice
 import commands.league.league_commands as league_commands
@@ -102,8 +103,8 @@ league_commands_mapping: CommandMapping = {
                 param_type=AppCommandOptionType.string,
                 required=True,
                 choices=[
-                    ParamChoice(name="Start", value="Start"),
-                    ParamChoice(name="End", value="End")
+                    ParamChoice(name="Start", value=check_in_constants.START_PARAM),
+                    ParamChoice(name="End", value=check_in_constants.END_PARAM)
                 ]
             )
         ]
@@ -124,8 +125,8 @@ league_commands_mapping: CommandMapping = {
                 param_type=AppCommandOptionType.string,
                 required=True,
                 choices=[
-                    ParamChoice(name="Start", value="Start"),
-                    ParamChoice(name="End", value="End")
+                    ParamChoice(name="Start", value=check_in_constants.START_PARAM),
+                    ParamChoice(name="End", value=check_in_constants.END_PARAM)
                 ]
             )
         ]

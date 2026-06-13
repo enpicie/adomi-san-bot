@@ -6,8 +6,6 @@ from database.models.subscriptable_mixin import SubscriptableMixin
 @dataclass
 class EventData(SubscriptableMixin):
     class Keys:
-        PK_FIELD = "pk"
-        SK_FIELD = "sk"
         SK_EVENT_PREFIX = "EVENT#"
         SERVER_ID = "server_id"
         EVENT_ID = "event_id"

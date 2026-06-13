@@ -33,7 +33,7 @@ REPORT_SET_MUTATION = """
 """
 
 EVENT_PARTICIPANTS_QUERY = """
-    query EventEntrants($slug: String) {
+    query EventEntrants($slug: String, $page: Int!) {
         event(slug: $slug) {
             id
             name
@@ -44,7 +44,7 @@ EVENT_PARTICIPANTS_QUERY = """
                 venueName
             }
             entrants(query: {
-                page: 1
+                page: $page
                 perPage: 75
             }) {
                 pageInfo {

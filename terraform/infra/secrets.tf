@@ -8,9 +8,10 @@ resource "aws_secretsmanager_secret_version" "startgg_api_token" {
   secret_string = var.startgg_api_key
 }
 
-# Secret already exists and is populated manually - import as data source
+# Secret already exists and is populated manually - import as data source.
+# Name is single-sourced from config.env (GOOGLE_SHEETS_SECRET_NAME) via the deploy workflow.
 data "aws_secretsmanager_secret" "sheets_credentials" {
-  name = "${var.app_name}/sheets-service-account"
+  name = var.google_sheets_secret_name
 }
 
 resource "aws_iam_role_policy" "lambda_secrets_policy" {

@@ -1,5 +1,8 @@
 resource "aws_sqs_queue" "sheets_agent" {
-  name                       = "${var.sheets_agent_name}-${var.deployment_env}"
+  name = "${var.sheets_agent_name}-${var.deployment_env}"
+
+  # Must exceed the sheets_agent Lambda timeout (480s below) so a message is not
+  # redelivered while a consumer invocation is still running.
   visibility_timeout_seconds = 540
   message_retention_seconds  = 86400
 }

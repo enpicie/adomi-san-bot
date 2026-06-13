@@ -1,1 +1,2 @@
-requests>=2.31.0
+requests>=2.31,<3
+# boto3 is provided by the AWS Lambda runtime; declare+pin here if a specific version is required

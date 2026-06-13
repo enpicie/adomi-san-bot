@@ -9,8 +9,16 @@ TOKEN = os.environ["DISCORD_BOT_TOKEN"]
 _DISCORD_API = "https://discord.com/api/v10"
 _HEADERS = {"Authorization": f"Bot {TOKEN}"}
 
+# Discord message flag: suppress link-preview embeds
+# https://discord.com/developers/docs/resources/message#message-object-message-flags
+_SUPPRESS_EMBEDS = 4
+
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
+
+
+def _role_ping(role_id) -> str:
+    return f"<@&{role_id}>"
 
 
 def _discord_request(method, url, **kwargs):
@@ -23,13 +31,15 @@ def _discord_request(method, url, **kwargs):
 
 def _notify(notification_channel_id, message, organizer_role=None, ping_organizers=False):
     if ping_organizers and organizer_role:
-        message = f"<@&{organizer_role}> {message}"
-    resp = _discord_request("POST", f"{_DISCORD_API}/channels/{notification_channel_id}/messages", json={"content": message, "flags": 4})
+        message = f"{_role_ping(organizer_role)} {message}"
+    resp = _discord_request("POST", f"{_DISCORD_API}/channels/{notification_channel_id}/messages", json={"content": message, "flags": _SUPPRESS_EMBEDS})
     if resp.status_code not in (200, 201):
         logger.error(f"Failed to send notification to channel {notification_channel_id}: {resp.status_code} {resp.text}")
 
 
 def handler(event, context):
+    """SQS-triggered Lambda: removes a Discord role from a user per queued message,
+    notifying organizers when the bot lacks permission to do so."""
     for record in event["Records"]:
         payload = json.loads(record["body"])
 
@@ -44,6 +54,10 @@ def handler(event, context):
 
         resp = _discord_request("DELETE", url)
         if resp.status_code in (204, 200):
+            continue
+
+        if resp.status_code == 404:
+            logger.info(f"Skipping role removal for user {user_id} in guild {guild_id}: user or role {role_id} no longer exists (404)")
             continue
 
         if resp.status_code == 403:

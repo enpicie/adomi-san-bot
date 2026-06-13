@@ -8,11 +8,13 @@ REQUIRE_ORGANIZER_ROLE = "🙅‍♀️ Sorry! Only users with this server's org
 
 
 def get_server_config(server_id: str, table) -> dict | None:
+    """Get the server CONFIG record. Returns item dict or None."""
     response = table.get_item(Key={"PK": f"{_SERVER_PK_PREFIX}{server_id}", "SK": _CONFIG_SK})
     return response.get("Item")
 
 
 def get_league_data(server_id: str, league_id: str, table) -> dict | None:
+    """Get a league's LEAGUE record for a server. Returns item dict or None."""
     response = table.get_item(Key={"PK": f"{_SERVER_PK_PREFIX}{server_id}", "SK": f"{_LEAGUE_SK_PREFIX}{league_id}"})
     return response.get("Item")
 
@@ -31,10 +33,12 @@ def verify_organizer(event_body: dict, table) -> str | None:
 
 
 def get_command_input(event_body: dict, name: str) -> str | None:
+    """Return the value of a named slash-command option from the interaction body, or None."""
     options = event_body.get("data", {}).get("options", [])
     option = next((o for o in options if o["name"] == name), None)
     return option["value"] if option else None
 
 
 def league_key(server_id: str, league_id: str) -> dict:
+    """Build the DynamoDB primary key dict for a league record."""
     return {"PK": f"{_SERVER_PK_PREFIX}{server_id}", "SK": f"{_LEAGUE_SK_PREFIX}{league_id}"}

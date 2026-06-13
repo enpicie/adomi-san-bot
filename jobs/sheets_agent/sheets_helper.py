@@ -1,5 +1,6 @@
 import datetime
 import json
+import logging
 import re
 import time
 
@@ -12,12 +13,11 @@ import constants
 import discord_api
 import participants_sheet
 import report_log
-from participants_sheet import (
-    SHEET_NAME as PARTICIPANTS_SHEET,
-    SHEET_RANGE as PARTICIPANTS_RANGE,
-    COLUMN_HEADERS,
-    ParticipantsColumn,
-)
+
+logger = logging.getLogger()
+
+# Brief pause between Discord API calls to avoid rate limits
+_API_CALL_PAUSE_SECONDS = 0.5
 
 _SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 _SHEETS_ID_PATTERN = re.compile(r"/spreadsheets/d/([a-zA-Z0-9-_]+)")
@@ -38,7 +38,7 @@ def _get_sheets_service():
     global _sheets_service
     if _sheets_service is None:
         secret_name = constants.GOOGLE_SHEETS_SECRET_NAME
-        print(f"[sheets] _get_sheets_service: loading credentials from secret={secret_name!r}")
+        logger.info(f"[sheets] _get_sheets_service: loading credentials from secret={secret_name!r}")
         client = boto3.client("secretsmanager", region_name=constants.AWS_REGION)
         response = client.get_secret_value(SecretId=secret_name)
         raw = response.get("SecretString", "")
@@ -57,20 +57,22 @@ def _get_sheets_service():
             service_account_info, scopes=_SCOPES
         )
         _sheets_service = build("sheets", "v4", credentials=creds)
-        print(f"[sheets] _get_sheets_service: service initialized OK")
+        logger.info("[sheets] _get_sheets_service: service initialized OK")
     return _sheets_service
 
 
 def extract_spreadsheet_id(url: str) -> str | None:
+    """Extract the spreadsheet ID from a Google Sheets URL, or None if the URL doesn't match."""
     match = _SHEETS_ID_PATTERN.search(url)
     return match.group(1) if match else None
 
 
 def setup_league_participants_sheet(spreadsheet_url: str) -> bool:
-    """Returns True if the Participants tab already existed, False if it was newly created."""
-    """Creates the Participants sheet tab with bold headers. Raises PermissionError if not shared."""
+    """Creates (if needed) and styles the Participants sheet tab with headers and formatting.
+    Returns True if the Participants tab already existed, False if it was newly created.
+    Raises PermissionError if the spreadsheet is not shared with the bot."""
     spreadsheet_id = extract_spreadsheet_id(spreadsheet_url)
-    print(f"[sheets] setup_league_participants_sheet: spreadsheet_id={spreadsheet_id!r}")
+    logger.info(f"[sheets] setup_league_participants_sheet: spreadsheet_id={spreadsheet_id!r}")
     if not spreadsheet_id:
         raise ValueError(f"[sheets] setup_league_participants_sheet: could not extract ID from url={spreadsheet_url!r}")
 
@@ -80,9 +82,9 @@ def setup_league_participants_sheet(spreadsheet_url: str) -> bool:
             spreadsheetId=spreadsheet_id,
             fields="properties.title,sheets.properties,sheets.conditionalFormats",
         ).execute()
-        print(f"[sheets] setup_league_participants_sheet: accessible, title={metadata.get('properties', {}).get('title')!r}")
+        logger.info(f"[sheets] setup_league_participants_sheet: accessible, title={metadata.get('properties', {}).get('title')!r}")
     except HttpError as e:
-        print(f"[sheets] setup_league_participants_sheet: HttpError status={e.resp.status} body={e.content}")
+        logger.error(f"[sheets] setup_league_participants_sheet: HttpError status={e.resp.status} body={e.content}")
         if e.resp.status in (403, 404):
             raise PermissionError(SHEET_NOT_ACCESSIBLE_ERROR)
         raise
@@ -90,29 +92,29 @@ def setup_league_participants_sheet(spreadsheet_url: str) -> bool:
     sheets = metadata.get("sheets", [])
     existing_titles = [s["properties"]["title"] for s in sheets]
 
-    already_existed = PARTICIPANTS_SHEET in existing_titles
+    already_existed = participants_sheet.SHEET_NAME in existing_titles
     if not already_existed:
         result = service.spreadsheets().batchUpdate(
             spreadsheetId=spreadsheet_id,
-            body={"requests": [{"addSheet": {"properties": {"title": PARTICIPANTS_SHEET}}}]}
+            body={"requests": [{"addSheet": {"properties": {"title": participants_sheet.SHEET_NAME}}}]}
         ).execute()
         sheet_id = result["replies"][0]["addSheet"]["properties"]["sheetId"]
         existing_rule_count = 0
-        print(f"[sheets] setup_league_participants_sheet: created Participants tab sheet_id={sheet_id}")
+        logger.info(f"[sheets] setup_league_participants_sheet: created Participants tab sheet_id={sheet_id}")
     else:
-        sheet_data = next(s for s in sheets if s["properties"]["title"] == PARTICIPANTS_SHEET)
+        sheet_data = next(s for s in sheets if s["properties"]["title"] == participants_sheet.SHEET_NAME)
         sheet_id = sheet_data["properties"]["sheetId"]
         existing_rule_count = len(sheet_data.get("conditionalFormats", []))
-        print(f"[sheets] setup_league_participants_sheet: Participants tab exists sheet_id={sheet_id} existing_rules={existing_rule_count}")
+        logger.info(f"[sheets] setup_league_participants_sheet: Participants tab exists sheet_id={sheet_id} existing_rules={existing_rule_count}")
 
     service.spreadsheets().values().update(
         spreadsheetId=spreadsheet_id,
-        range=f"{PARTICIPANTS_SHEET}!A1",
+        range=f"{participants_sheet.SHEET_NAME}!A1",
         valueInputOption="USER_ENTERED",
-        body={"values": [COLUMN_HEADERS + [participants_sheet.CURRENT_ROTATION_LABEL]]}
+        body={"values": [participants_sheet.COLUMN_HEADERS + [participants_sheet.CURRENT_ROTATION_LABEL]]}
     ).execute()
 
-    num_cols = len(COLUMN_HEADERS)
+    num_cols = len(participants_sheet.COLUMN_HEADERS)
     status_col_range = {"sheetId": sheet_id, "startRowIndex": 1, "endRowIndex": 10000, "startColumnIndex": 0, "endColumnIndex": 1}
 
     def _status_rule(status: str, red: float, green: float, blue: float) -> dict:
@@ -150,8 +152,8 @@ def setup_league_participants_sheet(spreadsheet_url: str) -> bool:
                         "range": {
                             "sheetId": sheet_id,
                             "dimension": "COLUMNS",
-                            "startIndex": ParticipantsColumn.PARTICIPANT_NAME,
-                            "endIndex": ParticipantsColumn.PARTICIPANT_NAME + 1,
+                            "startIndex": participants_sheet.ParticipantsColumn.PARTICIPANT_NAME,
+                            "endIndex": participants_sheet.ParticipantsColumn.PARTICIPANT_NAME + 1,
                         },
                         "properties": {"pixelSize": 200},
                         "fields": "pixelSize",
@@ -162,8 +164,8 @@ def setup_league_participants_sheet(spreadsheet_url: str) -> bool:
                         "range": {
                             "sheetId": sheet_id,
                             "dimension": "COLUMNS",
-                            "startIndex": ParticipantsColumn.NOTES,
-                            "endIndex": ParticipantsColumn.NOTES + 1,
+                            "startIndex": participants_sheet.ParticipantsColumn.NOTES,
+                            "endIndex": participants_sheet.ParticipantsColumn.NOTES + 1,
                         },
                         "properties": {"pixelSize": 400},
                         "fields": "pixelSize",
@@ -238,8 +240,8 @@ def setup_league_participants_sheet(spreadsheet_url: str) -> bool:
                     "updateBorders": {
                         "range": {
                             "sheetId": sheet_id,
-                            "startColumnIndex": ParticipantsColumn.NOTES,
-                            "endColumnIndex": ParticipantsColumn.NOTES + 1,
+                            "startColumnIndex": participants_sheet.ParticipantsColumn.NOTES,
+                            "endColumnIndex": participants_sheet.ParticipantsColumn.NOTES + 1,
                         },
                         "right": {
                             "style": "SOLID_MEDIUM",
@@ -300,7 +302,7 @@ def setup_league_participants_sheet(spreadsheet_url: str) -> bool:
             ]
         }
     ).execute()
-    print(f"[sheets] setup_league_participants_sheet: headers and formatting applied OK already_existed={already_existed}")
+    logger.info(f"[sheets] setup_league_participants_sheet: headers and formatting applied OK already_existed={already_existed}")
     return already_existed
 
 
@@ -308,27 +310,27 @@ def append_league_participant(spreadsheet_url: str, discord_id: str, participant
     """Appends a participant row to the Participants sheet. Raises PermissionError if not shared,
     SheetNotSetupError if the Participants tab doesn't exist."""
     spreadsheet_id = extract_spreadsheet_id(spreadsheet_url)
-    print(f"[sheets] append_league_participant: spreadsheet_id={spreadsheet_id!r} discord_id={discord_id!r} name={participant_name!r}")
+    logger.info(f"[sheets] append_league_participant: spreadsheet_id={spreadsheet_id!r} discord_id={discord_id!r} name={participant_name!r}")
     if not spreadsheet_id:
         raise ValueError(f"[sheets] append_league_participant: could not extract ID from url={spreadsheet_url!r}")
 
-    row = [""] * len(COLUMN_HEADERS)
-    row[ParticipantsColumn.DISCORD_ID] = discord_id
-    row[ParticipantsColumn.PARTICIPANT_NAME] = participant_name
-    row[ParticipantsColumn.STATUS] = participants_sheet.STATUS_QUEUED
+    row = [""] * len(participants_sheet.COLUMN_HEADERS)
+    row[participants_sheet.ParticipantsColumn.DISCORD_ID] = discord_id
+    row[participants_sheet.ParticipantsColumn.PARTICIPANT_NAME] = participant_name
+    row[participants_sheet.ParticipantsColumn.STATUS] = participants_sheet.STATUS_QUEUED
 
     try:
         service = _get_sheets_service()
         service.spreadsheets().values().append(
             spreadsheetId=spreadsheet_id,
-            range=PARTICIPANTS_RANGE,
+            range=participants_sheet.SHEET_RANGE,
             valueInputOption="USER_ENTERED",
             insertDataOption="OVERWRITE",
             body={"values": [row]},
         ).execute()
-        print(f"[sheets] append_league_participant: appended OK discord_id={discord_id!r}")
+        logger.info(f"[sheets] append_league_participant: appended OK discord_id={discord_id!r}")
     except HttpError as e:
-        print(f"[sheets] append_league_participant: HttpError status={e.resp.status} body={e.content}")
+        logger.error(f"[sheets] append_league_participant: HttpError status={e.resp.status} body={e.content}")
         if e.resp.status in (403, 404):
             raise PermissionError(SHEET_NOT_ACCESSIBLE_ERROR)
         if e.resp.status == 400:
@@ -340,7 +342,7 @@ def find_participant(spreadsheet_url: str, discord_id: str) -> tuple[int | None,
     """Returns (sheet_row_number, status) for a participant matched by discord_id, or (None, None) if not found.
     sheet_row_number is 1-based (row 2 = first data row). Raises PermissionError if not shared."""
     spreadsheet_id = extract_spreadsheet_id(spreadsheet_url)
-    print(f"[sheets] find_participant: spreadsheet_id={spreadsheet_id!r} discord_id={discord_id!r}")
+    logger.info(f"[sheets] find_participant: spreadsheet_id={spreadsheet_id!r} discord_id={discord_id!r}")
     if not spreadsheet_id:
         raise ValueError(f"[sheets] find_participant: could not extract ID from url={spreadsheet_url!r}")
 
@@ -348,7 +350,7 @@ def find_participant(spreadsheet_url: str, discord_id: str) -> tuple[int | None,
         service = _get_sheets_service()
         result = service.spreadsheets().values().get(
             spreadsheetId=spreadsheet_id,
-            range=PARTICIPANTS_RANGE,
+            range=participants_sheet.SHEET_RANGE,
         ).execute()
     except HttpError as e:
         if e.resp.status in (403, 404):
@@ -357,20 +359,20 @@ def find_participant(spreadsheet_url: str, discord_id: str) -> tuple[int | None,
 
     rows = result.get("values", [])
     for i, row in enumerate(rows[1:], start=2):
-        row_id = row[ParticipantsColumn.DISCORD_ID] if len(row) > ParticipantsColumn.DISCORD_ID else ""
+        row_id = row[participants_sheet.ParticipantsColumn.DISCORD_ID] if len(row) > participants_sheet.ParticipantsColumn.DISCORD_ID else ""
         if row_id == discord_id:
-            status = row[ParticipantsColumn.STATUS] if len(row) > ParticipantsColumn.STATUS else ""
-            print(f"[sheets] find_participant: found discord_id={discord_id!r} at row={i} status={status!r}")
+            status = row[participants_sheet.ParticipantsColumn.STATUS] if len(row) > participants_sheet.ParticipantsColumn.STATUS else ""
+            logger.info(f"[sheets] find_participant: found discord_id={discord_id!r} at row={i} status={status!r}")
             return i, status
 
-    print(f"[sheets] find_participant: discord_id={discord_id!r} not found")
+    logger.info(f"[sheets] find_participant: discord_id={discord_id!r} not found")
     return None, None
 
 
 def update_participant_status(spreadsheet_url: str, row_number: int, new_status: str) -> None:
     """Updates the Status cell of a participant row. Raises PermissionError if not shared."""
     spreadsheet_id = extract_spreadsheet_id(spreadsheet_url)
-    print(f"[sheets] update_participant_status: spreadsheet_id={spreadsheet_id!r} row={row_number} status={new_status!r}")
+    logger.info(f"[sheets] update_participant_status: spreadsheet_id={spreadsheet_id!r} row={row_number} status={new_status!r}")
     if not spreadsheet_id:
         raise ValueError(f"[sheets] update_participant_status: could not extract ID from url={spreadsheet_url!r}")
 
@@ -378,11 +380,11 @@ def update_participant_status(spreadsheet_url: str, row_number: int, new_status:
         service = _get_sheets_service()
         service.spreadsheets().values().update(
             spreadsheetId=spreadsheet_id,
-            range=f"{PARTICIPANTS_SHEET}!A{row_number}",
+            range=f"{participants_sheet.SHEET_NAME}!A{row_number}",
             valueInputOption="USER_ENTERED",
             body={"values": [[new_status]]},
         ).execute()
-        print(f"[sheets] update_participant_status: updated OK row={row_number} status={new_status!r}")
+        logger.info(f"[sheets] update_participant_status: updated OK row={row_number} status={new_status!r}")
     except HttpError as e:
         if e.resp.status in (403, 404):
             raise PermissionError(SHEET_NOT_ACCESSIBLE_ERROR)
@@ -400,7 +402,7 @@ def get_active_participants(spreadsheet_url: str, guild_id: str) -> dict:
     Raises PermissionError if not shared.
     """
     spreadsheet_id = extract_spreadsheet_id(spreadsheet_url)
-    print(f"[sheets] get_active_participants: spreadsheet_id={spreadsheet_id!r}")
+    logger.info(f"[sheets] get_active_participants: spreadsheet_id={spreadsheet_id!r}")
     if not spreadsheet_id:
         raise ValueError(f"[sheets] get_active_participants: could not extract ID from url={spreadsheet_url!r}")
 
@@ -408,53 +410,53 @@ def get_active_participants(spreadsheet_url: str, guild_id: str) -> dict:
         service = _get_sheets_service()
         result = service.spreadsheets().values().get(
             spreadsheetId=spreadsheet_id,
-            range=PARTICIPANTS_RANGE,
+            range=participants_sheet.SHEET_RANGE,
         ).execute()
     except HttpError as e:
-        print(f"[sheets] get_active_participants: HttpError status={e.resp.status} body={e.content}")
+        logger.error(f"[sheets] get_active_participants: HttpError status={e.resp.status} body={e.content}")
         if e.resp.status in (403, 404):
             raise PermissionError(SHEET_NOT_ACCESSIBLE_ERROR)
         raise
 
     rows = result.get("values", [])
-    print(f"[sheets] get_active_participants: got {len(rows)} rows (including header)")
+    logger.info(f"[sheets] get_active_participants: got {len(rows)} rows (including header)")
     active = {}
     missing_id = []
 
     for i, row in enumerate(rows[1:], start=2):
-        status = _cell_value(row, ParticipantsColumn.STATUS)
+        status = _cell_value(row, participants_sheet.ParticipantsColumn.STATUS)
         if status != participants_sheet.STATUS_ACTIVE:
             continue
-        discord_id = _cell_value(row, ParticipantsColumn.DISCORD_ID)
-        participant_name = _cell_value(row, ParticipantsColumn.PARTICIPANT_NAME)
+        discord_id = _cell_value(row, participants_sheet.ParticipantsColumn.DISCORD_ID)
+        participant_name = _cell_value(row, participants_sheet.ParticipantsColumn.PARTICIPANT_NAME)
 
         if discord_id:
             active[discord_id] = participant_name
             continue
 
         # No Discord ID — attempt to resolve by display name
-        print(f"[sheets] get_active_participants: row {i} has no Discord ID, searching by display name={participant_name!r}")
+        logger.info(f"[sheets] get_active_participants: row {i} has no Discord ID, searching by display name={participant_name!r}")
         match = discord_api.search_member_by_display_name(guild_id, participant_name)
-        time.sleep(0.5)
+        time.sleep(_API_CALL_PAUSE_SECONDS)
 
         if match:
             _, username_handle = match
-            print(f"[sheets] get_active_participants: resolved row {i} name={participant_name!r} -> handle={username_handle!r}")
+            logger.info(f"[sheets] get_active_participants: resolved row {i} name={participant_name!r} -> handle={username_handle!r}")
             try:
                 service.spreadsheets().values().update(
                     spreadsheetId=spreadsheet_id,
-                    range=f"{PARTICIPANTS_SHEET}!B{i}",
+                    range=f"{participants_sheet.SHEET_NAME}!B{i}",
                     valueInputOption="USER_ENTERED",
                     body={"values": [[username_handle]]},
                 ).execute()
             except HttpError as e:
-                print(f"[sheets] get_active_participants: failed to write handle for row {i}: {e}")
+                logger.warning(f"[sheets] get_active_participants: failed to write handle for row {i}: {e}")
             active[username_handle] = participant_name
         else:
-            print(f"[sheets] get_active_participants: could not resolve display name={participant_name!r} at row {i}")
+            logger.warning(f"[sheets] get_active_participants: could not resolve display name={participant_name!r} at row {i}")
             missing_id.append({"participant_name": participant_name, "row_number": i})
 
-    print(f"[sheets] get_active_participants: {len(active)} resolved, {len(missing_id)} unresolvable")
+    logger.info(f"[sheets] get_active_participants: {len(active)} resolved, {len(missing_id)} unresolvable")
     return {"active": active, "missing_id": missing_id}
 
 
@@ -470,15 +472,18 @@ def get_score_report_data(spreadsheet_url: str, winner_id: str, loser_id: str) -
     if not spreadsheet_id:
         raise ValueError(f"[sheets] get_score_report_data: could not extract ID from url={spreadsheet_url!r}")
 
-    current_rotation_range = f"{PARTICIPANTS_SHEET}!K1"
+    # A1 cell of the Current Rotation value: CURRENT_ROTATION_VALUE_COL (0-based index 10)
+    # maps to column letter "K", row 1 — i.e. "K1".
+    current_rotation_cell = f"{chr(ord('A') + participants_sheet.CURRENT_ROTATION_VALUE_COL)}1"
+    current_rotation_range = f"{participants_sheet.SHEET_NAME}!{current_rotation_cell}"
     try:
         service = _get_sheets_service()
         result = service.spreadsheets().values().batchGet(
             spreadsheetId=spreadsheet_id,
-            ranges=[PARTICIPANTS_RANGE, current_rotation_range],
+            ranges=[participants_sheet.SHEET_RANGE, current_rotation_range],
         ).execute()
     except HttpError as e:
-        print(f"[sheets] get_score_report_data: HttpError status={e.resp.status} body={e.content}")
+        logger.error(f"[sheets] get_score_report_data: HttpError status={e.resp.status} body={e.content}")
         if e.resp.status in (403, 404):
             raise PermissionError(SHEET_NOT_ACCESSIBLE_ERROR)
         raise
@@ -491,10 +496,10 @@ def get_score_report_data(spreadsheet_url: str, winner_id: str, loser_id: str) -
 
     winner_row = loser_row = None
     for row in rows[1:]:
-        rid = _cell_value(row, ParticipantsColumn.DISCORD_ID)
-        if rid == winner_id:
+        row_discord_id = _cell_value(row, participants_sheet.ParticipantsColumn.DISCORD_ID)
+        if row_discord_id == winner_id:
             winner_row = row
-        elif rid == loser_id:
+        elif row_discord_id == loser_id:
             loser_row = row
         if winner_row is not None and loser_row is not None:
             break
@@ -504,10 +509,10 @@ def get_score_report_data(spreadsheet_url: str, winner_id: str, loser_id: str) -
     if loser_row is None:
         raise ValueError(f"Loser `@{loser_id}` not found in the Participants sheet.")
 
-    winner_tier  = _cell_value(winner_row, ParticipantsColumn.TIER)
-    winner_group = _cell_value(winner_row, ParticipantsColumn.GROUP_NUMBER)
-    loser_tier   = _cell_value(loser_row,  ParticipantsColumn.TIER)
-    loser_group  = _cell_value(loser_row,  ParticipantsColumn.GROUP_NUMBER)
+    winner_tier  = _cell_value(winner_row, participants_sheet.ParticipantsColumn.TIER)
+    winner_group = _cell_value(winner_row, participants_sheet.ParticipantsColumn.GROUP_NUMBER)
+    loser_tier   = _cell_value(loser_row,  participants_sheet.ParticipantsColumn.TIER)
+    loser_group  = _cell_value(loser_row,  participants_sheet.ParticipantsColumn.GROUP_NUMBER)
 
     if winner_tier != loser_tier or winner_group != loser_group:
         raise ValueError(
@@ -515,17 +520,17 @@ def get_score_report_data(spreadsheet_url: str, winner_id: str, loser_id: str) -
             f"`@{loser_id}` is Tier {loser_tier or '?'} Group {loser_group or '?'}."
         )
 
-    winner_wins_row   = _cell_value(winner_row, ParticipantsColumn.WINS_ROW)
-    winner_losses_col = _cell_value(winner_row, ParticipantsColumn.LOSSES_COL)
-    loser_wins_row    = _cell_value(loser_row,  ParticipantsColumn.WINS_ROW)
-    loser_losses_col  = _cell_value(loser_row,  ParticipantsColumn.LOSSES_COL)
+    winner_wins_row   = _cell_value(winner_row, participants_sheet.ParticipantsColumn.WINS_ROW)
+    winner_losses_col = _cell_value(winner_row, participants_sheet.ParticipantsColumn.LOSSES_COL)
+    loser_wins_row    = _cell_value(loser_row,  participants_sheet.ParticipantsColumn.WINS_ROW)
+    loser_losses_col  = _cell_value(loser_row,  participants_sheet.ParticipantsColumn.LOSSES_COL)
 
     if not winner_wins_row or not winner_losses_col:
         raise ValueError(f"`@{winner_id}` is missing Wins Row or Losses Col data in the Participants sheet.")
     if not loser_wins_row or not loser_losses_col:
         raise ValueError(f"`@{loser_id}` is missing Wins Row or Losses Col data in the Participants sheet.")
 
-    print(
+    logger.info(
         f"[sheets] get_score_report_data: winner={winner_id!r} wins_row={winner_wins_row} losses_col={winner_losses_col} | "
         f"loser={loser_id!r} wins_row={loser_wins_row} losses_col={loser_losses_col} | rotation={current_rotation!r}"
     )
@@ -557,7 +562,7 @@ def update_score_cells(
     winner_cell = f"{rotation}!{score_data['loser_losses_col']}{score_data['winner_wins_row']}"
     # Loser's win cell: loser's row × winner's loss column
     loser_cell  = f"{rotation}!{score_data['winner_losses_col']}{score_data['loser_wins_row']}"
-    print(f"[sheets] update_score_cells: winner_cell={winner_cell!r} loser_cell={loser_cell!r}")
+    logger.info(f"[sheets] update_score_cells: winner_cell={winner_cell!r} loser_cell={loser_cell!r}")
 
     try:
         service = _get_sheets_service()
@@ -583,11 +588,11 @@ def update_score_cells(
                 ],
             },
         ).execute()
-        print(f"[sheets] update_score_cells: wrote winner={winner_score} loser={loser_score} (prev: {prev_winner!r}, {prev_loser!r})")
+        logger.info(f"[sheets] update_score_cells: wrote winner={winner_score} loser={loser_score} (prev: {prev_winner!r}, {prev_loser!r})")
         return prev_winner, prev_loser
 
     except HttpError as e:
-        print(f"[sheets] update_score_cells: HttpError status={e.resp.status} body={e.content}")
+        logger.error(f"[sheets] update_score_cells: HttpError status={e.resp.status} body={e.content}")
         if e.resp.status in (403, 404):
             raise PermissionError(SHEET_NOT_ACCESSIBLE_ERROR)
         raise
@@ -665,7 +670,7 @@ def append_report_log(
                     ]
                 },
             ).execute()
-            print(f"[sheets] append_report_log: created {report_log.SHEET_NAME} tab with headers and styling")
+            logger.info(f"[sheets] append_report_log: created {report_log.SHEET_NAME} tab with headers and styling")
 
         timestamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
         row = [""] * len(report_log.COLUMN_HEADERS)
@@ -685,10 +690,10 @@ def append_report_log(
             insertDataOption="INSERT_ROWS",
             body={"values": [row]},
         ).execute()
-        print(f"[sheets] append_report_log: logged {winner_id} def {loser_id} {winner_score}-{loser_score}")
+        logger.info(f"[sheets] append_report_log: logged {winner_id} def {loser_id} {winner_score}-{loser_score}")
 
     except HttpError as e:
-        print(f"[sheets] append_report_log: HttpError status={e.resp.status} body={e.content}")
+        logger.error(f"[sheets] append_report_log: HttpError status={e.resp.status} body={e.content}")
         if e.resp.status in (403, 404):
             raise PermissionError(SHEET_NOT_ACCESSIBLE_ERROR)
         raise

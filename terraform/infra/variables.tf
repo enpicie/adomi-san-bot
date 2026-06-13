@@ -37,7 +37,6 @@ variable "python_runtime" {
 variable "architecture" {
   description = "Architecture for Lambda (e.g., x86_64, arm64)"
   type        = string
-  default     = "arm64"
 }
 
 
@@ -79,6 +78,7 @@ variable "discord_public_key" {
 variable "discord_bot_token" {
   description = "Discord bot token for authenticating with Discord API"
   type        = string
+  sensitive   = true
 }
 
 variable "startgg_api_key" {
@@ -115,5 +115,15 @@ variable "oauth_callback_lambda_layer_s3_key" {
 
 variable "oauth_callback_lambda_layer_hash_s3_key" {
   description = "S3 key for the hash file of the start.gg OAuth callback Lambda layer zip"
+  type        = string
+}
+
+variable "dynamodb_table_name" {
+  description = "Full name of the DynamoDB table (base name + env, assembled by the deploy workflow)"
+  type        = string
+}
+
+variable "google_sheets_secret_name" {
+  description = "Name of the Google Sheets service account secret in AWS Secrets Manager"
   type        = string
 }

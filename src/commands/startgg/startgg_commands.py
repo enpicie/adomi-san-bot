@@ -1,8 +1,8 @@
-import os
 import re
 import secrets
 import time
 
+import constants
 from aws_services import AWSServices
 from commands.models.discord_event import DiscordEvent
 from commands.models.response_message import ResponseMessage
@@ -10,6 +10,7 @@ import commands.event.startgg.startgg_api as startgg_api
 from commands.event.startgg.startgg_api import StartggAuthError, StartggPermissionError
 import database.dynamodb_utils as db_helper
 from database.models.oauth_state import OAuthState
+import utils.message_helper as message_helper
 import utils.permissions_helper as permissions_helper
 
 _SCORE_PATTERN = re.compile(r"^(\d+)-(\d+)$")
@@ -26,13 +27,48 @@ _AUTH_EXPIRED_MSG = (
 )
 
 
+def _parse_score(score_str: str) -> tuple[int, int] | None:
+    """Parses a '<winner>-<loser>' score string into (winner_games, loser_games), or None if invalid."""
+    score_match = _SCORE_PATTERN.match(score_str.strip())
+    if not score_match:
+        return None
+    return int(score_match.group(1)), int(score_match.group(2))
+
+
+def build_set_game_data(winner_games: int, loser_games: int, winner_entrant_id, loser_entrant_id) -> list[dict]:
+    """Builds the per-game start.gg gameData list: the winner takes games 1..winner_games, the loser the rest."""
+    game_data = []
+    for game_num in range(1, winner_games + loser_games + 1):
+        game_winner_id = winner_entrant_id if game_num <= winner_games else loser_entrant_id
+        game_data.append({"winnerId": game_winner_id, "gameNum": game_num})
+    return game_data
+
+
+def _validate_reportable_player(player_info: dict | None, player_name: str) -> ResponseMessage | None:
+    """Returns an error ResponseMessage if the player is missing or has no start.gg entrant ID, else None."""
+    if not player_info:
+        return ResponseMessage(
+            content=f"**{player_name}** is not registered for this event. "
+                    "If they are registered on start.gg, they need to link their Discord account on their start.gg profile, "
+                    "then an organizer can refresh with `/event-refresh-startgg`."
+        )
+    if not player_info.get("external_id"):
+        return ResponseMessage(
+            content=f"**{player_name}** does not have a start.gg entrant ID. "
+                    "Their Discord account was not linked on start.gg when the event was last imported. "
+                    "Have them link their Discord on start.gg, then an organizer can refresh with `/event-refresh-startgg`."
+        )
+    return None
+
+
 def startgg_connect(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
+    """Generates a start.gg OAuth link so an organizer can connect their account to this server."""
     error_message = permissions_helper.verify_has_organizer_role(event, aws_services)
     if error_message:
         return error_message
 
-    client_id = os.environ.get("STARTGG_OAUTH_CLIENT_ID")
-    redirect_uri = os.environ.get("STARTGG_OAUTH_REDIRECT_URI")
+    client_id = constants.STARTGG_OAUTH_CLIENT_ID
+    redirect_uri = constants.STARTGG_OAUTH_REDIRECT_URI
     if not client_id or not redirect_uri:
         return ResponseMessage(content="😔 start.gg OAuth is not configured for this bot. Contact the bot administrator.")
 
@@ -41,7 +77,7 @@ def startgg_connect(event: DiscordEvent, aws_services: AWSServices) -> ResponseM
     discord_user_id = event.get_user_id()
 
     pk = f"{OAuthState.Keys.PK_PREFIX}{nonce}"
-    print(f"[startgg:connect] Writing OAuth state — PK={pk!r}, table={aws_services.dynamodb_table.name!r}, server_id={server_id!r}, discord_user_id={discord_user_id!r}")
+    print(f"[startgg] Writing OAuth state — PK={pk!r}, table={aws_services.dynamodb_table.name!r}, server_id={server_id!r}, discord_user_id={discord_user_id!r}")
     aws_services.dynamodb_table.put_item(Item={
         "PK": pk,
         "SK": OAuthState.Keys.SK,
@@ -50,7 +86,7 @@ def startgg_connect(event: DiscordEvent, aws_services: AWSServices) -> ResponseM
         OAuthState.Keys.CHANNEL_ID: event.get_channel_id(),
         OAuthState.Keys.EXPIRES_AT: int(time.time()) + OAuthState.Keys.TTL_SECONDS,
     })
-    print(f"[startgg:connect] OAuth state written successfully — PK={pk!r}")
+    print(f"[startgg] OAuth state written successfully — PK={pk!r}")
 
     oauth_url = (
         f"{_STARTGG_OAUTH_BASE_URL}"
@@ -71,6 +107,7 @@ def startgg_connect(event: DiscordEvent, aws_services: AWSServices) -> ResponseM
 
 
 def notify_unlinked(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
+    """Lists start.gg participants for an event who have not linked Discord on their profile. Organizer only."""
     error_message = permissions_helper.verify_has_organizer_role(event, aws_services)
     if error_message:
         return error_message
@@ -110,6 +147,7 @@ def notify_unlinked(event: DiscordEvent, aws_services: AWSServices) -> ResponseM
 
 
 def report_score(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
+    """Reports a set result (or DQ) between two registered players to start.gg."""
     server_id = event.get_server_id()
     event_id = event.get_command_input_value("event_name")
     winner_id = event.get_command_input_value("winner")
@@ -121,13 +159,12 @@ def report_score(event: DiscordEvent, aws_services: AWSServices) -> ResponseMess
         winner_games = 0
         loser_games = 0
     else:
-        score_match = _SCORE_PATTERN.match(score_str.strip())
-        if not score_match:
+        parsed_score = _parse_score(score_str)
+        if parsed_score is None:
             return ResponseMessage(
                 content="Invalid score format. Use `<winner score>-<loser score>`, e.g. `2-1`, or `dq`."
             )
-        winner_games = int(score_match.group(1))
-        loser_games = int(score_match.group(2))
+        winner_games, loser_games = parsed_score
 
     server_config = db_helper.get_server_config_or_fail(server_id, aws_services.dynamodb_table)
     if isinstance(server_config, ResponseMessage):
@@ -147,34 +184,16 @@ def report_score(event: DiscordEvent, aws_services: AWSServices) -> ResponseMess
     winner_info = registered.get(winner_id)
     loser_info = registered.get(loser_id)
 
-    winner_name = winner_info.get("display_name") if winner_info else f"<@{winner_id}>"
-    loser_name = loser_info.get("display_name") if loser_info else f"<@{loser_id}>"
+    winner_name = winner_info.get("display_name") if winner_info else message_helper.get_user_ping(winner_id)
+    loser_name = loser_info.get("display_name") if loser_info else message_helper.get_user_ping(loser_id)
 
-    if not winner_info:
-        return ResponseMessage(
-            content=f"**{winner_name}** is not registered for this event. "
-                    "If they are registered on start.gg, they need to link their Discord account on their start.gg profile, "
-                    "then an organizer can refresh with `/event-refresh-startgg`."
-        )
-    if not winner_info.get("external_id"):
-        return ResponseMessage(
-            content=f"**{winner_name}** does not have a start.gg entrant ID. "
-                    "Their Discord account was not linked on start.gg when the event was last imported. "
-                    "Have them link their Discord on start.gg, then an organizer can refresh with `/event-refresh-startgg`."
-        )
+    winner_error = _validate_reportable_player(winner_info, winner_name)
+    if winner_error:
+        return winner_error
 
-    if not loser_info:
-        return ResponseMessage(
-            content=f"**{loser_name}** is not registered for this event. "
-                    "If they are registered on start.gg, they need to link their Discord account on their start.gg profile, "
-                    "then an organizer can refresh with `/event-refresh-startgg`."
-        )
-    if not loser_info.get("external_id"):
-        return ResponseMessage(
-            content=f"**{loser_name}** does not have a start.gg entrant ID. "
-                    "Their Discord account was not linked on start.gg when the event was last imported. "
-                    "Have them link their Discord on start.gg, then an organizer can refresh with `/event-refresh-startgg`."
-        )
+    loser_error = _validate_reportable_player(loser_info, loser_name)
+    if loser_error:
+        return loser_error
 
     winner_entrant_id = winner_info["external_id"]
     loser_entrant_id = loser_info["external_id"]
@@ -199,11 +218,7 @@ def report_score(event: DiscordEvent, aws_services: AWSServices) -> ResponseMess
             )
         )
 
-    game_data = []
-    if not is_dq:
-        for game_num in range(1, winner_games + loser_games + 1):
-            game_winner_id = winner_entrant_id if game_num <= winner_games else loser_entrant_id
-            game_data.append({"winnerId": game_winner_id, "gameNum": game_num})
+    game_data = [] if is_dq else build_set_game_data(winner_games, loser_games, winner_entrant_id, loser_entrant_id)
 
     try:
         startgg_api.report_set(set_id, entrant_ids[winner_entrant_id], game_data, server_config.startgg_oauth_token, is_dq=is_dq)
@@ -220,7 +235,7 @@ def report_score(event: DiscordEvent, aws_services: AWSServices) -> ResponseMess
     except ValueError as e:
         return ResponseMessage(content=f"❌ {e}")
 
-    result_str = f"<@{loser_id}> DQ" if is_dq else score_str
+    result_str = f"{message_helper.get_user_ping(loser_id)} DQ" if is_dq else score_str
     return ResponseMessage(
-        content=f"Score reported on start.gg: <@{winner_id}> def. <@{loser_id}> ({result_str})"
+        content=f"Score reported on start.gg: {message_helper.get_user_ping(winner_id)} def. {message_helper.get_user_ping(loser_id)} ({result_str})"
     ).with_silent_pings()

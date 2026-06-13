@@ -9,15 +9,18 @@ import database.dynamodb_utils as db_helper
 
 
 def autocomplete_event_timezone(_event: DiscordEvent, _aws_services: AWSServices) -> AutocompleteResponse:
+    """Returns the static list of supported timezone choices."""
     return AutocompleteResponse([tz.to_param_choice() for tz in TIMEZONE_OPTIONS])
 
 
 def autocomplete_event_name(event: DiscordEvent, aws_services: AWSServices) -> AutocompleteResponse:
+    """Returns the server's active events as choices (label: event name, value: event_id)."""
     server_id = event.get_server_id()
     events = db_helper.get_events_for_server(server_id, aws_services.dynamodb_table)
     # name is the display label; value is the event_id for easy indexing
     choices = [ParamChoice(name=name, value=event_id) for name, event_id in events]
-    return AutocompleteResponse(choices)
+    # Discord rejects autocomplete payloads with more than 25 choices
+    return AutocompleteResponse(choices[:25])
 
 
 # Shared param used by any command that needs to target a specific event.

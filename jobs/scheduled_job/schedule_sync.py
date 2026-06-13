@@ -15,7 +15,8 @@ def _to_epoch(utc_iso: str) -> Optional[int]:
     try:
         dt = datetime.fromisoformat(utc_iso.replace("Z", "+00:00"))
         return int(dt.timestamp())
-    except Exception:
+    except (ValueError, AttributeError, TypeError):
+        logger.warning(f"Could not parse timestamp {utc_iso!r} to epoch")
         return None
 
 
@@ -116,6 +117,8 @@ def _extract_title(message_content: str) -> str:
     return "Upcoming Events"
 
 
+# NOTE: NOT currently wired into handler.py — planned full-sync feature; only
+# strikethrough_schedule_event is invoked by the scheduled job today.
 def sync_schedule_for_server(table, server_id: str, server_config: dict) -> None:
     """
     Removes past orphaned planned events, then regenerates and updates the tracked

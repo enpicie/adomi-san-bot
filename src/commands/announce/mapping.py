@@ -1,11 +1,10 @@
 from commands.models.command_mapping import CommandMapping
-from commands.models.command_mapping import CommandMapping
 from commands.models.command_param import CommandParam
 from commands.models.command_param import ParamChoice
-from commands.announce import announce_commands
+import commands.announce.announce_commands as announce_commands
 from discord import AppCommandOptionType
 
-announce_commands: CommandMapping = {
+announce_commands_mapping: CommandMapping = {
     "announce-event": {
         "function": announce_commands.announce_event,
         "description": "Sends the announcement message to signal start or end of the current event",

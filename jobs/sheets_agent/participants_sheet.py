@@ -1,3 +1,4 @@
+# MIRROR: src/commands/league/participants_sheet.py — keep in sync (independent Lambda packaging prevents imports)
 from enum import IntEnum
 from typing import List
 

@@ -1,19 +1,19 @@
 import json
 import logging
-import os
 import time
 
 import boto3
 
+import scheduled_job_constants as constants
 import db
 import discord_api
 
 logger = logging.getLogger()
 
-_REMOVE_ROLE_QUEUE_URL = os.environ["REMOVE_ROLE_QUEUE_URL"]
-_REGION = os.environ["REGION"]
+# Brief pause between Discord API calls to avoid rate limits
+_API_CALL_PAUSE_SECONDS = 0.5
 
-_sqs = boto3.client("sqs", region_name=_REGION)
+_sqs = boto3.client("sqs", region_name=constants.REGION)
 
 
 def _queue_role_removals(guild_id, checked_in, participant_role, notification_channel_id=None, organizer_role=None, ping_organizers=False):
@@ -34,7 +34,7 @@ def _queue_role_removals(guild_id, checked_in, participant_role, notification_ch
                 payload["notification_channel_id"] = notification_channel_id
                 payload["organizer_role"] = organizer_role
                 payload["ping_organizers"] = ping_organizers
-            _sqs.send_message(QueueUrl=_REMOVE_ROLE_QUEUE_URL, MessageBody=json.dumps(payload))
+            _sqs.send_message(QueueUrl=constants.REMOVE_ROLE_QUEUE_URL, MessageBody=json.dumps(payload))
             logger.info(f"Queued role removal for user {user_id} in guild {guild_id}")
         except Exception as e:
             logger.error(f"Failed to queue role removal for user {user_id} in guild {guild_id}: {e}")
@@ -80,7 +80,7 @@ def cleanup_ended_event(table, server_id, event_id, server_config=None):
             )
 
     discord_api.delete_guild_event(server_id, event_id)
-    time.sleep(0.5)  # Brief pause between Discord API calls to avoid rate limits
+    time.sleep(_API_CALL_PAUSE_SECONDS)
 
     db.delete_event_record(table, server_id, event_id)
     logger.info(f"Event {event_id} ({event_name!r}) fully cleaned up for server {server_id}")

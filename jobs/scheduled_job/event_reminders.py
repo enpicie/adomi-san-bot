@@ -12,7 +12,8 @@ _REMINDER_WINDOW_HOURS = 24
 def check_and_send_reminder(table, server_id, event_id, server_config):
     """Check if an active event is due for a reminder and send it if so.
 
-    Loads and returns the server_config (passing it back so the caller can cache it).
+    Returns the server_config (loading it from the DB if it was passed in as None);
+    the current caller in handler.py discards this return value.
     A reminder is sent when all of the following are true:
       - should_post_reminder is True on the event
       - did_post_reminder is False on the event
