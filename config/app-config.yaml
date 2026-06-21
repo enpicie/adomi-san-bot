@@ -1,0 +1,53 @@
+# app-config.yaml — single source of truth for adomi-san-bot env vars + secrets.
+# COMMITTED. Names + shape only — NEVER values.
+# See https://github.com/enpicie/platform/blob/main/docs/env-and-secrets.md
+#
+# On AWS, every `secret: true` key resolves from the one Secrets Manager secret
+# named `adomi-san-bot/{env}` (a JSON blob). Provisioned by tf-module-app-config.
+
+app: adomi-san-bot
+
+vars:
+  # --- non-secret config ---
+  - name: AWS_REGION
+    desc: AWS region
+    secret: false
+    scope: [build, runtime]
+    required: true
+
+  - name: DEPLOYMENT_ENV
+    desc: Environment (prod)
+    secret: false
+    scope: [build, runtime]
+    required: true
+
+  - name: STARTGG_OAUTH_CLIENT_ID
+    desc: start.gg OAuth client id (non-secret identifier)
+    secret: false
+    scope: [runtime]
+    required: false
+
+  - name: STARTGG_OAUTH_REDIRECT_URI
+    desc: start.gg OAuth redirect URI
+    secret: false
+    scope: [runtime]
+    required: false
+
+  # --- secrets (resolve from adomi-san-bot/{env} in Secrets Manager) ---
+  - name: STARTGG_API_TOKEN
+    desc: start.gg API token (currently secret 'adomi-san-bot-startgg-api-token-{env}')
+    secret: true
+    scope: [runtime]
+    required: true
+
+  - name: DISCORD_BOT_TOKEN
+    desc: Discord bot token
+    secret: true
+    scope: [runtime]
+    required: true
+
+  - name: GOOGLE_SHEETS_CREDS
+    desc: Google Sheets service-account credentials JSON (currently the imported sheets secret)
+    secret: true
+    scope: [runtime]
+    required: true
