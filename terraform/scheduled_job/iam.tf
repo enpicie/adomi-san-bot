@@ -53,6 +53,12 @@ resource "aws_iam_role_policy" "scheduled_job_policy" {
         Effect   = "Allow"
         Action   = "secretsmanager:GetSecretValue"
         Resource = data.aws_secretsmanager_secret.discord_bot_token.arn
+      },
+      {
+        Sid      = "GetStartggApiToken"
+        Effect   = "Allow"
+        Action   = "secretsmanager:GetSecretValue"
+        Resource = data.aws_secretsmanager_secret.startgg_api_token.arn
       }
     ]
   })

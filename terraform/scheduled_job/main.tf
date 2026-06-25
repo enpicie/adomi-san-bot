@@ -14,6 +14,12 @@ data "aws_secretsmanager_secret" "discord_bot_token" {
   name = var.discord_bot_token_secret_name
 }
 
+# start.gg API token secret is owned by the infra root; looked up by name so this root can grant
+# itself read access for the reschedule scout (compares start.gg start times to stored ones).
+data "aws_secretsmanager_secret" "startgg_api_token" {
+  name = var.startgg_secret_name
+}
+
 data "aws_s3_object" "scheduled_job_zip_latest" {
   bucket = var.bucket_name
   key    = "${var.scheduled_job_name}/${var.scheduled_job_name}-latest.zip"
@@ -63,5 +69,6 @@ module "scheduled_job" {
     DISCORD_BOT_TOKEN_SECRET_NAME = data.aws_secretsmanager_secret.discord_bot_token.name
     DYNAMODB_TABLE_NAME           = data.aws_dynamodb_table.adomi_table.name
     REMOVE_ROLE_QUEUE_URL         = data.aws_sqs_queue.remove_role.url
+    STARTGG_SECRET_NAME           = data.aws_secretsmanager_secret.startgg_api_token.name
   }
 }

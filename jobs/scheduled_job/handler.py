@@ -5,6 +5,7 @@ import db
 import discord_api
 import event_cleanup
 import event_reminders
+import event_reschedule_check
 import schedule_sync
 import startgg_token_check
 
@@ -79,6 +80,12 @@ def handler(event, context):
                     f"Event {event_id} in server {server_id} still active (status={status}), checking reminders"
                 )
                 event_reminders.check_and_send_reminder(table, server_id, event_id, server_config)
+                # Scout start.gg for a reschedule and alert organizers. Guarded: start.gg is an
+                # external dependency, and a failure here must not block cleanup/reminders elsewhere.
+                try:
+                    event_reschedule_check.check_for_reschedule(table, server_id, event_id, server_config)
+                except Exception as e:
+                    logger.error(f"Reschedule check failed for event {event_id} in server {server_id}: {e}")
 
         if cleaned_up_event_names:
             notification_channel_id = server_config.get("notification_channel_id") if server_config else None

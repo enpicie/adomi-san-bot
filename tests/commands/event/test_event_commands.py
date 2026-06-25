@@ -20,6 +20,25 @@ def _make_event_data(participant_role=None, checked_in=None, event_id="event_111
     )
 
 
+def _make_linked_event_data(start, end, startgg_url="https://www.start.gg/tournament/t/event/e",
+                            event_id="event_111", event_name="Weekly Bracket"):
+    return EventData(
+        checked_in={},
+        registered={},
+        queue={},
+        participant_role=None,
+        check_in_enabled=False,
+        register_enabled=True,
+        start_message="",
+        end_message="",
+        start_time=start,
+        end_time=end,
+        event_id=event_id,
+        event_name=event_name,
+        startgg_url=startgg_url,
+    )
+
+
 def _make_event(**kwargs):
     event = Mock()
     event.get_server_id.return_value = kwargs.get("server_id", "server123")
@@ -187,6 +206,89 @@ class TestCreateEventStartgg(unittest.TestCase):
         record = mock_event_helper.create_event_record.call_args.kwargs["record"]
         self.assertEqual(record.name, "Start.gg Name")
         self.assertIn("Start.gg Name", result.content)
+
+
+class TestShiftEndTime(unittest.TestCase):
+    def test_shifts_end_by_same_delta_as_start(self):
+        # Start moves +3h; a 2h event's end should move +3h too, keeping the 2h duration.
+        result = event_commands._shift_end_time(
+            "2099-01-01T18:00:00Z", "2099-01-01T20:00:00Z", "2099-01-01T21:00:00Z"
+        )
+        self.assertEqual(result, "2099-01-01T23:00:00Z")
+
+    def test_preserves_duration_when_moved_earlier(self):
+        result = event_commands._shift_end_time(
+            "2099-01-01T18:00:00Z", "2099-01-01T20:00:00Z", "2099-01-01T15:00:00Z"
+        )
+        self.assertEqual(result, "2099-01-01T17:00:00Z")
+
+    def test_missing_end_returns_original(self):
+        self.assertIsNone(
+            event_commands._shift_end_time("2099-01-01T18:00:00Z", None, "2099-01-01T21:00:00Z")
+        )
+
+    def test_unparseable_bound_falls_back_to_original_end(self):
+        result = event_commands._shift_end_time(
+            "garbage", "2099-01-01T20:00:00Z", "2099-01-01T21:00:00Z"
+        )
+        self.assertEqual(result, "2099-01-01T20:00:00Z")
+
+
+class TestRefreshEventFromStartgg(unittest.TestCase):
+    def _make_startgg_event(self, start_time_utc):
+        sg = Mock()
+        sg.start_time_utc = start_time_utc
+        sg.participants = []
+        sg.no_discord_participants = []
+        return sg
+
+    @patch("commands.event.event_commands.message_helper")
+    @patch("commands.event.event_commands.schedule_helper")
+    @patch("commands.event.event_commands.db_helper")
+    @patch("commands.event.event_commands.event_helper")
+    @patch("commands.event.event_commands.startgg_api")
+    def test_reschedule_shifts_end_and_syncs_schedule(
+        self, mock_startgg, mock_event_helper, mock_db, mock_schedule, mock_msg
+    ):
+        mock_msg.get_discord_timestamp.return_value = "<t:123:F>"
+        mock_startgg.query_startgg_event.return_value = self._make_startgg_event("2099-01-01T21:00:00Z")
+        mock_event_helper.update_event_record.return_value = True
+        mock_db.get_server_config_or_fail.return_value = _make_server_config()
+        event_data = _make_linked_event_data(start="2099-01-01T18:00:00Z", end="2099-01-01T20:00:00Z")
+        aws = _make_aws()
+
+        summary = event_commands.refresh_event_from_startgg("server123", "event_111", event_data, aws)
+
+        # Discord event updated with the new start and an end shifted by the same +3h delta.
+        record = mock_event_helper.update_event_record.call_args.kwargs["record"]
+        self.assertEqual(record.start_time_utc, "2099-01-01T21:00:00Z")
+        self.assertEqual(record.end_time_utc, "2099-01-01T23:00:00Z")
+        # The posted schedule message is re-synced so it doesn't show a stale time.
+        mock_schedule.update_schedule_event.assert_called_once()
+        self.assertIn("Start time updated", summary)
+        self.assertIn("End time shifted", summary)
+
+    @patch("commands.event.event_commands.message_helper")
+    @patch("commands.event.event_commands.schedule_helper")
+    @patch("commands.event.event_commands.db_helper")
+    @patch("commands.event.event_commands.event_helper")
+    @patch("commands.event.event_commands.startgg_api")
+    def test_no_start_change_does_not_reschedule(
+        self, mock_startgg, mock_event_helper, mock_db, mock_schedule, mock_msg
+    ):
+        mock_msg.get_discord_timestamp.return_value = "<t:123:F>"
+        # start.gg reports the same start time already stored — nothing to reschedule.
+        mock_startgg.query_startgg_event.return_value = self._make_startgg_event("2099-01-01T18:00:00Z")
+        event_data = _make_linked_event_data(start="2099-01-01T18:00:00Z", end="2099-01-01T20:00:00Z")
+        aws = _make_aws()
+
+        summary = event_commands.refresh_event_from_startgg("server123", "event_111", event_data, aws)
+
+        mock_event_helper.update_event_record.assert_not_called()
+        mock_schedule.update_schedule_event.assert_not_called()
+        # Registrants are still synced even when the time is unchanged.
+        aws.dynamodb_table.update_item.assert_called_once()
+        self.assertIn("Registered list updated", summary)
 
 
 if __name__ == "__main__":

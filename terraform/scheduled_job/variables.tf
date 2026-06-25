@@ -49,6 +49,11 @@ variable "discord_bot_token_secret_name" {
   type        = string
 }
 
+variable "startgg_secret_name" {
+  description = "Name of the Secrets Manager secret holding the start.gg API token (owned by the infra root, assembled by the deploy workflow)"
+  type        = string
+}
+
 variable "dynamodb_table_name" {
   description = "Full name of the DynamoDB table (base name + env, assembled by the deploy workflow)"
   type        = string

@@ -315,3 +315,4 @@ jobs:
             TF_VAR_scheduled_job_layer_s3_key=${{ steps.build_layer_scheduled_job.outputs.s3_artifact_key }}
             TF_VAR_scheduled_job_layer_hash_s3_key=${{ steps.build_layer_scheduled_job.outputs.s3_requirements_key }}
             TF_VAR_discord_bot_token_secret_name=${{ inputs.app_name }}-discord-bot-token-${{ inputs.deployment_env }}
+            TF_VAR_startgg_secret_name=${{ inputs.app_name }}-startgg-api-token-${{ inputs.deployment_env }}

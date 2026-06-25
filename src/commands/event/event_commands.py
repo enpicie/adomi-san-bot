@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone as dt_timezone
+from typing import Optional
 
 import commands.event.event_helper as event_helper
 import commands.event.startgg.startgg_api as startgg_api
@@ -50,6 +51,46 @@ def _is_past_time(utc_iso: str) -> bool:
     except (ValueError, TypeError):
         print(f"[event] Failed to parse timestamp {utc_iso!r}")
         return False
+
+
+def _shift_end_time(old_start_utc: Optional[str], old_end_utc: Optional[str], new_start_utc: str) -> Optional[str]:
+    """Shift the end time forward by the same delta as the start, preserving the event's duration.
+
+    start.gg only exposes a start time, so when an event is rescheduled there we keep the original
+    duration by moving the stored end time by the same amount the start moved. Falls back to the
+    original end time if either bound is missing or unparseable.
+    """
+    if not old_start_utc or not old_end_utc:
+        return old_end_utc
+    try:
+        old_start = datetime.fromisoformat(old_start_utc.replace("Z", "+00:00"))
+        old_end = datetime.fromisoformat(old_end_utc.replace("Z", "+00:00"))
+        new_start = datetime.fromisoformat(new_start_utc.replace("Z", "+00:00"))
+    except (ValueError, AttributeError, TypeError):
+        print(f"[event] Failed to shift end time from start={old_start_utc!r} end={old_end_utc!r}")
+        return old_end_utc
+    new_end = new_start + (old_end - old_start)
+    return new_end.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _sync_schedule_message(
+    server_id: str, event_id: str, event_data_result, new_start_time_utc: str, aws_services: AWSServices
+) -> None:
+    """Update the posted schedule message to reflect an event's new start time.
+
+    Best-effort: no-op if the server has no tracked schedule message. Mirrors the schedule sync
+    that `/event-update` performs so a refresh-driven reschedule doesn't leave a stale timestamp.
+    """
+    server_config = db_helper.get_server_config_or_fail(server_id, aws_services.dynamodb_table)
+    if isinstance(server_config, ResponseMessage):
+        return
+    schedule_helper.update_schedule_event(
+        server_config,
+        old_name=event_data_result.event_name,
+        new_name=event_data_result.event_name or event_id,
+        new_start_time=new_start_time_utc,
+        new_startgg_url=event_data_result.startgg_url,
+    )
 
 
 def create_event(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
@@ -494,6 +535,10 @@ def refresh_event_from_startgg(server_id, event_id, event_data_result, aws_servi
                 changes.append(f"⚠️ Start time not updated — {_to_discord_ts(startgg_event.start_time_utc)} is in the past")
             else:
                 resolved_event_id = event_data_result.event_id or event_id
+                # Reschedule: shift the end forward by the same delta so the duration is preserved.
+                new_end_time = _shift_end_time(
+                    event_data_result.start_time, event_data_result.end_time, startgg_event.start_time_utc
+                )
                 start_time_updated = event_helper.update_event_record(
                     server_id=server_id,
                     event_id=resolved_event_id,
@@ -501,7 +546,7 @@ def refresh_event_from_startgg(server_id, event_id, event_data_result, aws_servi
                         name=event_data_result.event_name or event_id,
                         location=event_data_result.event_location or DEFAULT_EVENT_LOCATION,
                         start_time_utc=startgg_event.start_time_utc,
-                        end_time_utc=event_data_result.end_time,
+                        end_time_utc=new_end_time,
                         description=_build_register_description(event_data_result.startgg_url),
                         participant_role=event_data_result.participant_role
                     ),
@@ -509,6 +554,11 @@ def refresh_event_from_startgg(server_id, event_id, event_data_result, aws_servi
                 )
                 if start_time_updated:
                     changes.append(f"🕒 Start time updated to {_to_discord_ts(startgg_event.start_time_utc)}")
+                    if new_end_time and new_end_time != event_data_result.end_time:
+                        changes.append(f"🔚 End time shifted to {_to_discord_ts(new_end_time)} (duration preserved)")
+                    _sync_schedule_message(
+                        server_id, event_id, event_data_result, startgg_event.start_time_utc, aws_services
+                    )
                 else:
                     changes.append(f"⚠️ Start time in start.gg ({_to_discord_ts(startgg_event.start_time_utc)}) differs but could not be updated — event is already active on Discord")
 

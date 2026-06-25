@@ -7,6 +7,7 @@ os.environ["REGION"] = "us-east-1"
 os.environ["DISCORD_BOT_TOKEN_SECRET_NAME"] = "test-secret-name"
 os.environ["DYNAMODB_TABLE_NAME"] = "test-table"
 os.environ["REMOVE_ROLE_QUEUE_URL"] = "https://sqs.test"
+os.environ["STARTGG_SECRET_NAME"] = "test-startgg-secret"
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "jobs", "scheduled_job"))
 

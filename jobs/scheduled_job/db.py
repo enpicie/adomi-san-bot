@@ -133,3 +133,20 @@ def clear_startgg_expiry_notified(table, server_id: str):
         Key={"PK": f"{_PK_SERVER_PREFIX}{server_id}", "SK": _SK_CONFIG},
         UpdateExpression="REMOVE startgg_expiry_notified",
     )
+
+
+def mark_reschedule_alerted(table, server_id: str, event_id: str, startgg_start: str):
+    """Record the start.gg start time organizers were last alerted about, to avoid re-alerting the same drift."""
+    table.update_item(
+        Key={"PK": f"{_PK_SERVER_PREFIX}{server_id}", "SK": f"{_SK_EVENT_PREFIX}{event_id}"},
+        UpdateExpression="SET reschedule_alerted_start = :val",
+        ExpressionAttributeValues={":val": startgg_start},
+    )
+
+
+def clear_reschedule_alerted(table, server_id: str, event_id: str):
+    """Clear the reschedule-alert marker so a future start.gg change will alert again."""
+    table.update_item(
+        Key={"PK": f"{_PK_SERVER_PREFIX}{server_id}", "SK": f"{_SK_EVENT_PREFIX}{event_id}"},
+        UpdateExpression="REMOVE reschedule_alerted_start",
+    )
