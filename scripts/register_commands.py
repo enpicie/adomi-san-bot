@@ -11,10 +11,9 @@ SRC_DIR = ROOT_DIR / "src"
 sys.path.append(str(SRC_DIR))
 
 import commands.command_map as command_map  # noqa: E402 — imported after sys.path bootstrap
-import constants  # noqa: E402 — imported after sys.path bootstrap
 
 APP_ID = os.environ.get("DISCORD_APP_ID") # Repo Var
-TOKEN = constants.DISCORD_BOT_TOKEN # Repo Secret
+TOKEN = os.environ.get("DISCORD_BOT_TOKEN") # Repo Secret — set in $GITHUB_ENV by the workflow
 COMMAND_NAME = os.environ.get("COMMAND_NAME") # Workflow Input
 
 if not TOKEN or not APP_ID:
