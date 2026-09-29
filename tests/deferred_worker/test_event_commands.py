@@ -237,6 +237,22 @@ class TestHandleEventCreateStartggClaimRelease(_WorkerCreateFixture):
 
         self.mocks["claims"].release_event_create_claim.assert_called_once_with("server123", self._IDENTITY, table)
 
+    def test_duplicate_that_appears_after_the_claim_is_refused_without_creating(self):
+        # Another delivery's put can land between our first check and our claim,
+        # and its release can come before our claim: the claim is won, but the
+        # event already exists. The second check stops the second event.
+        existing = {"event_id": "other", "event_name": "Chained to Eternity 2",
+                    "startgg_url": _SLUG_URL, "end_time": _FUTURE}
+        self.mocks["db_helper"].get_full_events_for_server.side_effect = [[], [existing]]
+        table = Mock()
+
+        result = event_commands.handle_event_create_startgg(_event_body(), _aws(table))
+
+        self.mocks["discord_api"].create_scheduled_event.assert_not_called()
+        table.put_item.assert_not_called()
+        self.assertIn("already exists", result)
+        self.mocks["claims"].release_event_create_claim.assert_called_once_with("server123", self._IDENTITY, table)
+
     def test_a_lost_claim_is_never_released(self):
         # Releasing here would delete the claim of the delivery that is creating.
         self.mocks["claims"].try_claim_event_create.return_value = False

@@ -4,6 +4,7 @@ from unittest.mock import Mock, patch
 from botocore.exceptions import ClientError, EndpointConnectionError, ReadTimeoutError
 
 import database.claims as claims
+import tests.database.test_dynamodb_utils as dynamo_fixture
 
 
 def _conditional_check_failed() -> ClientError:
@@ -22,8 +23,9 @@ def _throttled() -> ClientError:
 
 class ClaimLifecycleContract:
     """Behaviour both MIRROR twins must share (src/database/claims.py and
-    jobs/deferred_worker/claims.py). Mixed into a TestCase per twin with
-    `claims_module` set; not collected on its own."""
+    jobs/deferred_worker/claims.py). Mixed into a moto-backed TestCase per twin
+    (`self.table` has the production PK/SK schema) with `claims_module` set;
+    not collected on its own."""
 
     claims_module = None
     SERVER = "server123"
@@ -32,37 +34,54 @@ class ClaimLifecycleContract:
     def _pk(self):
         return f"EVENTCREATE#{self.SERVER}#{self.IDENTITY}"
 
+    def _claim(self, at=None):
+        if at is None:
+            return self.claims_module.try_claim_event_create(self.SERVER, self.IDENTITY, self.table)
+        with patch.object(self.claims_module.time, "time", return_value=at):
+            return self.claims_module.try_claim_event_create(self.SERVER, self.IDENTITY, self.table)
+
+    def _stored_claim(self):
+        return self.table.get_item(Key={"PK": self._pk(), "SK": "CLAIM"}).get("Item")
+
+    def test_first_claim_wins_and_records_its_expiry(self):
+        self.assertTrue(self._claim(at=1_000_000))
+
+        self.assertEqual(self._stored_claim()["expires_at"], 1_000_000 + self.claims_module.EVENT_CREATE_TTL_SECONDS)
+
+    def test_second_claim_loses_while_the_first_is_live(self):
+        self.assertTrue(self._claim(at=1_000_000))
+
+        self.assertFalse(self._claim(at=1_000_000 + self.claims_module.EVENT_CREATE_TTL_SECONDS - 1))
+
     def test_expired_claim_can_be_retaken_before_dynamodb_sweeps_it(self):
         # DynamoDB sweeps expired items only "typically within a few days", and
-        # until then they still exist for conditional writes. The put must treat
-        # an item whose expires_at has passed as free.
-        table = Mock()
-        with patch.object(self.claims_module.time, "time", return_value=1_000_000):
-            self.assertTrue(self.claims_module.try_claim_event_create(self.SERVER, self.IDENTITY, table))
+        # until then they still exist for conditional writes. The item is still
+        # present here; the claim must treat it as free once expires_at passes.
+        self.assertTrue(self._claim(at=1_000_000))
+        later = 1_000_000 + self.claims_module.EVENT_CREATE_TTL_SECONDS + 1
+        self.assertIsNotNone(self._stored_claim())
 
-        kwargs = table.put_item.call_args.kwargs
-        self.assertEqual(kwargs["ConditionExpression"], "attribute_not_exists(PK) OR expires_at < :now")
-        self.assertEqual(kwargs["ExpressionAttributeValues"], {":now": 1_000_000})
-        self.assertEqual(kwargs["Item"]["expires_at"], 1_000_000 + self.claims_module.EVENT_CREATE_TTL_SECONDS)
+        self.assertTrue(self._claim(at=later))
+        self.assertEqual(self._stored_claim()["expires_at"], later + self.claims_module.EVENT_CREATE_TTL_SECONDS)
 
-    def test_live_claim_is_lost(self):
-        table = Mock()
-        table.put_item.side_effect = _conditional_check_failed()
+    def test_claim_after_a_release_wins(self):
+        self.assertTrue(self._claim())
+        self.claims_module.release_event_create_claim(self.SERVER, self.IDENTITY, self.table)
 
-        self.assertFalse(self.claims_module.try_claim_event_create(self.SERVER, self.IDENTITY, table))
+        self.assertTrue(self._claim())
+
+    def test_release_deletes_the_claim(self):
+        self.assertTrue(self._claim())
+
+        self.claims_module.release_event_create_claim(self.SERVER, self.IDENTITY, self.table)
+
+        self.assertIsNone(self._stored_claim())
 
     def test_claim_fails_open_on_a_non_client_error(self):
         table = Mock()
         table.put_item.side_effect = EndpointConnectionError(endpoint_url="https://dynamodb.us-east-2.amazonaws.com")
 
         self.assertTrue(self.claims_module.try_claim_event_create(self.SERVER, self.IDENTITY, table))
-
-    def test_release_deletes_exactly_the_claim_key(self):
-        table = Mock()
-
-        self.claims_module.release_event_create_claim(self.SERVER, self.IDENTITY, table)
-
-        table.delete_item.assert_called_once_with(Key={"PK": self._pk(), "SK": "CLAIM"})
 
     def test_release_fails_open(self):
         # The create has already happened or failed by the time we release; a
@@ -81,7 +100,7 @@ class ClaimLifecycleContract:
         table.delete_item.assert_not_called()
 
 
-class TestSrcClaimLifecycle(ClaimLifecycleContract, unittest.TestCase):
+class TestSrcClaimLifecycle(ClaimLifecycleContract, dynamo_fixture.DynamoDbTableTestCase):
     claims_module = claims
 
 
@@ -119,7 +138,6 @@ class TestTryClaimEventCreate(unittest.TestCase):
 
         kwargs = table.put_item.call_args.kwargs
         self.assertEqual(kwargs["Item"]["PK"], "EVENTCREATE#server123#startgg:tournament/t/event/e")
-        self.assertEqual(kwargs["ConditionExpression"], "attribute_not_exists(PK) OR expires_at < :now")
 
     def test_concurrent_create_of_same_event_loses_the_claim(self):
         table = Mock()

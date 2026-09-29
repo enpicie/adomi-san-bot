@@ -142,6 +142,13 @@ def create_event(event: DiscordEvent, aws_services: AWSServices) -> ResponseMess
     # The claim covers only this create's in-flight window. Released whether the
     # create succeeds or fails; after that, find_duplicate_event stops a repeat.
     try:
+        # Checked again now the claim is held: closes the gap between another
+        # invocation's put and its release, which the first check can miss.
+        duplicate = event_helper.find_duplicate_event(
+            server_id, aws_services.dynamodb_table, event_name=event_name, start_time_utc=start_time_utc
+        )
+        if duplicate:
+            return ResponseMessage(content=_duplicate_event_message(duplicate, "/event-update"))
         event_helper.create_event_record(
             server_id=server_id,
             record=EventRecord(

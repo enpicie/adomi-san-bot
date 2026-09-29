@@ -74,6 +74,14 @@ def find_duplicate_event(server_id: str, table, event_name=None, start_time_utc=
     return None
 
 
+def _duplicate_event_message(duplicate: dict) -> str:
+    """Explain that an identical event already exists instead of creating a second one."""
+    return (
+        f"⚠️ **{duplicate.get('event_name')}** already exists on this server, so I didn't create a second one.\n"
+        f"Use `/event-update-startgg` to change it, or `/event-delete` to remove it first."
+    )
+
+
 def _build_no_discord_report(no_discord_names: list) -> str:
     """MIRROR: src/commands/event/event_commands.py _build_no_discord_report."""
     if not no_discord_names:
@@ -165,10 +173,7 @@ def handle_event_create_startgg(event_body: dict, aws_services) -> str:
         server_id, table, event_name=event_name, start_time_utc=start_time_utc, startgg_url=event_url
     )
     if duplicate:
-        return (
-            f"⚠️ **{duplicate.get('event_name')}** already exists on this server, so I didn't create a second one.\n"
-            f"Use `/event-update-startgg` to change it, or `/event-delete` to remove it first."
-        )
+        return _duplicate_event_message(duplicate)
 
     # Claimed before the Discord event exists: a lost claim means an identical
     # create is already in flight, and creating anyway would orphan a Discord event.
@@ -179,6 +184,14 @@ def handle_event_create_startgg(event_body: dict, aws_services) -> str:
     # The claim covers only this create's in-flight window. Released whether the
     # create succeeds or fails; after that, find_duplicate_event stops a repeat.
     try:
+        # Checked again now the claim is held: closes the gap between another
+        # delivery's put and its release, which the first check can miss.
+        duplicate = find_duplicate_event(
+            server_id, table, event_name=event_name, start_time_utc=start_time_utc, startgg_url=event_url
+        )
+        if duplicate:
+            return _duplicate_event_message(duplicate)
+
         logger.info(f"[event] Creating event name={event_name!r} server={server_id}")
         try:
             event_id = discord_api.create_scheduled_event(

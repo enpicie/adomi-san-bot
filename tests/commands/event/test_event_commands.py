@@ -399,6 +399,23 @@ class TestCreateEventClaimRelease(unittest.TestCase):
             "server123", "name:Weekly Bracket|2099-01-01T18:00:00Z", self.aws.dynamodb_table
         )
 
+    def test_duplicate_that_appears_after_the_claim_is_refused_without_creating(self):
+        # Another invocation's put can land between our first check and our claim,
+        # and its release can come before our claim: the claim is won, but the
+        # event already exists. The second check stops the second event.
+        self.mocks["event_helper"].find_duplicate_event.side_effect = [
+            None, _make_event_data(event_name="Weekly Bracket"),
+        ]
+
+        result = event_commands.create_event(self.event, self.aws)
+
+        self.mocks["event_helper"].create_event_record.assert_not_called()
+        self.assertEqual(self.mocks["event_helper"].find_duplicate_event.call_count, 2)
+        self.assertIn("already exists", result.content)
+        self.mocks["claims"].release_event_create_claim.assert_called_once_with(
+            "server123", "name:Weekly Bracket|2099-01-01T18:00:00Z", self.aws.dynamodb_table
+        )
+
     def test_a_lost_claim_is_never_released(self):
         # Releasing here would delete the claim of the invocation that is creating.
         self.mocks["claims"].try_claim_event_create.return_value = False

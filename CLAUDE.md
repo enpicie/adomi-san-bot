@@ -54,7 +54,7 @@ The Code Style rules at the bottom of this file (imports, Discord mentions, logg
 - **Import carve-out:** Classes, dataclasses, exceptions, and TypedDicts MAY be from-imported; functions/constants of internal modules must use module-alias imports.
 - **Command self-discovery:** to add a command group, create `src/commands/<group>/mapping.py` with the group's `CommandMapping` dict and merge it in `src/commands/command_map.py`. Register with Discord via the register-commands workflow.
 - **Jobs are self-contained:** `jobs/<name>/` packages cannot import from `src/`. When logic must exist in both places, duplicate it and mark both copies with a MIRROR comment; never import across the boundary.
-- **Job module names are unique across jobs.** Each job imports by bare name, so two jobs sharing a module name make one job's tests resolve the other's code. `tests/test_job_module_names.py` enforces this; `handler.py` is the one allowed repeat.
+- **Job module names are unique across jobs and distinct from `src/`'s top-level names.** Each job imports by bare name, and every job directory plus `src/` share one `sys.path` under pytest, so a job module named like another job's module, or like a top-level `src/` module or package (`constants`, `aws_client`, `commands`, …), makes tests resolve the wrong code. `tests/test_job_module_names.py` enforces both; `handler.py` is the one allowed repeat.
 - **Anything that can exceed Discord's 3s deadline defers.** The command handler validates, calls `deferred_dispatch.dispatch(...)`, and returns a `⏳` placeholder; `jobs/deferred_worker` does the work and posts a followup.
 
 ## Do Not Modify Without Explicit Instruction

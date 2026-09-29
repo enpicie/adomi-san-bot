@@ -4,10 +4,11 @@ without these its behaviour would be untested."""
 import unittest
 
 import claims as worker_claims
+import tests.database.test_dynamodb_utils as dynamo_fixture
 from tests.database.test_claims import ClaimLifecycleContract
 
 
-class TestWorkerClaimLifecycle(ClaimLifecycleContract, unittest.TestCase):
+class TestWorkerClaimLifecycle(ClaimLifecycleContract, dynamo_fixture.DynamoDbTableTestCase):
     claims_module = worker_claims
 
     def test_resolves_to_the_worker_twin_not_src(self):
