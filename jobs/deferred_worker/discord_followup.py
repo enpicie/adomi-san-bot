@@ -2,7 +2,7 @@ import logging
 
 import requests
 
-import discord_api
+import worker_discord_api as discord_api
 
 logger = logging.getLogger()
 
@@ -17,6 +17,6 @@ def send_followup(application_id: str, interaction_token: str, content: str, *, 
         payload["flags"] = flags
     resp = requests.post(url, json=payload, timeout=10)
     if resp.ok:
-        logger.info(f"[sheets_agent] followup sent OK status={resp.status_code}")
+        logger.info(f"[followup] followup sent OK status={resp.status_code}")
     else:
-        logger.error(f"[sheets_agent] followup failed status={resp.status_code} body={resp.text}")
+        logger.error(f"[followup] followup failed status={resp.status_code} body={resp.text}")

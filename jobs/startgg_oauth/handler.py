@@ -5,7 +5,7 @@ import boto3
 import requests
 
 import oauth_constants as constants
-import db
+import oauth_db as db
 import discord
 
 logger = logging.getLogger()

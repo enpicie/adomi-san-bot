@@ -1,8 +1,10 @@
 from dataclasses import dataclass
+from datetime import datetime, timezone as dt_timezone
 from typing import Optional
 
 from mypy_boto3_dynamodb.service_resource import Table
 
+import commands.event.startgg.startgg_api as startgg_api
 import database.dynamodb_utils as db_helper
 import utils.discord_api_helper as discord_helper
 from database.models.event_data import EventData
@@ -18,6 +20,79 @@ class EventRecord:
     description: Optional[str] = None
     participant_role: Optional[str] = None
     should_post_reminder: Optional[bool] = False
+
+
+def _has_ended(event_data: EventData) -> bool:
+    """True if the event's end time is in the past. Unparseable/absent end times
+    count as still active so a duplicate is never missed on a bad timestamp."""
+    if not event_data.end_time:
+        return False
+    try:
+        end = datetime.fromisoformat(event_data.end_time.replace("Z", "+00:00"))
+        # A stored time without an offset compares as naive and would raise here,
+        # so the comparison stays inside the guard (matching _is_past_time).
+        return end < datetime.now(dt_timezone.utc)
+    except (ValueError, AttributeError, TypeError):
+        print(f"[event] Failed to parse end_time {event_data.end_time!r} while checking for duplicates")
+        return False
+
+
+def build_event_identity(
+    event_name: Optional[str],
+    start_time_utc: Optional[str],
+    startgg_url: Optional[str] = None,
+) -> str:
+    """Build a stable identity for the event a create is about to make.
+
+    Used to claim an in-flight creation, so it must be identical across two
+    invocations of the same command and differ for genuinely different events.
+    """
+    slug = startgg_api.extract_startgg_slug(startgg_url) if startgg_url else None
+    if slug:
+        return f"startgg:{slug}"
+    return f"name:{event_name}|{start_time_utc}"
+
+
+def find_duplicate_event(
+    server_id: str,
+    table: Table,
+    event_name: Optional[str] = None,
+    start_time_utc: Optional[str] = None,
+    startgg_url: Optional[str] = None,
+) -> Optional[EventData]:
+    """Find an active event that a new event would duplicate.
+
+    Matches on the start.gg event slug first — the strongest signal, since the
+    same bracket cannot legitimately back two events. Otherwise it takes an exact
+    name match *at the same start time*: an organizer setting up a month of
+    "Midweek Melting" in one sitting is creating real events, not repeating one.
+
+    Events whose end time has passed are ignored, so a recurring weekly can reuse
+    its name once the previous instance is over.
+
+    :param server_id: Discord server the event would belong to.
+    :param table: The DynamoDB table holding event records.
+    :param event_name: Name the new event would be created with.
+    :param start_time_utc: Start time the new event would be created with. When
+                           absent, the name match falls back to name alone.
+    :param startgg_url: start.gg link the new event would be created from.
+    :return: The existing EventData it collides with, or None.
+    """
+    new_slug = startgg_api.extract_startgg_slug(startgg_url) if startgg_url else None
+
+    for existing in db_helper.get_full_events_for_server(server_id, table):
+        if _has_ended(existing):
+            continue
+        if new_slug and existing.startgg_url:
+            if startgg_api.extract_startgg_slug(existing.startgg_url) == new_slug:
+                print(f"[event] Duplicate by start.gg slug={new_slug!r} existing_event_id={existing.event_id}")
+                return existing
+        if event_name and existing.event_name == event_name:
+            if start_time_utc and existing.start_time != start_time_utc:
+                continue
+            print(f"[event] Duplicate by name={event_name!r} existing_event_id={existing.event_id}")
+            return existing
+    return None
 
 
 def create_event_record(server_id: str, record: EventRecord, table: Table) -> str:

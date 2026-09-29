@@ -6,7 +6,7 @@ import requests
 
 from enum import Enum
 
-import constants
+import worker_constants as constants
 
 logger = logging.getLogger()
 
@@ -113,6 +113,75 @@ def send_channel_message(channel_id: str, content: str) -> None:
     """Post a message to a Discord channel (fire-and-forget; failures are only logged)."""
     url = f"{DISCORD_API_BASE}/channels/{channel_id}/messages"
     discord_request("POST", url, json={"content": content})
+
+
+# ── Scheduled events / schedule message ─────────────────────────────────────
+# MIRROR: src/utils/discord_api_helper.py — keep in sync.
+
+def create_scheduled_event(
+    guild_id: str,
+    name: str,
+    location: str,
+    scheduled_start_time: str,
+    scheduled_end_time: str,
+    description: str | None = None,
+) -> str:
+    """Create an EXTERNAL scheduled event in the guild.
+
+    :return: The new event's ID.
+    :raises ValueError: with the Discord error message on any non-200 response.
+    """
+    body = {
+        "name": name,
+        "privacy_level": 2,  # = GUILD_ONLY (only option Discord currently supports)
+        "scheduled_start_time": scheduled_start_time,
+        "scheduled_end_time": scheduled_end_time,
+        "entity_type": 3,  # = EXTERNAL (location-based, no Discord channel required)
+        "entity_metadata": {"location": location},
+    }
+    if description:
+        body["description"] = description
+
+    url = f"{DISCORD_API_BASE}/guilds/{guild_id}/scheduled-events"
+    response = discord_request("POST", url, json=body)
+    if response.status_code == 200:
+        event_id = response.json()["id"]
+        logger.info(f"[discord] created scheduled event_id={event_id} guild={guild_id}")
+        return event_id
+    raise ValueError(_extract_discord_error(response))
+
+
+def _extract_discord_error(response: requests.Response) -> str:
+    """Pull a human-readable message out of a Discord error response.
+
+    MIRROR: src/utils/discord_api_helper.py _extract_discord_error. Prefers the
+    first field-level message (e.g. why the end time was rejected) over the
+    top-level one, which for validation errors is only "Invalid Form Body".
+    """
+    try:
+        body = response.json()
+        for field_errors in body.get("errors", {}).values():
+            for err in field_errors.get("_errors", []):
+                if "message" in err:
+                    return err["message"]
+        return body.get("message", "Unknown Discord API error")
+    except Exception:
+        return f"HTTP {response.status_code}"
+
+
+def get_channel_message(channel_id: str, message_id: str) -> str | None:
+    """Fetch a message's content, or None if it can't be read."""
+    url = f"{DISCORD_API_BASE}/channels/{channel_id}/messages/{message_id}"
+    response = discord_request("GET", url)
+    if not response.ok:
+        return None
+    return response.json().get("content")
+
+
+def edit_channel_message(channel_id: str, message_id: str, content: str) -> bool:
+    """Replace a message's content. Returns True on success."""
+    url = f"{DISCORD_API_BASE}/channels/{channel_id}/messages/{message_id}"
+    return discord_request("PATCH", url, json={"content": content}).ok
 
 
 # MIRROR: src/utils/queue_role_removal.py — keep in sync (independent Lambda packaging prevents imports)

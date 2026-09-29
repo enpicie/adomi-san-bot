@@ -9,8 +9,8 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-import constants
-import discord_api
+import worker_constants as constants
+import worker_discord_api as discord_api
 import participants_sheet
 import report_log
 

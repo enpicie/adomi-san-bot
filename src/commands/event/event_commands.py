@@ -1,11 +1,13 @@
-from datetime import datetime, timedelta, timezone as dt_timezone
+from datetime import datetime, timezone as dt_timezone
 from typing import Optional
 
 import commands.event.event_helper as event_helper
 import commands.event.startgg.startgg_api as startgg_api
 import commands.event.timezone_helper as timezone_helper
 import commands.schedule.schedule_helper as schedule_helper
+import database.claims as claims
 import database.dynamodb_utils as db_helper
+import utils.deferred_dispatch as deferred_dispatch
 import utils.message_helper as message_helper
 import utils.permissions_helper as permissions_helper
 import utils.queue_role_removal as queue_role_removal
@@ -26,7 +28,29 @@ INVALID_STARTGG_LINK_MESSAGE = (
     "https://www.start.gg/tournament/midweek-melting/event/mbaacc-double-elim"
 )
 
+INVALID_END_TIME_MESSAGE = (
+    "😖 Sorry! I couldn't read that end time. "
+    "Use the format `2026-03-19 21:30` (24-hour time) and pick a timezone from the list."
+)
+
 DEFAULT_EVENT_LOCATION = "Online"
+
+
+def _duplicate_event_message(existing: EventData, update_command: str) -> str:
+    """Explain that an identical event already exists instead of creating a second one."""
+    return (
+        f"⚠️ **{existing.event_name}** already exists on this server, so I didn't create a second one.\n"
+        f"If a previous attempt looked like it failed, it actually went through. "
+        f"Use `{update_command}` to change it, or `/event-delete` to remove it first."
+    )
+
+
+def _create_in_flight_message(event_name: str) -> str:
+    """Explain that an identical create is already running in another invocation."""
+    return (
+        f"⏳ I'm already creating **{event_name}** right now — hang tight rather than running it again. "
+        "Check the channel in a moment."
+    )
 
 
 def _build_register_description(event_url: str) -> str:
@@ -73,10 +97,8 @@ def _shift_end_time(old_start_utc: Optional[str], old_end_utc: Optional[str], ne
     return new_end.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def _sync_schedule_message(
-    server_id: str, event_id: str, event_data_result, new_start_time_utc: str, aws_services: AWSServices
-) -> None:
-    """Update the posted schedule message to reflect an event's new start time.
+def _sync_schedule_message(server_id: str, aws_services: AWSServices) -> None:
+    """Rebuild the posted schedule message from DynamoDB after a refresh-driven reschedule.
 
     Best-effort: no-op if the server has no tracked schedule message. Mirrors the schedule sync
     that `/event-update` performs so a refresh-driven reschedule doesn't leave a stale timestamp.
@@ -84,13 +106,7 @@ def _sync_schedule_message(
     server_config = db_helper.get_server_config_or_fail(server_id, aws_services.dynamodb_table)
     if isinstance(server_config, ResponseMessage):
         return
-    schedule_helper.update_schedule_event(
-        server_config,
-        old_name=event_data_result.event_name,
-        new_name=event_data_result.event_name or event_id,
-        new_start_time=new_start_time_utc,
-        new_startgg_url=event_data_result.startgg_url,
-    )
+    schedule_helper.sync_schedule(server_id, server_config, aws_services.dynamodb_table)
 
 
 def create_event(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
@@ -111,21 +127,37 @@ def create_event(event: DiscordEvent, aws_services: AWSServices) -> ResponseMess
 
     timezone = event.get_command_input_value("timezone")
 
-    event_helper.create_event_record(
-        server_id=server_id,
-        record=EventRecord(
-            name=event.get_command_input_value("event_name"),
-            location=event.get_command_input_value("event_location"),
-            start_time_utc=timezone_helper.to_utc_iso(event.get_command_input_value("start_time"), timezone),
-            end_time_utc=timezone_helper.to_utc_iso(event.get_command_input_value("end_time"), timezone),
-            description=event.get_command_input_value("event_description"),
-            participant_role=participant_role,
-            should_post_reminder=server_config.should_always_remind or False
-        ),
-        table=aws_services.dynamodb_table
-    )
-
     event_name = event.get_command_input_value("event_name")
+    start_time_utc = timezone_helper.to_utc_iso(event.get_command_input_value("start_time"), timezone)
+
+    duplicate = event_helper.find_duplicate_event(
+        server_id, aws_services.dynamodb_table, event_name=event_name, start_time_utc=start_time_utc
+    )
+    if duplicate:
+        return ResponseMessage(content=_duplicate_event_message(duplicate, "/event-update"))
+    identity = event_helper.build_event_identity(event_name, start_time_utc)
+    if not claims.try_claim_event_create(server_id, identity, aws_services.dynamodb_table):
+        return ResponseMessage(content=_create_in_flight_message(event_name))
+
+    # The claim covers only this create's in-flight window. Released whether the
+    # create succeeds or fails; after that, find_duplicate_event stops a repeat.
+    try:
+        event_helper.create_event_record(
+            server_id=server_id,
+            record=EventRecord(
+                name=event_name,
+                location=event.get_command_input_value("event_location"),
+                start_time_utc=start_time_utc,
+                end_time_utc=timezone_helper.to_utc_iso(event.get_command_input_value("end_time"), timezone),
+                description=event.get_command_input_value("event_description"),
+                participant_role=participant_role,
+                should_post_reminder=server_config.should_always_remind or False
+            ),
+            table=aws_services.dynamodb_table
+        )
+    finally:
+        claims.release_event_create_claim(server_id, identity, aws_services.dynamodb_table)
+
     schedule_helper.sync_schedule(server_id, server_config, aws_services.dynamodb_table)
     return ResponseMessage(content=f"Event '{event_name}' created successfully.{no_role_warning}")
 
@@ -186,13 +218,9 @@ def update_event(event: DiscordEvent, aws_services: AWSServices) -> ResponseMess
     )
 
     if (new_name and new_name != event_data_result.event_name) or (start_time_changed and not start_time_in_past):
-        schedule_helper.update_schedule_event(
-            server_config,
-            old_name=event_data_result.event_name,
-            new_name=name,
-            new_start_time=start_time_utc,
-            new_startgg_url=event_data_result.startgg_url,
-        )
+        # Rebuild from DynamoDB (already written above) rather than rewriting the
+        # matching line: name matching cannot tell two same-named events apart.
+        schedule_helper.sync_schedule(server_id, server_config, aws_services.dynamodb_table)
 
     # Build change summary — only report fields that were provided AND differ from stored
     changes = []
@@ -288,8 +316,6 @@ def delete_event(event: DiscordEvent, aws_services: AWSServices) -> ResponseMess
     if isinstance(event_data_result, ResponseMessage):
         return event_data_result
 
-    event_name = event_data_result.event_name
-
     # Queue participant role removals before deleting the record — once the record
     # is gone the scheduled cleanup can no longer recover who is holding the role.
     role_removal_note = ""
@@ -308,8 +334,9 @@ def delete_event(event: DiscordEvent, aws_services: AWSServices) -> ResponseMess
         table=aws_services.dynamodb_table
     )
 
-    if event_name:
-        schedule_helper.remove_schedule_event(server_config, event_name)
+    # Rebuild from DynamoDB rather than deleting the matching schedule line:
+    # when two events share a name, a text match removes both entries.
+    schedule_helper.sync_schedule(server_id, server_config, aws_services.dynamodb_table)
 
     return ResponseMessage(content=f"Event deleted successfully.{role_removal_note}")
 
@@ -328,77 +355,27 @@ def create_event_startgg(event: DiscordEvent, aws_services: AWSServices) -> Resp
     if not startgg_api.is_valid_startgg_url(event_url):
         return ResponseMessage(content=INVALID_STARTGG_LINK_MESSAGE)
 
-    startgg_event = startgg_api.query_startgg_event(event_url)
-
-    if not startgg_event.start_time_utc:
-        return ResponseMessage(
-            content="😔 Could not retrieve the start time from this start.gg event. "
-                    "Please create the event manually with `/event-create`."
-        )
-
-    past_time_warning = ""
-    start_time_utc = startgg_event.start_time_utc
-    if _is_past_time(start_time_utc):
-        start_time_utc = (datetime.now(dt_timezone.utc) + timedelta(minutes=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
-        past_time_warning = (
-            f"\n⚠️ The start.gg event time ({_to_discord_ts(startgg_event.start_time_utc)}) is in the past. "
-            "The current time has been used instead."
-        )
-
-    participant_role = (
-        event.get_command_input_value("participant_role")
-        or server_config.default_participant_role
-    )
-    no_role_warning = NO_PARTICIPANT_ROLE_WARNING if not participant_role else ""
-
+    # Parse the end time here even though the worker is what uses it: once the work
+    # is queued, a bad value can only be reported as a followup minutes later.
     timezone = event.get_command_input_value("timezone")
-    end_time_utc = timezone_helper.to_utc_iso(event.get_command_input_value("end_time"), timezone)
+    try:
+        timezone_helper.to_utc_iso(event.get_command_input_value("end_time"), timezone)
+    except (ValueError, TypeError, KeyError):
+        return ResponseMessage(content=INVALID_END_TIME_MESSAGE)
 
-    event_name = event.get_command_input_value("event_name") or startgg_event.event_name
-
-    event_id = event_helper.create_event_record(
-        server_id=server_id,
-        record=EventRecord(
-            name=event_name,
-            # StartggEvent.from_dict guarantees a non-empty location (defaults to "Online")
-            location=startgg_event.location,
-            start_time_utc=start_time_utc,
-            end_time_utc=end_time_utc,
-            description=_build_register_description(event_url),
-            participant_role=participant_role,
-            should_post_reminder=server_config.should_always_remind or False
-        ),
-        table=aws_services.dynamodb_table
+    # Reject an obvious repeat before queueing. This cannot catch a create that is
+    # still in flight — the worker claims the creation for that — but it gives the
+    # organizer an immediate answer in the common case.
+    duplicate = event_helper.find_duplicate_event(
+        server_id, aws_services.dynamodb_table, startgg_url=event_url
     )
+    if duplicate:
+        return ResponseMessage(content=_duplicate_event_message(duplicate, "/event-update-startgg"))
 
-    total_count = len(startgg_event.participants) + len(startgg_event.no_discord_participants)
-    no_discord_names = [p.display_name for p in startgg_event.no_discord_participants]
-
-    all_participants_data = {p.user_id: p.to_dict() for p in startgg_event.participants}
-    for p in startgg_event.no_discord_participants:
-        all_participants_data[p.display_name] = p.to_dict()
-
-    update_expressions = []
-    expression_values = {":startgg_url": event_url}
-
-    if all_participants_data:
-        update_expressions.append(f"{EventData.Keys.REGISTERED} = :startgg_registered")
-        expression_values[":startgg_registered"] = all_participants_data
-
-    update_expressions.append(f"{EventData.Keys.STARTGG_URL} = :startgg_url")
-
-    aws_services.dynamodb_table.update_item(
-        Key={"PK": db_helper.build_server_pk(server_id), "SK": EventData.Keys.SK_EVENT_PREFIX + event_id},
-        UpdateExpression="SET " + ", ".join(update_expressions),
-        ExpressionAttributeValues=expression_values
-    )
-
-    no_discord_report = _build_no_discord_report(no_discord_names)
-
-    schedule_helper.sync_schedule(server_id, server_config, aws_services.dynamodb_table)
-    return ResponseMessage(
-        content=f"✅ Event **{event_name}** created with {total_count} registered participants!{past_time_warning}{no_discord_report}{no_role_warning}"
-    )
+    # Everything past this point queries start.gg (up to 20 pages at a 10s timeout
+    # each) before it creates anything, which cannot fit in Discord's 3s deadline.
+    deferred_dispatch.dispatch("event-create-startgg", event, aws_services)
+    return ResponseMessage(content="⏳ Creating the event and importing participants from start.gg...")
 
 
 def update_event_startgg(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
@@ -556,9 +533,7 @@ def refresh_event_from_startgg(server_id, event_id, event_data_result, aws_servi
                     changes.append(f"🕒 Start time updated to {_to_discord_ts(startgg_event.start_time_utc)}")
                     if new_end_time and new_end_time != event_data_result.end_time:
                         changes.append(f"🔚 End time shifted to {_to_discord_ts(new_end_time)} (duration preserved)")
-                    _sync_schedule_message(
-                        server_id, event_id, event_data_result, startgg_event.start_time_utc, aws_services
-                    )
+                    _sync_schedule_message(server_id, aws_services)
                 else:
                     changes.append(f"⚠️ Start time in start.gg ({_to_discord_ts(startgg_event.start_time_utc)}) differs but could not be updated — event is already active on Discord")
 

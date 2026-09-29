@@ -53,7 +53,7 @@ resource "aws_iam_role_policy" "lambda_dynamodb_policy" {
         Action   = ["sqs:SendMessage", "sqs:SendMessageBatch"]
         Resource = [
           aws_sqs_queue.remove_role.arn,
-          aws_sqs_queue.sheets_agent.arn
+          aws_sqs_queue.deferred_worker.arn
         ]
       }
     ]

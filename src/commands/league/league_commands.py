@@ -1,21 +1,13 @@
-import json
-import time
-
 import commands.check_in.check_in_constants as check_in_constants
 import constants
 import database.dynamodb_utils as db_helper
+import utils.deferred_dispatch as deferred_dispatch
 import utils.message_helper as message_helper
 import utils.permissions_helper as permissions_helper
 from aws_services import AWSServices
 from commands.models.discord_event import DiscordEvent
 from commands.models.response_message import ResponseMessage
 from database.models.league_data import LeagueData
-
-
-def _dispatch_to_sheets_agent(command_name: str, event: DiscordEvent, aws_services: AWSServices) -> None:
-    payload = json.dumps({"command_name": command_name, "event_body": event.event_body, "enqueued_at": time.time()})
-    aws_services.sheets_agent_sqs_queue.send_message(MessageBody=payload)
-    print(f"[league] dispatched {command_name!r} to sheets_agent")
 
 
 def _parse_role_id(role_input: str) -> str:
@@ -173,13 +165,13 @@ def view_league(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessa
 
 def setup_league(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
     """Dispatches a job to initialize the Participants sheet in the league's Google Sheet."""
-    _dispatch_to_sheets_agent("league-setup", event, aws_services)
+    deferred_dispatch.dispatch("league-setup", event, aws_services)
     return ResponseMessage(content="⏳ Setting up the Participants sheet...")
 
 
 def join_league(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
     """Dispatches a job to add the calling user to the league's participant sheet."""
-    _dispatch_to_sheets_agent("league-join", event, aws_services)
+    deferred_dispatch.dispatch("league-join", event, aws_services)
     return ResponseMessage(content="⏳ Adding you to the league...")
 
 
@@ -216,7 +208,7 @@ def toggle_join_league(event: DiscordEvent, aws_services: AWSServices) -> Respon
 
 def sync_active_participants(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
     """Dispatches a job to sync active participants (and their role) from the league's sheet."""
-    _dispatch_to_sheets_agent("league-sync-participants", event, aws_services)
+    deferred_dispatch.dispatch("league-sync-participants", event, aws_services)
     return ResponseMessage(content="⏳ Syncing participants from the sheet... This may take a few minutes.")
 
 
@@ -232,7 +224,7 @@ def report_score(event: DiscordEvent, aws_services: AWSServices) -> ResponseMess
     if not league_data.report_enabled:
         return ResponseMessage(content="❌ Score reporting is currently closed for this league.")
 
-    _dispatch_to_sheets_agent("league-report-score", event, aws_services)
+    deferred_dispatch.dispatch("league-report-score", event, aws_services)
     return ResponseMessage(content="⏳ Reporting score...")
 
 
@@ -293,5 +285,5 @@ def deactivate_league_participant(event: DiscordEvent, aws_services: AWSServices
         error_message = permissions_helper.verify_has_organizer_role(event, aws_services)
         if error_message:
             return ResponseMessage(content="🙅‍♀️ Only organizers can deactivate other players. To deactivate yourself, call `/league-deactivate` without the `player` parameter.")
-    _dispatch_to_sheets_agent("league-deactivate", event, aws_services)
+    deferred_dispatch.dispatch("league-deactivate", event, aws_services)
     return ResponseMessage(content="⏳ Updating your participant status...")

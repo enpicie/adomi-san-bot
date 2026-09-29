@@ -9,6 +9,9 @@ os.environ["DYNAMODB_TABLE_NAME"] = "test-table"
 os.environ["REMOVE_ROLE_QUEUE_URL"] = "https://sqs.test"
 os.environ["STARTGG_SECRET_NAME"] = "test-startgg-secret"
 
+# Jobs are packaged independently and import by bare name. Module names are
+# kept unique across jobs so one job's tests cannot resolve another's modules
+# — tests/test_job_module_names.py fails if that is ever broken.
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "jobs", "scheduled_job"))
 
 import unittest

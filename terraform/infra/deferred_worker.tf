@@ -1,50 +1,50 @@
-resource "aws_sqs_queue" "sheets_agent" {
-  name = "${var.sheets_agent_name}-${var.deployment_env}"
+resource "aws_sqs_queue" "deferred_worker" {
+  name = "${var.deferred_worker_name}-${var.deployment_env}"
 
-  # Must exceed the sheets_agent Lambda timeout (480s below) so a message is not
+  # Must exceed the deferred_worker Lambda timeout (480s below) so a message is not
   # redelivered while a consumer invocation is still running.
   visibility_timeout_seconds = 540
   message_retention_seconds  = 86400
 }
 
-data "aws_s3_object" "sheets_agent_zip_latest" {
+data "aws_s3_object" "deferred_worker_zip_latest" {
   bucket = var.bucket_name
-  key    = "${var.sheets_agent_name}/${var.sheets_agent_name}-latest.zip"
+  key    = "${var.deferred_worker_name}/${var.deferred_worker_name}-latest.zip"
 }
 
-data "aws_s3_object" "sheets_agent_layer_zip" {
+data "aws_s3_object" "deferred_worker_layer_zip" {
   bucket = var.bucket_name
-  key    = var.sheets_agent_lambda_layer_s3_key
+  key    = var.deferred_worker_lambda_layer_s3_key
 }
 
-data "aws_s3_object" "sheets_agent_layer_hash" {
+data "aws_s3_object" "deferred_worker_layer_hash" {
   bucket = var.bucket_name
-  key    = var.sheets_agent_lambda_layer_hash_s3_key
+  key    = var.deferred_worker_lambda_layer_hash_s3_key
 }
 
-resource "aws_lambda_layer_version" "sheets_agent_layer" {
-  layer_name               = "${var.sheets_agent_name}-layer-${var.deployment_env}"
-  description              = "Lambda layer for dependencies of ${var.sheets_agent_name}"
+resource "aws_lambda_layer_version" "deferred_worker_layer" {
+  layer_name               = "${var.deferred_worker_name}-layer-${var.deployment_env}"
+  description              = "Lambda layer for dependencies of ${var.deferred_worker_name}"
   s3_bucket                = var.bucket_name
-  s3_key                   = data.aws_s3_object.sheets_agent_layer_zip.key
+  s3_key                   = data.aws_s3_object.deferred_worker_layer_zip.key
   compatible_runtimes      = ["python${var.python_runtime}"]
   compatible_architectures = [var.architecture]
-  source_code_hash         = trimspace(data.aws_s3_object.sheets_agent_layer_hash.body)
+  source_code_hash         = trimspace(data.aws_s3_object.deferred_worker_layer_hash.body)
 }
 
-resource "aws_lambda_function" "sheets_agent" {
-  function_name = "${var.sheets_agent_name}-${var.deployment_env}"
+resource "aws_lambda_function" "deferred_worker" {
+  function_name = "${var.deferred_worker_name}-${var.deployment_env}"
   s3_bucket     = data.aws_s3_bucket.lambda_bucket.id
-  s3_key        = data.aws_s3_object.sheets_agent_zip_latest.key
+  s3_key        = data.aws_s3_object.deferred_worker_zip_latest.key
   handler       = "handler.handler"
   runtime       = "python${var.python_runtime}"
   architectures = [var.architecture]
-  role          = aws_iam_role.sheets_agent_role.arn
+  role          = aws_iam_role.deferred_worker_role.arn
   timeout       = 480
   memory_size   = 512
 
   layers = [
-    aws_lambda_layer_version.sheets_agent_layer.arn
+    aws_lambda_layer_version.deferred_worker_layer.arn
   ]
 
   environment {
@@ -55,22 +55,23 @@ resource "aws_lambda_function" "sheets_agent" {
       REMOVE_ROLE_QUEUE_URL        = aws_sqs_queue.remove_role.url
       GOOGLE_SHEETS_SECRET_NAME    = data.aws_secretsmanager_secret.sheets_credentials.name
       GOOGLE_SERVICE_ACCOUNT_EMAIL = var.google_service_account_email
+      STARTGG_SECRET_NAME          = aws_secretsmanager_secret.startgg_api_token.name
     }
   }
 
-  source_code_hash = data.aws_s3_object.sheets_agent_zip_latest.etag
+  source_code_hash = data.aws_s3_object.deferred_worker_zip_latest.etag
 }
 
-resource "aws_lambda_event_source_mapping" "sheets_agent_trigger" {
-  event_source_arn = aws_sqs_queue.sheets_agent.arn
-  function_name    = aws_lambda_function.sheets_agent.arn
+resource "aws_lambda_event_source_mapping" "deferred_worker_trigger" {
+  event_source_arn = aws_sqs_queue.deferred_worker.arn
+  function_name    = aws_lambda_function.deferred_worker.arn
   batch_size       = 1
 }
 
 # ── IAM ──────────────────────────────────────────────────────────────────────
 
-resource "aws_iam_role" "sheets_agent_role" {
-  name = "LambdaExecutionRole-${var.sheets_agent_name}-${var.deployment_env}"
+resource "aws_iam_role" "deferred_worker_role" {
+  name = "LambdaExecutionRole-${var.deferred_worker_name}-${var.deployment_env}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -82,14 +83,14 @@ resource "aws_iam_role" "sheets_agent_role" {
   })
 }
 
-resource "aws_iam_role_policy_attachment" "sheets_agent_basic_execution" {
-  role       = aws_iam_role.sheets_agent_role.name
+resource "aws_iam_role_policy_attachment" "deferred_worker_basic_execution" {
+  role       = aws_iam_role.deferred_worker_role.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
-resource "aws_iam_role_policy" "sheets_agent_policy" {
-  name = "LambdaPolicy-${var.sheets_agent_name}-${var.deployment_env}"
-  role = aws_iam_role.sheets_agent_role.id
+resource "aws_iam_role_policy" "deferred_worker_policy" {
+  name = "LambdaPolicy-${var.deferred_worker_name}-${var.deployment_env}"
+  role = aws_iam_role.deferred_worker_role.id
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -103,7 +104,7 @@ resource "aws_iam_role_policy" "sheets_agent_policy" {
           "sqs:GetQueueAttributes",
           "sqs:ChangeMessageVisibility"
         ]
-        Resource = aws_sqs_queue.sheets_agent.arn
+        Resource = aws_sqs_queue.deferred_worker.arn
       },
       {
         Sid    = "SQSSendRoleRemoval"
@@ -116,7 +117,9 @@ resource "aws_iam_role_policy" "sheets_agent_policy" {
         Effect = "Allow"
         Action = [
           "dynamodb:GetItem",
+          "dynamodb:PutItem",
           "dynamodb:UpdateItem",
+          "dynamodb:DeleteItem",
           "dynamodb:Query"
         ]
         Resource = [
@@ -135,6 +138,12 @@ resource "aws_iam_role_policy" "sheets_agent_policy" {
         Effect   = "Allow"
         Action   = "secretsmanager:GetSecretValue"
         Resource = aws_secretsmanager_secret.discord_bot_token.arn
+      },
+      {
+        Sid      = "GetStartggApiToken"
+        Effect   = "Allow"
+        Action   = "secretsmanager:GetSecretValue"
+        Resource = aws_secretsmanager_secret.startgg_api_token.arn
       }
     ]
   })

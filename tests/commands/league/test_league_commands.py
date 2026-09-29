@@ -46,13 +46,13 @@ def _make_aws():
     aws = Mock()
     aws.dynamodb_table = Mock()
     aws.remove_role_sqs_queue = Mock()
-    aws.sheets_agent_sqs_queue = Mock()
+    aws.deferred_worker_sqs_queue = Mock()
     return aws
 
 
 def _get_dispatched_command(aws) -> str:
-    """Extract the command_name from the SQS message sent to sheets_agent."""
-    call_kwargs = aws.sheets_agent_sqs_queue.send_message.call_args.kwargs
+    """Extract the command_name from the SQS message sent to the deferred worker."""
+    call_kwargs = aws.deferred_worker_sqs_queue.send_message.call_args.kwargs
     return json.loads(call_kwargs["MessageBody"])["command_name"]
 
 
@@ -179,32 +179,32 @@ class TestUpdateLeague(unittest.TestCase):
 
 
 class TestSetupLeague(unittest.TestCase):
-    def test_dispatches_to_sheets_agent_and_returns_ack(self):
+    def test_dispatches_to_deferred_worker_and_returns_ack(self):
         aws = _make_aws()
         result = setup_league(_make_event(), aws)
         self.assertIsInstance(result, ResponseMessage)
         self.assertIn("Setting up", result.content)
-        aws.sheets_agent_sqs_queue.send_message.assert_called_once()
+        aws.deferred_worker_sqs_queue.send_message.assert_called_once()
         self.assertEqual(_get_dispatched_command(aws), "league-setup")
 
 
 class TestJoinLeague(unittest.TestCase):
-    def test_dispatches_to_sheets_agent_and_returns_ack(self):
+    def test_dispatches_to_deferred_worker_and_returns_ack(self):
         aws = _make_aws()
         result = join_league(_make_event(), aws)
         self.assertIsInstance(result, ResponseMessage)
         self.assertIn("Adding you", result.content)
-        aws.sheets_agent_sqs_queue.send_message.assert_called_once()
+        aws.deferred_worker_sqs_queue.send_message.assert_called_once()
         self.assertEqual(_get_dispatched_command(aws), "league-join")
 
 
 class TestSyncActiveParticipants(unittest.TestCase):
-    def test_dispatches_to_sheets_agent_and_returns_ack(self):
+    def test_dispatches_to_deferred_worker_and_returns_ack(self):
         aws = _make_aws()
         result = sync_active_participants(_make_event(), aws)
         self.assertIsInstance(result, ResponseMessage)
         self.assertIn("Syncing", result.content)
-        aws.sheets_agent_sqs_queue.send_message.assert_called_once()
+        aws.deferred_worker_sqs_queue.send_message.assert_called_once()
         self.assertEqual(_get_dispatched_command(aws), "league-sync-participants")
 
 
@@ -252,13 +252,13 @@ class TestToggleJoinLeague(unittest.TestCase):
 
 class TestReportScore(unittest.TestCase):
     @patch("commands.league.league_commands.db_helper")
-    def test_dispatches_to_sheets_agent_when_report_enabled(self, mock_db):
+    def test_dispatches_to_deferred_worker_when_report_enabled(self, mock_db):
         mock_db.get_server_league_data_or_fail.return_value = _make_league(report_enabled=True)
         aws = _make_aws()
         event = _make_event(inputs={"league_name": "TST"})
         result = report_score(event, aws)
         self.assertIsInstance(result, ResponseMessage)
-        aws.sheets_agent_sqs_queue.send_message.assert_called_once()
+        aws.deferred_worker_sqs_queue.send_message.assert_called_once()
         self.assertEqual(_get_dispatched_command(aws), "league-report-score")
 
     @patch("commands.league.league_commands.db_helper")
@@ -269,7 +269,7 @@ class TestReportScore(unittest.TestCase):
         result = report_score(event, aws)
         self.assertIsInstance(result, ResponseMessage)
         self.assertIn("closed", result.content)
-        aws.sheets_agent_sqs_queue.send_message.assert_not_called()
+        aws.deferred_worker_sqs_queue.send_message.assert_not_called()
 
     @patch("commands.league.league_commands.db_helper")
     def test_returns_error_when_league_not_found(self, mock_db):
@@ -278,7 +278,7 @@ class TestReportScore(unittest.TestCase):
         event = _make_event(inputs={"league_name": "TST"})
         result = report_score(event, aws)
         self.assertIn("not found", result.content)
-        aws.sheets_agent_sqs_queue.send_message.assert_not_called()
+        aws.deferred_worker_sqs_queue.send_message.assert_not_called()
 
 
 class TestToggleReportScore(unittest.TestCase):
@@ -329,7 +329,7 @@ class TestDeactivateLeagueParticipant(unittest.TestCase):
         event = _make_event(inputs={"player": None})
         result = deactivate_league_participant(event, aws)
         self.assertIsInstance(result, ResponseMessage)
-        aws.sheets_agent_sqs_queue.send_message.assert_called_once()
+        aws.deferred_worker_sqs_queue.send_message.assert_called_once()
         self.assertEqual(_get_dispatched_command(aws), "league-deactivate")
 
     @patch("commands.league.league_commands.permissions_helper")
@@ -339,7 +339,7 @@ class TestDeactivateLeagueParticipant(unittest.TestCase):
         event = _make_event(inputs={"player": "some_user"})
         result = deactivate_league_participant(event, aws)
         self.assertIn("organizers", result.content)
-        aws.sheets_agent_sqs_queue.send_message.assert_not_called()
+        aws.deferred_worker_sqs_queue.send_message.assert_not_called()
 
     @patch("commands.league.league_commands.permissions_helper")
     def test_player_param_with_organizer_role_dispatches(self, mock_perms):
@@ -348,7 +348,7 @@ class TestDeactivateLeagueParticipant(unittest.TestCase):
         event = _make_event(inputs={"player": "some_user"})
         result = deactivate_league_participant(event, aws)
         self.assertIsInstance(result, ResponseMessage)
-        aws.sheets_agent_sqs_queue.send_message.assert_called_once()
+        aws.deferred_worker_sqs_queue.send_message.assert_called_once()
         self.assertEqual(_get_dispatched_command(aws), "league-deactivate")
 
 

@@ -1,8 +1,8 @@
 # MIRROR: src/aws_client.py — keep in sync (independent Lambda packaging prevents imports)
 import boto3
 
-import constants
-from aws_services import AWSServices
+import worker_constants as constants
+from worker_aws_services import AWSServices
 
 _dynamodb = boto3.resource("dynamodb", region_name=constants.AWS_REGION)
 _sqs = boto3.resource("sqs", region_name=constants.AWS_REGION)
