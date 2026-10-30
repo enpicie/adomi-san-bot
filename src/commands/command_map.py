@@ -8,6 +8,7 @@ from commands.event.mapping import event_commands_mapping
 from commands.startgg.mapping import startgg_commands_mapping
 from commands.league.mapping import league_commands_mapping
 from commands.schedule.mapping import schedule_commands_mapping
+from commands.score.mapping import score_commands_mapping
 
 command_map: CommandMapping = {
 } | (
@@ -18,5 +19,6 @@ command_map: CommandMapping = {
     event_commands_mapping |
     startgg_commands_mapping |
     league_commands_mapping |
-    schedule_commands_mapping
+    schedule_commands_mapping |
+    score_commands_mapping
 )

@@ -21,6 +21,8 @@ class EventData(SubscriptableMixin):
         PARTICIPANT_ROLE = "participant_role"
         CHECK_IN_ENABLED = "check_in_enabled"
         REGISTER_ENABLED = "register_enabled"
+        SCORES = "scores"
+        SCORE_ENABLED = "score_enabled"
 
         START_MESSAGE = "start_message"
         END_MESSAGE = "end_message"
@@ -49,6 +51,9 @@ class EventData(SubscriptableMixin):
     should_post_reminder: Optional[bool] = field(default=False, metadata={'db_key': Keys.SHOULD_POST_REMINDER})
     did_post_reminder: Optional[bool] = field(default=False, metadata={'db_key': Keys.DID_POST_REMINDER})
     reminder_role_id: Optional[str] = field(default=None, metadata={'db_key': Keys.REMINDER_ROLE_ID})
+    # None when the record predates scoreboards
+    scores: Optional[dict] = field(default=None, metadata={'db_key': Keys.SCORES})
+    score_enabled: Optional[bool] = field(default=False, metadata={'db_key': Keys.SCORE_ENABLED})
 
     @classmethod
     def from_dynamodb(cls, record: Dict[str, Any]) -> 'EventData':
@@ -70,4 +75,6 @@ class EventData(SubscriptableMixin):
             should_post_reminder=record.get(cls.Keys.SHOULD_POST_REMINDER, False),
             did_post_reminder=record.get(cls.Keys.DID_POST_REMINDER, False),
             reminder_role_id=record.get(cls.Keys.REMINDER_ROLE_ID),
+            scores=record.get(cls.Keys.SCORES),
+            score_enabled=record.get(cls.Keys.SCORE_ENABLED, False),
         )

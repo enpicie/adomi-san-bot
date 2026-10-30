@@ -7,6 +7,7 @@ from commands.event.mapping import event_commands_mapping
 from commands.startgg.mapping import startgg_commands_mapping
 from commands.league.mapping import league_commands_mapping
 from commands.schedule.mapping import schedule_commands_mapping
+from commands.score.mapping import score_commands_mapping
 
 WIKI_LINK = "https://github.com/enpicie/adomi-san-bot/wiki/Adomi-is-here-to-help!"
 
@@ -83,3 +84,8 @@ def help_startgg(event: DiscordEvent, aws_services: AWSServices) -> ResponseMess
             "This can be done in start.gg account settings under **Connections**."
         )
     ))
+
+
+def help_score(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
+    """Lists all score and scoreboard commands with their descriptions."""
+    return ResponseMessage(content=_build_help_lines("**Score Commands**", score_commands_mapping))

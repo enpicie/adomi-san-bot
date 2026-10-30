@@ -36,5 +36,10 @@ help_commands: CommandMapping = {
         "function": adomi_help_commands.help_schedule,
         "description": "List all schedule commands with descriptions",
         "params": []
+    },
+    "help-score": {
+        "function": adomi_help_commands.help_score,
+        "description": "List all score and scoreboard commands with descriptions",
+        "params": []
     }
 }
