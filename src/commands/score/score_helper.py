@@ -30,23 +30,26 @@ def ensure_scores_map(table: Table, key: dict, event_data: EventData) -> None:
     )
 
 
-def _increment(table: Table, key: dict, user_id: str, display_name: str, amount: int) -> int:
-    """Adds to an existing entry. Raises a condition failure if the entry is missing."""
+def _increment(table: Table, key: dict, user_id: str, display_name: str, delta: int) -> int:
+    """Adds `delta` to an existing entry. Raises a condition failure if the entry is missing."""
     response = table.update_item(
         Key=key,
-        UpdateExpression=f"SET {_ENTRY_SCORE} = {_ENTRY_SCORE} + :amount, {_ENTRY_NAME} = :name",
+        UpdateExpression=f"SET {_ENTRY_SCORE} = {_ENTRY_SCORE} + :delta, {_ENTRY_NAME} = :name",
         ConditionExpression=f"attribute_exists({_SCORES}.#uid)",
         ExpressionAttributeNames={"#uid": user_id},
-        ExpressionAttributeValues={":amount": amount, ":name": display_name},
+        ExpressionAttributeValues={":delta": delta, ":name": display_name},
         ReturnValues="UPDATED_NEW"
     )
     return int(response["Attributes"][_SCORES][user_id][ScoreEntry.Keys.SCORE])
 
 
-def add_score(table: Table, key: dict, user_id: str, display_name: str, amount: int) -> Optional[int]:
-    """Adds to the user's score, creating their entry if needed. Returns None if a concurrent write won twice."""
+def change_score(table: Table, key: dict, user_id: str, display_name: str, delta: int) -> Optional[int]:
+    """Adds `delta` (negative to deduct) to the user's score, creating their entry if needed.
+
+    Returns None if a concurrent write won twice.
+    """
     try:
-        return _increment(table, key, user_id, display_name, amount)
+        return _increment(table, key, user_id, display_name, delta)
     except ClientError as e:
         if not _is_condition_failure(e):
             raise
@@ -57,38 +60,20 @@ def add_score(table: Table, key: dict, user_id: str, display_name: str, amount: 
             UpdateExpression=f"SET {_SCORES}.#uid = :entry",
             ConditionExpression=f"attribute_not_exists({_SCORES}.#uid)",
             ExpressionAttributeNames={"#uid": user_id},
-            ExpressionAttributeValues={":entry": ScoreEntry(display_name=display_name, score=amount).to_dict()}
+            ExpressionAttributeValues={":entry": ScoreEntry(display_name=display_name, score=delta).to_dict()}
         )
-        return amount
+        return delta
     except ClientError as e:
         if not _is_condition_failure(e):
             raise
 
     try:
-        return _increment(table, key, user_id, display_name, amount)
+        return _increment(table, key, user_id, display_name, delta)
     except ClientError as e:
         if not _is_condition_failure(e):
             raise
-        print(f"[score] Add lost a write race twice for user {user_id} on {key['SK']}")
+        print(f"[score] Score change lost a write race twice for user {user_id} on {key['SK']}")
         return None
-
-
-def deduct_score(table: Table, key: dict, user_id: str, display_name: str, amount: int) -> Optional[int]:
-    """Subtracts from an existing entry. Returns None if the entry is missing or would go below 0."""
-    try:
-        response = table.update_item(
-            Key=key,
-            UpdateExpression=f"SET {_ENTRY_SCORE} = {_ENTRY_SCORE} - :amount, {_ENTRY_NAME} = :name",
-            ConditionExpression=f"attribute_exists({_SCORES}.#uid) AND {_ENTRY_SCORE} >= :amount",
-            ExpressionAttributeNames={"#uid": user_id},
-            ExpressionAttributeValues={":amount": amount, ":name": display_name},
-            ReturnValues="UPDATED_NEW"
-        )
-    except ClientError as e:
-        if not _is_condition_failure(e):
-            raise
-        return None
-    return int(response["Attributes"][_SCORES][user_id][ScoreEntry.Keys.SCORE])
 
 
 def set_score(table: Table, key: dict, user_id: str, display_name: str, score: int) -> None:
@@ -150,7 +135,7 @@ def build_scoreboard(header: str, scores: dict) -> str:
     shown = 0
     for rank, user_id, entry in ranked:
         past_row_cap = shown >= score_constants.SCOREBOARD_MAX_ROWS and rank != ranked[shown - 1][0]
-        line = f"**{rank}.** {message_helper.get_user_ping(user_id)} — **{entry.score}**"
+        line = f"**{rank}.** {message_helper.get_user_ping(user_id)} - **{entry.score}**"
         if past_row_cap or length + len(line) + 1 > score_constants.SCOREBOARD_CHAR_BUDGET - _FOOTER_RESERVE:
             break
         lines.append(line)

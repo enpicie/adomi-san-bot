@@ -79,57 +79,47 @@ class TestEnsureScoresMap(ScoreTableTestCase):
         self.assertEqual(self._scores(), {"u1": _entry("Alice", 4)})
 
 
-class TestAddScore(ScoreTableTestCase):
+class TestChangeScore(ScoreTableTestCase):
     def test_first_add_creates_entry_with_amount(self):
         self._put_event(scores={})
-        new_score = score_helper.add_score(self.table, _KEY, "u1", "Alice", 2)
+        new_score = score_helper.change_score(self.table, _KEY, "u1", "Alice", 2)
         self.assertEqual(new_score, 2)
         self.assertEqual(self._scores(), {"u1": _entry("Alice", 2)})
 
     def test_add_increments_existing_entry_and_refreshes_name(self):
         self._put_event(scores={"u1": _entry("OldName", 5)})
-        new_score = score_helper.add_score(self.table, _KEY, "u1", "Alice", 3)
+        new_score = score_helper.change_score(self.table, _KEY, "u1", "Alice", 3)
         self.assertEqual(new_score, 8)
         self.assertEqual(self._scores(), {"u1": _entry("Alice", 8)})
 
     def test_add_leaves_other_players_untouched(self):
         self._put_event(scores={"u2": _entry("Bob", 7)})
-        score_helper.add_score(self.table, _KEY, "u1", "Alice", 1)
+        score_helper.change_score(self.table, _KEY, "u1", "Alice", 1)
         self.assertEqual(self._scores()["u2"], _entry("Bob", 7))
 
     def test_returns_none_when_race_is_lost_twice(self):
         condition_failed = ClientError({"Error": {"Code": "ConditionalCheckFailedException"}}, "UpdateItem")
         table = Mock()
         table.update_item.side_effect = condition_failed
-        self.assertIsNone(score_helper.add_score(table, _KEY, "u1", "Alice", 1))
+        self.assertIsNone(score_helper.change_score(table, _KEY, "u1", "Alice", 1))
         self.assertEqual(table.update_item.call_count, 3)
 
     def test_non_condition_errors_propagate(self):
         table = Mock()
         table.update_item.side_effect = ClientError({"Error": {"Code": "ValidationException"}}, "UpdateItem")
         with self.assertRaises(ClientError):
-            score_helper.add_score(table, _KEY, "u1", "Alice", 1)
+            score_helper.change_score(table, _KEY, "u1", "Alice", 1)
 
 
-class TestDeductScore(ScoreTableTestCase):
-    def test_deduct_subtracts(self):
-        self._put_event(scores={"u1": _entry("Alice", 5)})
-        self.assertEqual(score_helper.deduct_score(self.table, _KEY, "u1", "Alice", 2), 3)
-        self.assertEqual(self._scores()["u1"]["score"], 3)
-
-    def test_deduct_to_exactly_zero_is_allowed(self):
-        self._put_event(scores={"u1": _entry("Alice", 2)})
-        self.assertEqual(score_helper.deduct_score(self.table, _KEY, "u1", "Alice", 2), 0)
-
-    def test_deduct_below_zero_is_rejected_without_writing(self):
+    def test_negative_delta_can_go_below_zero(self):
         self._put_event(scores={"u1": _entry("Alice", 3)})
-        self.assertIsNone(score_helper.deduct_score(self.table, _KEY, "u1", "Alice", 5))
-        self.assertEqual(self._scores()["u1"]["score"], 3)
+        self.assertEqual(score_helper.change_score(self.table, _KEY, "u1", "Alice", -5), -2)
+        self.assertEqual(self._scores()["u1"]["score"], -2)
 
-    def test_deduct_without_entry_is_rejected_without_creating_one(self):
+    def test_negative_delta_without_entry_creates_negative_entry(self):
         self._put_event(scores={})
-        self.assertIsNone(score_helper.deduct_score(self.table, _KEY, "u1", "Alice", 1))
-        self.assertEqual(self._scores(), {})
+        self.assertEqual(score_helper.change_score(self.table, _KEY, "u1", "Alice", -1), -1)
+        self.assertEqual(self._scores(), {"u1": _entry("Alice", -1)})
 
 
 class TestSetRemoveReset(ScoreTableTestCase):
@@ -156,9 +146,10 @@ class TestRanking(unittest.TestCase):
             "b": _entry("Bob", 5),
             "c": _entry("Cara", 3),
             "d": _entry("Dan", 0),
+            "e": _entry("Eve", -2),
         }
         ranks = [(rank, user_id) for rank, user_id, _ in score_helper.rank_scores(scores)]
-        self.assertEqual(ranks, [(1, "a"), (1, "b"), (3, "c"), (4, "d")])
+        self.assertEqual(ranks, [(1, "a"), (1, "b"), (3, "c"), (4, "d"), (5, "e")])
 
     def test_get_rank_returns_rank_and_entry(self):
         scores = {"a": _entry("Alice", 5), "b": _entry("Bob", 2)}

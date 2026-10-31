@@ -7,7 +7,6 @@ from aws_services import AWSServices
 from commands.models.discord_event import DiscordEvent
 from commands.models.response_message import ResponseMessage
 from database.models.event_data import EventData
-from database.models.score_entry import ScoreEntry
 
 RETRY_MESSAGE = "⚠️ I couldn't update your score because it changed at the same moment. Please try again."
 
@@ -50,14 +49,6 @@ def _get_amount_or_fail(event: DiscordEvent) -> int | ResponseMessage:
     return amount
 
 
-def _get_score_or_fail(event: DiscordEvent) -> int | ResponseMessage:
-    """Returns the `score` input, or an error message if it is negative."""
-    score = event.get_command_input_value("score")
-    if score < 0:
-        return ResponseMessage(content="⚠️ Score can't be negative.")
-    return score
-
-
 def score_add(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
     """Adds to the calling user's score for an event, putting them on the scoreboard if needed."""
     amount = _get_amount_or_fail(event)
@@ -72,7 +63,7 @@ def score_add(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage
     user_id = event.get_user_id()
     table = aws_services.dynamodb_table
     score_helper.ensure_scores_map(table, key, event_data)
-    new_score = score_helper.add_score(table, key, user_id, event.get_username(), amount)
+    new_score = score_helper.change_score(table, key, user_id, event.get_username(), amount)
     if new_score is None:
         return ResponseMessage(content=RETRY_MESSAGE)
 
@@ -83,7 +74,7 @@ def score_add(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage
 
 
 def score_deduct(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
-    """Subtracts from the calling user's score for an event. Never goes below 0."""
+    """Subtracts from the calling user's score for an event, putting them on the scoreboard if needed."""
     amount = _get_amount_or_fail(event)
     if isinstance(amount, ResponseMessage):
         return amount
@@ -94,18 +85,11 @@ def score_deduct(event: DiscordEvent, aws_services: AWSServices) -> ResponseMess
     event_data, key = result
 
     user_id = event.get_user_id()
-    scores = event_data.scores or {}
-    if user_id not in scores:
-        return ResponseMessage(
-            content=f"🧐 You don't have a score for **{event_data.event_name}** yet."
-        )
-
-    new_score = score_helper.deduct_score(aws_services.dynamodb_table, key, user_id, event.get_username(), amount)
+    table = aws_services.dynamodb_table
+    score_helper.ensure_scores_map(table, key, event_data)
+    new_score = score_helper.change_score(table, key, user_id, event.get_username(), -amount)
     if new_score is None:
-        current_score = ScoreEntry.from_dynamodb(scores[user_id]).score
-        return ResponseMessage(
-            content=f"⚠️ Can't deduct **{amount}**: your score is **{current_score}** and can't go below 0."
-        )
+        return ResponseMessage(content=RETRY_MESSAGE)
 
     print(f"[score] DEDUCT user={user_id} amount={amount} new_score={new_score} {key['SK']}")
     return ResponseMessage(
@@ -115,9 +99,7 @@ def score_deduct(event: DiscordEvent, aws_services: AWSServices) -> ResponseMess
 
 def score_set(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
     """Sets the calling user's score for an event to an exact value."""
-    score = _get_score_or_fail(event)
-    if isinstance(score, ResponseMessage):
-        return score
+    score = event.get_command_input_value("score")
 
     result = _get_open_event_or_fail(event, aws_services)
     if isinstance(result, ResponseMessage):
@@ -223,9 +205,7 @@ def score_override(event: DiscordEvent, aws_services: AWSServices) -> ResponseMe
     if error_message:
         return error_message
 
-    score = _get_score_or_fail(event)
-    if isinstance(score, ResponseMessage):
-        return score
+    score = event.get_command_input_value("score")
 
     result = _get_event_or_fail(event, aws_services)
     if isinstance(result, ResponseMessage):

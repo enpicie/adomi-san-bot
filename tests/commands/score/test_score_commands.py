@@ -52,28 +52,28 @@ def _patch_db(mock_db, event_data):
 class TestScoreAdd(unittest.TestCase):
     def test_defaults_amount_to_one_for_calling_user(self, mock_db, mock_helper):
         _patch_db(mock_db, _make_event_data())
-        mock_helper.add_score.return_value = 1
+        mock_helper.change_score.return_value = 1
 
         result = score_commands.score_add(_make_event(), _make_aws())
 
-        args = mock_helper.add_score.call_args.args
+        args = mock_helper.change_score.call_args.args
         self.assertEqual(args[2:], ("user_abc", "TestUser", 1))
         self.assertIn("is now **1**", result.content)
 
     def test_uses_given_amount_with_no_upper_limit(self, mock_db, mock_helper):
         _patch_db(mock_db, _make_event_data())
-        mock_helper.add_score.return_value = 500
+        mock_helper.change_score.return_value = 500
 
         score_commands.score_add(_make_event(inputs={"amount": 500}), _make_aws())
 
-        self.assertEqual(mock_helper.add_score.call_args.args[4], 500)
+        self.assertEqual(mock_helper.change_score.call_args.args[4], 500)
 
     def test_rejects_amount_below_one_before_any_lookup(self, mock_db, mock_helper):
         result = score_commands.score_add(_make_event(inputs={"amount": 0}), _make_aws())
 
         self.assertIn("at least 1", result.content)
         mock_db.get_server_event_data_or_fail.assert_not_called()
-        mock_helper.add_score.assert_not_called()
+        mock_helper.change_score.assert_not_called()
 
     def test_rejected_while_scoreboard_closed(self, mock_db, mock_helper):
         _patch_db(mock_db, _make_event_data(score_enabled=False))
@@ -81,7 +81,7 @@ class TestScoreAdd(unittest.TestCase):
         result = score_commands.score_add(_make_event(), _make_aws())
 
         self.assertIn("not being accepted", result.content)
-        mock_helper.add_score.assert_not_called()
+        mock_helper.change_score.assert_not_called()
 
     def test_legacy_event_closed_when_flag_missing(self, mock_db, mock_helper):
         _patch_db(mock_db, EventData.from_dynamodb({"SK": "EVENT#event_111"}))
@@ -93,7 +93,7 @@ class TestScoreAdd(unittest.TestCase):
     def test_initializes_map_before_writing(self, mock_db, mock_helper):
         event_data = _make_event_data()
         _patch_db(mock_db, event_data)
-        mock_helper.add_score.return_value = 1
+        mock_helper.change_score.return_value = 1
         aws = _make_aws()
 
         score_commands.score_add(_make_event(), aws)
@@ -102,7 +102,7 @@ class TestScoreAdd(unittest.TestCase):
 
     def test_lost_race_asks_user_to_retry(self, mock_db, mock_helper):
         _patch_db(mock_db, _make_event_data())
-        mock_helper.add_score.return_value = None
+        mock_helper.change_score.return_value = None
 
         result = score_commands.score_add(_make_event(), _make_aws())
 
@@ -121,28 +121,28 @@ class TestScoreAdd(unittest.TestCase):
 class TestScoreDeduct(unittest.TestCase):
     def test_deducts_from_calling_user(self, mock_db, mock_helper):
         _patch_db(mock_db, _make_event_data(scores={"user_abc": {"display_name": "TestUser", "score": 5}}))
-        mock_helper.deduct_score.return_value = 3
+        mock_helper.change_score.return_value = 3
 
         result = score_commands.score_deduct(_make_event(inputs={"amount": 2}), _make_aws())
 
-        self.assertEqual(mock_helper.deduct_score.call_args.args[2:], ("user_abc", "TestUser", 2))
+        self.assertEqual(mock_helper.change_score.call_args.args[2:], ("user_abc", "TestUser", -2))
         self.assertIn("is now **3**", result.content)
 
-    def test_no_entry_rejected_without_write(self, mock_db, mock_helper):
+    def test_can_go_negative(self, mock_db, mock_helper):
         _patch_db(mock_db, _make_event_data(scores={}))
+        mock_helper.change_score.return_value = -1
 
         result = score_commands.score_deduct(_make_event(), _make_aws())
 
-        self.assertIn("don't have a score", result.content)
-        mock_helper.deduct_score.assert_not_called()
+        self.assertIn("is now **-1**", result.content)
 
-    def test_would_go_negative_reports_current_score(self, mock_db, mock_helper):
-        _patch_db(mock_db, _make_event_data(scores={"user_abc": {"display_name": "TestUser", "score": 3}}))
-        mock_helper.deduct_score.return_value = None
+    def test_lost_race_asks_user_to_retry(self, mock_db, mock_helper):
+        _patch_db(mock_db, _make_event_data())
+        mock_helper.change_score.return_value = None
 
-        result = score_commands.score_deduct(_make_event(inputs={"amount": 5}), _make_aws())
+        result = score_commands.score_deduct(_make_event(), _make_aws())
 
-        self.assertIn("score is **3**", result.content)
+        self.assertEqual(result.content, score_commands.RETRY_MESSAGE)
 
     def test_rejected_while_scoreboard_closed(self, mock_db, mock_helper):
         _patch_db(mock_db, _make_event_data(score_enabled=False))
@@ -150,7 +150,7 @@ class TestScoreDeduct(unittest.TestCase):
         result = score_commands.score_deduct(_make_event(), _make_aws())
 
         self.assertIn("not being accepted", result.content)
-        mock_helper.deduct_score.assert_not_called()
+        mock_helper.change_score.assert_not_called()
 
 
 @patch("commands.score.score_commands.score_helper")
@@ -171,11 +171,13 @@ class TestScoreSet(unittest.TestCase):
 
         mock_helper.set_score.assert_called_once()
 
-    def test_negative_rejected(self, mock_db, mock_helper):
-        result = score_commands.score_set(_make_event(inputs={"score": -1}), _make_aws())
+    def test_negative_is_allowed(self, mock_db, mock_helper):
+        _patch_db(mock_db, _make_event_data())
 
-        self.assertIn("can't be negative", result.content)
-        mock_helper.set_score.assert_not_called()
+        result = score_commands.score_set(_make_event(inputs={"score": -4}), _make_aws())
+
+        self.assertEqual(mock_helper.set_score.call_args.args[4], -4)
+        self.assertIn("is now **-4**", result.content)
 
     def test_rejected_while_scoreboard_closed(self, mock_db, mock_helper):
         _patch_db(mock_db, _make_event_data(score_enabled=False))
@@ -303,13 +305,13 @@ class TestOrganizerCommands(unittest.TestCase):
         self.assertIn("<@target>", result.content)
         self.assertEqual(result.allowed_mentions, {"parse": []})
 
-    def test_override_rejects_negative_score(self, mock_perms, mock_db, mock_helper):
+    def test_override_allows_negative_score(self, mock_perms, mock_db, mock_helper):
         mock_perms.verify_has_organizer_role.return_value = None
+        _patch_db(mock_db, _make_event_data())
 
-        result = score_commands.score_override(_make_event(inputs={"user": "target", "score": -3}), _make_aws())
+        score_commands.score_override(_make_event(inputs={"user": "target", "score": -3}), _make_aws())
 
-        self.assertIn("can't be negative", result.content)
-        mock_helper.set_score.assert_not_called()
+        self.assertEqual(mock_helper.set_score.call_args.args[4], -3)
 
     def test_remove_drops_target(self, mock_perms, mock_db, mock_helper):
         mock_perms.verify_has_organizer_role.return_value = None

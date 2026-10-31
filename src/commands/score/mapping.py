@@ -16,7 +16,7 @@ _AMOUNT_PARAM = CommandParam(
 
 _SCORE_PARAM = CommandParam(
     name="score",
-    description="The exact score to set (0 or higher)",
+    description="The exact score to set",
     param_type=AppCommandOptionType.integer,
     required=True,
     choices=None

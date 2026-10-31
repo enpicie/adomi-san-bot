@@ -346,8 +346,8 @@ An event-scoped scoreboard players keep themselves (e.g. counting set wins). Sco
 | Command              | Who can use | Description                                                    |
 | -------------------- | ----------- | -------------------------------------------------------------- |
 | `/score-add`         | Any user    | Add to your score (`amount`, default 1)                        |
-| `/score-deduct`      | Any user    | Subtract from your score (`amount`, default 1); never below 0  |
-| `/score-set`         | Any user    | Set your score to an exact value (`score` ≥ 0)                 |
+| `/score-deduct`      | Any user    | Subtract from your score (`amount`, default 1)                 |
+| `/score-set`         | Any user    | Set your score to an exact value (negatives allowed)           |
 | `/score-view`        | Any user    | Show your score and rank                                       |
 | `/scoreboard`        | Any user    | Show all scores, highest first; ties share a rank              |
 | `/scoreboard-toggle` | Organizer   | Open (`Start`) or close (`End`) player score changes           |
