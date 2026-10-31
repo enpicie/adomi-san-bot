@@ -100,5 +100,20 @@ class TestBuildParticipantsList(unittest.TestCase):
         )
 
 
+
+class TestCapLines(unittest.TestCase):
+    def test_lines_that_fit_are_kept_unchanged(self):
+        self.assertEqual(message_helper.cap_lines(["* a", "* b"], 100), ["* a", "* b"])
+
+    def test_overflow_is_summarised_and_stays_within_budget(self):
+        lines = [f"* player{i}" for i in range(500)]
+
+        capped = message_helper.cap_lines(lines, 200)
+
+        self.assertLessEqual(len("\n".join(capped[:-1])), 200)
+        hidden = len(lines) - (len(capped) - 1)
+        self.assertEqual(capped[-1], f"…and {hidden} more")
+
+
 if __name__ == "__main__":
     unittest.main()

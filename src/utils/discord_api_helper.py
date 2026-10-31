@@ -46,16 +46,62 @@ def _request(method: str, path: str, json: dict | None = None, log_suffix: str =
     return requests.request(method, f"{DISCORD_API_BASE_URL}{path}", headers=_bot_auth_headers(), json=json, timeout=8)
 
 
-def _extract_discord_error(response: requests.Response) -> str:
+# MIRROR: jobs/deferred_worker/worker_discord_api.py — keep the field labels,
+# permission message and error extraction in sync.
+_SCHEDULED_EVENT_FIELD_LABELS = {
+    "name": "Event name",
+    "description": "Description",
+    "scheduled_start_time": "Start time",
+    "scheduled_end_time": "End time",
+    "entity_metadata.location": "Location",
+}
+
+# Discord docs, "Guild Scheduled Event Permissions Requirements": EXTERNAL events
+# need CREATE_EVENTS to create, and CREATE_EVENTS or MANAGE_EVENTS to edit or
+# delete one the bot created itself.
+MISSING_EVENT_PERMISSION_MESSAGE = (
+    "🙅‍♀️ I don't have permission to manage events in this server. "
+    "Give my role the **Create Events** permission (Server Settings → Roles), then try again."
+)
+
+
+def _first_field_error(errors: dict, path: tuple = ()) -> tuple[str, str] | None:
+    """Return (dotted field path, message) for the first field-level error in a Discord error body."""
+    for err in errors.get("_errors", []):
+        if isinstance(err, dict) and "message" in err:
+            return ".".join(path), err["message"]
+    for key, nested in errors.items():
+        if key != "_errors" and isinstance(nested, dict):
+            found = _first_field_error(nested, path + (key,))
+            if found:
+                return found
+    return None
+
+
+def _extract_discord_error(response: requests.Response, field_labels: dict | None = None) -> str:
+    """Pull a human-readable message out of a Discord error response.
+
+    Prefers the first field-level message (top-level is only "Invalid Form Body"
+    for validation errors), prefixed with its label from field_labels when known.
+    """
     try:
         body = response.json()
-        for field_errors in body.get("errors", {}).values():
-            for err in field_errors.get("_errors", []):
-                if "message" in err:
-                    return err["message"]
+        field_error = _first_field_error(body.get("errors") or {})
+        if field_error:
+            path, message = field_error
+            label = (field_labels or {}).get(path)
+            return f"{label}: {message}" if label else message
         return body.get("message", "Unknown Discord API error")
     except Exception:
         return f"HTTP {response.status_code}"
+
+
+def _scheduled_event_error_message(response: requests.Response, action: str) -> str:
+    """User-facing message for a rejected scheduled-event request. action: "create", "update" or "delete"."""
+    if response.status_code == 403:
+        return MISSING_EVENT_PERMISSION_MESSAGE
+    detail = _extract_discord_error(response, _SCHEDULED_EVENT_FIELD_LABELS)
+    return f"😖 Discord wouldn't let me {action} the event: {detail}"
 
 
 def get_guild_name(guild_id: str) -> Optional[str]:
@@ -101,7 +147,7 @@ def create_scheduled_event(guild_id: str, params: ScheduledEventParams) -> Optio
     """Create an EXTERNAL scheduled event in the guild.
 
     :return: The new event's ID on success.
-    :raises ValueError: with the Discord error message on any non-200 response.
+    :raises ValueError: with a user-facing message on any non-200 response.
     """
     body = {
         "name": params.name,
@@ -125,14 +171,15 @@ def create_scheduled_event(guild_id: str, params: ScheduledEventParams) -> Optio
         print(f"[discord] -> 200 | event_id={event_id}")
         return event_id
     print(f"[discord] ERROR -> {response.status_code} | {_extract_discord_error(response)}")
-    raise ValueError(_extract_discord_error(response))
+    raise ValueError(_scheduled_event_error_message(response, "create"))
 
 
 def update_scheduled_event(guild_id: str, event_id: str, params: ScheduledEventParams, skip_start_time: bool = False) -> bool:
     """
     :param skip_start_time: If True, omits scheduled_start_time from the request body.
-    :return: True if successful (200 response), False otherwise
+    :return: True on success (200 response).
     :raises EventAlreadyActiveError: if Discord rejects the start time update because the event is active.
+    :raises ValueError: with a user-facing message on any other non-200 response.
     """
     body = {
         "name": params.name,
@@ -164,7 +211,7 @@ def update_scheduled_event(guild_id: str, event_id: str, params: ScheduledEventP
         raise
     except (ValueError, KeyError, AttributeError, TypeError) as e:
         print(f"[discord] body probe for start-time lock code failed: {type(e).__name__}")
-    return False
+    raise ValueError(_scheduled_event_error_message(response, "update"))
 
 
 def get_channel_message(channel_id: str, message_id: str) -> Optional[str]:
@@ -204,8 +251,8 @@ def edit_channel_message(channel_id: str, message_id: str, content: str) -> bool
 def delete_scheduled_event(guild_id: str, event_id: str) -> bool:
     """Delete a guild scheduled event.
 
-    :return: True on success (204) or if the event is already gone (404);
-        False on 403 or any other error. Never raises.
+    :return: True on success (204) or if the event is already gone (404).
+    :raises ValueError: with a user-facing message on 403 or any other error.
     """
     response = _request("DELETE", f"/guilds/{guild_id}/scheduled-events/{event_id}")
     if response.status_code == 204:
@@ -216,6 +263,6 @@ def delete_scheduled_event(guild_id: str, event_id: str) -> bool:
         return True
     if response.status_code == 403:
         print(f"[discord] ERROR -> 403 Forbidden | bot lacks permission to delete events in guild={guild_id}")
-        return False
-    print(f"[discord] ERROR -> {response.status_code} | {_extract_discord_error(response)}")
-    return False
+    else:
+        print(f"[discord] ERROR -> {response.status_code} | {_extract_discord_error(response)}")
+    raise ValueError(_scheduled_event_error_message(response, "delete"))

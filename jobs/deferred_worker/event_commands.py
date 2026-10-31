@@ -82,11 +82,31 @@ def _duplicate_event_message(duplicate: dict) -> str:
     )
 
 
+# MIRROR: src/commands/event/event_commands.py NO_DISCORD_NAMES_CHAR_BUDGET
+NO_DISCORD_NAMES_CHAR_BUDGET = 1100
+
+
+def _cap_lines(lines: list, char_budget: int) -> list:
+    """MIRROR: src/utils/message_helper.py cap_lines."""
+    kept = []
+    length = 0
+    for line in lines:
+        if length + len(line) + 1 > char_budget:
+            break
+        kept.append(line)
+        length += len(line) + 1
+    hidden = len(lines) - len(kept)
+    if hidden:
+        kept.append(f"…and {hidden} more")
+    return kept
+
+
 def _build_no_discord_report(no_discord_names: list) -> str:
     """MIRROR: src/commands/event/event_commands.py _build_no_discord_report."""
     if not no_discord_names:
         return ""
-    participant_list_markdown = "\n".join([f"* {name}" for name in no_discord_names])
+    name_lines = _cap_lines([f"* {name}" for name in no_discord_names], NO_DISCORD_NAMES_CHAR_BUDGET)
+    participant_list_markdown = "\n".join(name_lines)
     return (
         "\n**I found these start.gg users do not have Discord linked**\n"
         "---\n"
@@ -137,7 +157,10 @@ def handle_event_create_startgg(event_body: dict, aws_services) -> str:
     if not server_config:
         return db_helper.SERVER_CONFIG_MISSING
 
-    startgg_event = startgg_api.query_startgg_event(event_url)
+    try:
+        startgg_event = startgg_api.query_startgg_event(event_url)
+    except startgg_api.StartggUnavailableError as e:
+        return str(e)
 
     if not startgg_event["start_time_utc"]:
         return (

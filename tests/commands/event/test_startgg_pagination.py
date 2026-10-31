@@ -1,6 +1,8 @@
 import unittest
 from unittest import mock
 
+import requests
+
 import commands.event.startgg.startgg_api as startgg_api
 
 
@@ -100,6 +102,26 @@ class TestQueryStartggEventPagination(unittest.TestCase):
         self.assertEqual(mock_post.call_count, 1)
         self.assertEqual(mock_post.call_args.args[0]["page"], 1)
         self.assertEqual(len(event.participants), total)
+
+
+
+class TestQueryStartggEventUserFacingFailures(unittest.TestCase):
+    def setUp(self):
+        token_patcher = mock.patch.object(startgg_api, "_get_startgg_api_token", return_value="fake-token")
+        token_patcher.start()
+        self.addCleanup(token_patcher.stop)
+
+    def test_unknown_event_says_the_link_was_not_found(self):
+        with mock.patch.object(startgg_api, "_post_graphql", return_value=_make_response({"data": {"event": None}})):
+            with self.assertRaises(ValueError) as ctx:
+                startgg_api.query_startgg_event("https://www.start.gg/tournament/nope/event/nope")
+        self.assertEqual(str(ctx.exception), startgg_api.STARTGG_EVENT_NOT_FOUND_MESSAGE)
+
+    def test_start_gg_outage_says_to_try_again_later(self):
+        with mock.patch.object(startgg_api, "_post_graphql", side_effect=requests.Timeout("slow")):
+            with self.assertRaises(ValueError) as ctx:
+                startgg_api.query_startgg_event("https://www.start.gg/tournament/test/event/main")
+        self.assertEqual(str(ctx.exception), startgg_api.STARTGG_UNAVAILABLE_MESSAGE)
 
 
 if __name__ == "__main__":

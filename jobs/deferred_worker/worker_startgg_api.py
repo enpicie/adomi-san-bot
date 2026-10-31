@@ -28,6 +28,13 @@ _MAX_ENTRANT_PAGES = 20
 
 _STARTGG_SLUG_PATTERN = re.compile(r"tournament/[^/]+/event/[^/]+")
 
+# MIRROR: src/commands/event/startgg/startgg_api.py STARTGG_UNAVAILABLE_MESSAGE
+STARTGG_UNAVAILABLE_MESSAGE = "😔 I couldn't get a response from start.gg. Please try again in a few minutes."
+
+
+class StartggUnavailableError(Exception):
+    """start.gg could not be reached or answered with an HTTP error. The message is shown to the user as-is."""
+
 EVENT_PARTICIPANTS_QUERY = """
     query EventEntrants($slug: String, $page: Int!) {
         event(slug: $slug) {
@@ -167,11 +174,14 @@ def query_startgg_event(tourney_url: str) -> dict:
     page = 1
 
     while True:
-        response = _post_graphql({"slug": slug, "page": page}, EVENT_PARTICIPANTS_QUERY, headers)
-
-        if not response.ok:
-            logger.error(f"[startgg] Error querying event: status {response.status_code}")
-        response.raise_for_status()
+        try:
+            response = _post_graphql({"slug": slug, "page": page}, EVENT_PARTICIPANTS_QUERY, headers)
+            if not response.ok:
+                logger.error(f"[startgg] Error querying event: status {response.status_code}")
+            response.raise_for_status()
+        except requests.RequestException as e:
+            logger.error(f"[startgg] Request failed querying event slug {slug!r}: {type(e).__name__}")
+            raise StartggUnavailableError(STARTGG_UNAVAILABLE_MESSAGE) from e
 
         data = response.json()
         if "errors" in data:

@@ -3,7 +3,13 @@ import unittest
 from datetime import datetime, timedelta, timezone as dt_timezone
 from unittest.mock import Mock, patch
 
+import requests
+
+import discord_followup
 import event_commands
+import worker_startgg_api
+
+import commands.event.startgg.startgg_api as src_startgg_api
 
 
 _SLUG_URL = "https://www.start.gg/tournament/cte-2/event/cte-bracket"
@@ -259,6 +265,63 @@ class TestHandleEventCreateStartggClaimRelease(_WorkerCreateFixture):
         event_commands.handle_event_create_startgg(_event_body(), _aws())
 
         self.mocks["claims"].release_event_create_claim.assert_not_called()
+
+
+class TestHandleEventCreateStartggUserFacingFailures(_WorkerCreateFixture):
+    def test_start_gg_outage_tells_the_organizer_to_try_again(self):
+        self.mocks["startgg_api"].StartggUnavailableError = worker_startgg_api.StartggUnavailableError
+        self.mocks["startgg_api"].query_startgg_event.side_effect = worker_startgg_api.StartggUnavailableError(
+            worker_startgg_api.STARTGG_UNAVAILABLE_MESSAGE
+        )
+
+        result = event_commands.handle_event_create_startgg(_event_body(), _aws())
+
+        self.assertEqual(result, worker_startgg_api.STARTGG_UNAVAILABLE_MESSAGE)
+        self.mocks["discord_api"].create_scheduled_event.assert_not_called()
+
+    def test_reply_with_many_unlinked_players_fits_in_one_discord_message(self):
+        no_discord = [
+            {"display_name": f"UnlinkedPlayer{i}", "user_id": "no_id", "time_added": _FUTURE} for i in range(400)
+        ]
+        self.mocks["startgg_api"].query_startgg_event.return_value = _startgg_payload(no_discord=no_discord)
+
+        result = event_commands.handle_event_create_startgg(_event_body(), _aws())
+
+        self.assertLessEqual(len(result), 2000)
+        self.assertIn("more", result)
+
+
+class TestWorkerStartggQueryOutage(unittest.TestCase):
+    def test_request_failure_becomes_a_user_facing_error(self):
+        with (
+            patch.object(worker_startgg_api, "_get_startgg_api_token", return_value="fake-token"),
+            patch.object(worker_startgg_api, "_post_graphql", side_effect=requests.ConnectionError("down")),
+        ):
+            with self.assertRaises(worker_startgg_api.StartggUnavailableError) as ctx:
+                worker_startgg_api.query_startgg_event(_SLUG_URL)
+        self.assertEqual(str(ctx.exception), worker_startgg_api.STARTGG_UNAVAILABLE_MESSAGE)
+
+    def test_message_matches_the_src_twin(self):
+        self.assertEqual(worker_startgg_api.STARTGG_UNAVAILABLE_MESSAGE, src_startgg_api.STARTGG_UNAVAILABLE_MESSAGE)
+
+
+class TestFollowupFitsDiscordLimit(unittest.TestCase):
+    def test_oversized_followup_is_trimmed_rather_than_rejected(self):
+        with patch.object(discord_followup.requests, "post") as post:
+            post.return_value.ok = True
+            discord_followup.send_followup("app1", "token", "x" * 5000)
+
+        sent = post.call_args.kwargs["json"]["content"]
+        self.assertLessEqual(len(sent), discord_followup.DISCORD_MESSAGE_LIMIT)
+        self.assertIn("trimmed", sent)
+
+    def test_normal_followup_is_sent_unchanged(self):
+        with patch.object(discord_followup.requests, "post") as post:
+            post.return_value.ok = True
+            discord_followup.send_followup("app1", "token", "✅ done")
+
+        self.assertEqual(post.call_args.kwargs["json"]["content"], "✅ done")
+
 
 if __name__ == "__main__":
     unittest.main()

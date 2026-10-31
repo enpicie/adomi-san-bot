@@ -129,7 +129,7 @@ def create_scheduled_event(
     """Create an EXTERNAL scheduled event in the guild.
 
     :return: The new event's ID.
-    :raises ValueError: with the Discord error message on any non-200 response.
+    :raises ValueError: with a user-facing message on any non-200 response.
     """
     body = {
         "name": name,
@@ -148,25 +148,62 @@ def create_scheduled_event(
         event_id = response.json()["id"]
         logger.info(f"[discord] created scheduled event_id={event_id} guild={guild_id}")
         return event_id
-    raise ValueError(_extract_discord_error(response))
+    raise ValueError(_scheduled_event_error_message(response, "create"))
 
 
-def _extract_discord_error(response: requests.Response) -> str:
+# MIRROR: src/utils/discord_api_helper.py — keep the field labels, permission
+# message and error extraction below in sync.
+_SCHEDULED_EVENT_FIELD_LABELS = {
+    "name": "Event name",
+    "description": "Description",
+    "scheduled_start_time": "Start time",
+    "scheduled_end_time": "End time",
+    "entity_metadata.location": "Location",
+}
+
+MISSING_EVENT_PERMISSION_MESSAGE = (
+    "🙅‍♀️ I don't have permission to manage events in this server. "
+    "Give my role the **Create Events** permission (Server Settings → Roles), then try again."
+)
+
+
+def _first_field_error(errors: dict, path: tuple = ()) -> tuple[str, str] | None:
+    """Return (dotted field path, message) for the first field-level error in a Discord error body."""
+    for err in errors.get("_errors", []):
+        if isinstance(err, dict) and "message" in err:
+            return ".".join(path), err["message"]
+    for key, nested in errors.items():
+        if key != "_errors" and isinstance(nested, dict):
+            found = _first_field_error(nested, path + (key,))
+            if found:
+                return found
+    return None
+
+
+def _extract_discord_error(response: requests.Response, field_labels: dict | None = None) -> str:
     """Pull a human-readable message out of a Discord error response.
 
-    MIRROR: src/utils/discord_api_helper.py _extract_discord_error. Prefers the
-    first field-level message (e.g. why the end time was rejected) over the
-    top-level one, which for validation errors is only "Invalid Form Body".
+    Prefers the first field-level message (top-level is only "Invalid Form Body"
+    for validation errors), prefixed with its label from field_labels when known.
     """
     try:
         body = response.json()
-        for field_errors in body.get("errors", {}).values():
-            for err in field_errors.get("_errors", []):
-                if "message" in err:
-                    return err["message"]
+        field_error = _first_field_error(body.get("errors") or {})
+        if field_error:
+            path, message = field_error
+            label = (field_labels or {}).get(path)
+            return f"{label}: {message}" if label else message
         return body.get("message", "Unknown Discord API error")
     except Exception:
         return f"HTTP {response.status_code}"
+
+
+def _scheduled_event_error_message(response: requests.Response, action: str) -> str:
+    """User-facing message for a rejected scheduled-event request. action: "create", "update" or "delete"."""
+    if response.status_code == 403:
+        return MISSING_EVENT_PERMISSION_MESSAGE
+    detail = _extract_discord_error(response, _SCHEDULED_EVENT_FIELD_LABELS)
+    return f"😖 Discord wouldn't let me {action} the event: {detail}"
 
 
 def get_channel_message(channel_id: str, message_id: str) -> str | None:

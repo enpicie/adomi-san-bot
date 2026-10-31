@@ -1,6 +1,7 @@
 import unittest
 
-from commands.event.timezone_helper import to_utc_iso
+import commands.event.timezone_helper as timezone_helper
+from commands.event.timezone_helper import InvalidTimeInputError, to_utc_iso
 
 
 class TestToUtcIso(unittest.TestCase):
@@ -30,6 +31,29 @@ class TestToUtcIso(unittest.TestCase):
     def test_output_format_is_iso_8601(self):
         result = to_utc_iso("2026-06-15 10:00", "UTC")
         self.assertRegex(result, r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
+
+
+    def test_display_name_from_autocomplete_repopulation_still_converts(self):
+        self.assertEqual(to_utc_iso("2026-01-15 15:00", "Eastern Time (US)"), "2026-01-15T20:00:00Z")
+
+
+class TestToUtcIsoRejectsUnreadableInput(unittest.TestCase):
+    """The message is what the organizer sees (bot.py shows a ValueError's text)."""
+
+    def test_typed_timezone_that_is_not_a_known_zone(self):
+        with self.assertRaises(InvalidTimeInputError) as ctx:
+            to_utc_iso("2026-03-19 19:30", "Central")
+        self.assertEqual(str(ctx.exception), timezone_helper.INVALID_TIMEZONE_MESSAGE)
+
+    def test_wrong_datetime_format_names_the_expected_format(self):
+        with self.assertRaises(InvalidTimeInputError) as ctx:
+            to_utc_iso("12/01/2026 7:30 PM", "America/Chicago")
+        self.assertEqual(str(ctx.exception), timezone_helper.INVALID_DATETIME_MESSAGE)
+        self.assertIn("2026-03-19 19:30", str(ctx.exception))
+        self.assertNotIn("%Y", str(ctx.exception))
+
+    def test_is_a_value_error_so_the_bot_shows_its_message(self):
+        self.assertTrue(issubclass(InvalidTimeInputError, ValueError))
 
 
 if __name__ == "__main__":

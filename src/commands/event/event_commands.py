@@ -35,6 +35,9 @@ INVALID_END_TIME_MESSAGE = (
 
 DEFAULT_EVENT_LOCATION = "Online"
 
+# Keeps the whole reply under Discord's 2000-character message limit.
+NO_DISCORD_NAMES_CHAR_BUDGET = 1100
+
 
 def _duplicate_event_message(existing: EventData, update_command: str) -> str:
     """Explain that an identical event already exists instead of creating a second one."""
@@ -586,7 +589,8 @@ def events_list(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessa
 def _build_no_discord_report(no_discord_names: list) -> str:
     if not no_discord_names:
         return ""
-    participant_list_markdown = "\n".join([f"* {name}" for name in no_discord_names])
+    name_lines = message_helper.cap_lines([f"* {name}" for name in no_discord_names], NO_DISCORD_NAMES_CHAR_BUDGET)
+    participant_list_markdown = "\n".join(name_lines)
     return (
         "\n**I found these start.gg users do not have Discord linked**\n"
         "---\n"

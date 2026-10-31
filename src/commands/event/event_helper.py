@@ -99,7 +99,7 @@ def create_event_record(server_id: str, record: EventRecord, table: Table) -> st
     """
     Creates a Discord scheduled event and persists it to DynamoDB.
     Returns the created event ID.
-    Raises RuntimeError if the Discord API call fails.
+    Raises ValueError with a user-facing message if Discord rejects the create.
     """
     print(f"[event] Creating event name={record.name!r} server={server_id}")
     event_id = discord_helper.create_scheduled_event(server_id, ScheduledEventParams(
@@ -142,7 +142,7 @@ def update_event_record(server_id: str, event_id: str, record: EventRecord, tabl
     Updates the Discord scheduled event and persists the new metadata to DynamoDB.
     Returns True if the start time was updated on Discord, False if the event was already active
     and the start time could not be changed (other fields still updated).
-    Raises RuntimeError if the Discord API call fails entirely.
+    Raises ValueError with a user-facing message if Discord rejects the update.
     """
     print(f"[event] Updating event_id={event_id} server={server_id}")
     params = ScheduledEventParams(
@@ -154,14 +154,11 @@ def update_event_record(server_id: str, event_id: str, record: EventRecord, tabl
     )
     start_time_updated = True
     try:
-        success = discord_helper.update_scheduled_event(server_id, event_id, params)
+        discord_helper.update_scheduled_event(server_id, event_id, params)
     except discord_helper.EventAlreadyActiveError:
         print(f"[event] Event is active, retrying without start_time event_id={event_id}")
-        success = discord_helper.update_scheduled_event(server_id, event_id, params, skip_start_time=True)
+        discord_helper.update_scheduled_event(server_id, event_id, params, skip_start_time=True)
         start_time_updated = False
-
-    if not success:
-        raise RuntimeError(f"Failed to update Discord scheduled event '{event_id}' for server '{server_id}'")
 
     print(f"[event] Persisting updated metadata to DynamoDB event_id={event_id} server={server_id}")
     table.update_item(
@@ -188,12 +185,10 @@ def update_event_record(server_id: str, event_id: str, record: EventRecord, tabl
 def delete_event_record(server_id: str, event_id: str, table: Table) -> None:
     """
     Deletes the Discord scheduled event and removes the DynamoDB record.
-    Raises RuntimeError if the Discord API call fails.
+    Raises ValueError with a user-facing message if Discord rejects the delete.
     """
     print(f"[event] Deleting event_id={event_id} server={server_id}")
-    success = discord_helper.delete_scheduled_event(server_id, event_id)
-    if not success:
-        raise RuntimeError(f"Failed to delete Discord scheduled event '{event_id}' for server '{server_id}'")
+    discord_helper.delete_scheduled_event(server_id, event_id)
 
     print(f"[event] Removing DynamoDB record event_id={event_id} server={server_id}")
     table.delete_item(Key={
