@@ -1,4 +1,4 @@
-# MIRROR: jobs/sheets_agent/aws_client.py — keep in sync (independent Lambda packaging prevents imports)
+# MIRROR: jobs/deferred_worker/worker_aws_client.py — keep in sync (independent Lambda packaging prevents imports)
 import boto3
 
 import constants
@@ -18,6 +18,6 @@ def get_aws_services() -> AWSServices:
         _aws_services = AWSServices(
             dynamodb_table=_dynamodb.Table(constants.DYNAMODB_TABLE_NAME),
             remove_role_sqs_queue=_sqs.Queue(constants.SQS_REMOVE_ROLE_QUEUE_URL),
-            sheets_agent_sqs_queue=_sqs.Queue(constants.SQS_SHEETS_AGENT_QUEUE_URL),
+            deferred_worker_sqs_queue=_sqs.Queue(constants.SQS_DEFERRED_WORKER_QUEUE_URL),
         )
     return _aws_services

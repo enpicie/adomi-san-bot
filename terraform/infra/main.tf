@@ -35,9 +35,12 @@ resource "aws_lambda_function" "bot_lambda" {
   handler       = "lambda_handler.lambda_handler"
   runtime       = "python${var.python_runtime}"
   architectures = [var.architecture]
-  memory_size   = 256
-  role          = aws_iam_role.lambda_exec_role.arn
-  timeout       = 10
+  # Discord discards an interaction response that arrives later than 3s. Lambda
+  # scales CPU with memory, so this is sized for headroom on init + handler time,
+  # not for RSS (~134 MB observed). Do not lower without re-checking p99 Duration.
+  memory_size = 1024
+  role        = aws_iam_role.lambda_exec_role.arn
+  timeout     = 10
   layers = [
     aws_lambda_layer_version.app_layer.arn
   ]
@@ -54,7 +57,7 @@ resource "aws_lambda_function" "bot_lambda" {
 
       STARTGG_OAUTH_CLIENT_ID    = var.startgg_oauth_client_id
       STARTGG_OAUTH_REDIRECT_URI = "${aws_apigatewayv2_stage.env_stage.invoke_url}/startgg/callback"
-      SHEETS_AGENT_QUEUE_URL     = aws_sqs_queue.sheets_agent.url
+      DEFERRED_WORKER_QUEUE_URL     = aws_sqs_queue.deferred_worker.url
     }
   }
 

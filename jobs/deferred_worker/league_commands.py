@@ -1,12 +1,12 @@
 import logging
 import time
 
-import constants
+import worker_constants as constants
 import sheets_helper
-from aws_services import AWSServices
+from worker_aws_services import AWSServices
 import participants_sheet
 import db_helper
-import discord_api
+import worker_discord_api as discord_api
 
 logger = logging.getLogger()
 
@@ -51,7 +51,7 @@ def handle_league_setup(event_body: dict, aws_services: AWSServices) -> str:
     except PermissionError:
         return _SHEET_NOT_SHARED_MSG
     except RuntimeError as e:
-        logger.error(f"[sheets_agent] league-setup: RuntimeError: {e}")
+        logger.error(f"[league] league-setup: RuntimeError: {e}")
         return _SHEETS_MISCONFIGURED_MSG
 
     league_name = league_data["league_name"]
@@ -123,7 +123,7 @@ def handle_league_join(event_body: dict, aws_services: AWSServices) -> str:
     except ValueError:
         return "❌ This league's Google Sheets link is invalid. An organizer needs to update it with `/league-update`."
     except RuntimeError as e:
-        logger.error(f"[sheets_agent] league-join: RuntimeError: {e}")
+        logger.error(f"[league] league-join: RuntimeError: {e}")
         return _SHEETS_MISCONFIGURED_MSG
 
     # Cache participant data so sync can assign Discord roles before their sheet status becomes ACTIVE.
@@ -181,7 +181,7 @@ def handle_league_sync_participants(event_body: dict, aws_services: AWSServices)
     except PermissionError:
         return _SHEET_NOT_SHARED_MSG
     except RuntimeError as e:
-        logger.error(f"[sheets_agent] league-sync-participants: RuntimeError: {e}")
+        logger.error(f"[league] league-sync-participants: RuntimeError: {e}")
         return _SHEETS_MISCONFIGURED_MSG
 
     current_active = participants_result["active"]
@@ -354,7 +354,7 @@ def handle_league_deactivate(event_body: dict, aws_services: AWSServices) -> str
     except PermissionError:
         return _SHEET_NOT_SHARED_MSG
     except RuntimeError as e:
-        logger.error(f"[sheets_agent] league-deactivate: RuntimeError: {e}")
+        logger.error(f"[league] league-deactivate: RuntimeError: {e}")
         return _SHEETS_MISCONFIGURED_MSG
 
     if row_number is None:
@@ -372,7 +372,7 @@ def handle_league_deactivate(event_body: dict, aws_services: AWSServices) -> str
     except PermissionError:
         return _SHEET_NOT_SHARED_MSG
     except RuntimeError as e:
-        logger.error(f"[sheets_agent] league-deactivate: RuntimeError: {e}")
+        logger.error(f"[league] league-deactivate: RuntimeError: {e}")
         return _SHEETS_MISCONFIGURED_MSG
 
     invoker_snowflake = event_body.get("member", {}).get("user", {}).get("id")
@@ -424,7 +424,7 @@ def handle_league_report_score(event_body: dict, aws_services: AWSServices) -> s
     except PermissionError:
         return _SHEET_NOT_SHARED_MSG
     except RuntimeError as e:
-        logger.error(f"[sheets_agent] league-report-score: get_score_report_data error: {e}")
+        logger.error(f"[league] league-report-score: get_score_report_data error: {e}")
         return _SHEETS_MISCONFIGURED_MSG
 
     try:
@@ -432,7 +432,7 @@ def handle_league_report_score(event_body: dict, aws_services: AWSServices) -> s
     except PermissionError:
         return _SHEET_NOT_SHARED_MSG
     except RuntimeError as e:
-        logger.error(f"[sheets_agent] league-report-score: update_score_cells error: {e}")
+        logger.error(f"[league] league-report-score: update_score_cells error: {e}")
         return "❌ Failed to update score cells. Contact the bot administrator."
 
     try:
@@ -443,7 +443,7 @@ def handle_league_report_score(event_body: dict, aws_services: AWSServices) -> s
         )
     except Exception as e:
         # Non-fatal — score was already written; log and continue
-        logger.error(f"[sheets_agent] league-report-score: append_report_log error: {e}")
+        logger.error(f"[league] league-report-score: append_report_log error: {e}")
 
     league_name = league_data["league_name"]
     lines = [f"✅ Score reported for **{league_name}** (`{league_id}`):"]

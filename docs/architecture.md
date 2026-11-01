@@ -27,7 +27,7 @@ Discord ──HTTP POST──▶ API Gateway (HTTP API v2)
                        │         │
                        ▼         ▼
                    DynamoDB     SQS ──▶ jobs/remove_role  (async role removal)
-                                SQS ──▶ jobs/sheets_agent (Google Sheets work)
+                                SQS ──▶ jobs/deferred_worker (work over 3s)
 
 EventBridge (rate: 15 minutes) ──▶ jobs/scheduled_job
     cleans up ended events, sends 24h reminders, strikes through
@@ -45,9 +45,12 @@ API Gateway GET /startgg/callback ──▶ jobs/startgg_oauth
   deletes ended ones from DynamoDB, queues role removals, posts reminders.
 - **`jobs/startgg_oauth`** — HTTP callback Lambda that exchanges the OAuth code for a
   start.gg token and stores it on the server's config record.
-- **`jobs/sheets_agent`** — SQS consumer doing long-running Google Sheets reads/writes
-  for league commands (timeout 480s; its queue's visibility timeout is 540s so a
-  message is never redelivered mid-invocation).
+- **`jobs/deferred_worker`** — SQS consumer for any command whose work cannot finish
+  inside Discord's 3-second interaction deadline: long-running Google Sheets reads and
+  writes for league commands, and `/event-create-startgg`, which pages the start.gg API
+  before creating anything. The bot Lambda answers with a placeholder and this posts the
+  result as an interaction followup (timeout 480s; its queue's visibility timeout is 540s
+  so a message is never redelivered mid-invocation).
 
 ## Data Flow: One Slash Command
 

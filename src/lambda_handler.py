@@ -34,7 +34,8 @@ def lambda_handler(event, context):
     else:
         try:
             interaction_type = body.get("type")
-            print(f"[lambda_handler] Interaction type: {interaction_type}")
+            interaction_id = body.get("id")
+            print(f"[lambda_handler] Interaction type: {interaction_type} interaction_id={interaction_id}")
             if interaction_type == DiscordInteractionType.APPLICATION_COMMAND:
                 response = bot.process_bot_command(body, aws_client.get_aws_services())
             elif interaction_type == DiscordInteractionType.APPLICATION_COMMAND_AUTOCOMPLETE:

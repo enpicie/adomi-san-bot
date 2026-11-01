@@ -17,6 +17,9 @@ _SCORE_PATTERN = re.compile(r"^(\d+)-(\d+)$")
 
 _STARTGG_OAUTH_BASE_URL = "https://start.gg/oauth/authorize"
 
+# Keeps the /startgg-notify-unlinked reply under Discord's 2000-character message limit.
+UNLINKED_NAMES_CHAR_BUDGET = 1500
+
 _AUTH_REQUIRED_MSG = (
     "A start.gg organizer account must be linked to this server before scores can be reported. "
     "Contact an organizer to authenticate via `/startgg-connect`."
@@ -138,7 +141,7 @@ def notify_unlinked(event: DiscordEvent, aws_services: AWSServices) -> ResponseM
     return ResponseMessage(
         content=(
             f"⚠️ **{len(lines)} participant(s) do not have Discord linked on start.gg:**\n"
-            + "\n".join(lines)
+            + "\n".join(message_helper.cap_lines(lines, UNLINKED_NAMES_CHAR_BUDGET))
             + "\n\nTo link Discord: go to your start.gg profile → **Edit Profile** → **Connections** → connect Discord "
             "and ensure **Display on profile** is enabled."
             + "\nScore reporting requires start.gg and Discord to be linked correctly."

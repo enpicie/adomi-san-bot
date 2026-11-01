@@ -35,8 +35,9 @@ resource "aws_dynamodb_table" "adomi_discord_server_table" {
     type = "S"
   }
 
-  # Expire OAuth state records automatically. Only OAUTH_STATE# items carry an
-  # expires_at attribute — items without it (configs, events, etc.) are unaffected.
+  # Expire short-lived records automatically: OAUTH_STATE# states, and the
+  # EVENTCREATE# claims that stop one organizer action running twice. Items
+  # without an expires_at attribute (configs, events, etc.) are unaffected.
   ttl {
     attribute_name = "expires_at"
     enabled        = true

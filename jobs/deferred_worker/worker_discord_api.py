@@ -6,7 +6,7 @@ import requests
 
 from enum import Enum
 
-import constants
+import worker_constants as constants
 
 logger = logging.getLogger()
 
@@ -113,6 +113,112 @@ def send_channel_message(channel_id: str, content: str) -> None:
     """Post a message to a Discord channel (fire-and-forget; failures are only logged)."""
     url = f"{DISCORD_API_BASE}/channels/{channel_id}/messages"
     discord_request("POST", url, json={"content": content})
+
+
+# ── Scheduled events / schedule message ─────────────────────────────────────
+# MIRROR: src/utils/discord_api_helper.py — keep in sync.
+
+def create_scheduled_event(
+    guild_id: str,
+    name: str,
+    location: str,
+    scheduled_start_time: str,
+    scheduled_end_time: str,
+    description: str | None = None,
+) -> str:
+    """Create an EXTERNAL scheduled event in the guild.
+
+    :return: The new event's ID.
+    :raises ValueError: with a user-facing message on any non-200 response.
+    """
+    body = {
+        "name": name,
+        "privacy_level": 2,  # = GUILD_ONLY (only option Discord currently supports)
+        "scheduled_start_time": scheduled_start_time,
+        "scheduled_end_time": scheduled_end_time,
+        "entity_type": 3,  # = EXTERNAL (location-based, no Discord channel required)
+        "entity_metadata": {"location": location},
+    }
+    if description:
+        body["description"] = description
+
+    url = f"{DISCORD_API_BASE}/guilds/{guild_id}/scheduled-events"
+    response = discord_request("POST", url, json=body)
+    if response.status_code == 200:
+        event_id = response.json()["id"]
+        logger.info(f"[discord] created scheduled event_id={event_id} guild={guild_id}")
+        return event_id
+    raise ValueError(_scheduled_event_error_message(response, "create"))
+
+
+# MIRROR: src/utils/discord_api_helper.py — keep the field labels, permission
+# message and error extraction below in sync.
+_SCHEDULED_EVENT_FIELD_LABELS = {
+    "name": "Event name",
+    "description": "Description",
+    "scheduled_start_time": "Start time",
+    "scheduled_end_time": "End time",
+    "entity_metadata.location": "Location",
+}
+
+MISSING_EVENT_PERMISSION_MESSAGE = (
+    "🙅‍♀️ I don't have permission to manage events in this server. "
+    "Give my role the **Create Events** permission (Server Settings → Roles), then try again."
+)
+
+
+def _first_field_error(errors: dict, path: tuple = ()) -> tuple[str, str] | None:
+    """Return (dotted field path, message) for the first field-level error in a Discord error body."""
+    for err in errors.get("_errors", []):
+        if isinstance(err, dict) and "message" in err:
+            return ".".join(path), err["message"]
+    for key, nested in errors.items():
+        if key != "_errors" and isinstance(nested, dict):
+            found = _first_field_error(nested, path + (key,))
+            if found:
+                return found
+    return None
+
+
+def _extract_discord_error(response: requests.Response, field_labels: dict | None = None) -> str:
+    """Pull a human-readable message out of a Discord error response.
+
+    Prefers the first field-level message (top-level is only "Invalid Form Body"
+    for validation errors), prefixed with its label from field_labels when known.
+    """
+    try:
+        body = response.json()
+        field_error = _first_field_error(body.get("errors") or {})
+        if field_error:
+            path, message = field_error
+            label = (field_labels or {}).get(path)
+            return f"{label}: {message}" if label else message
+        return body.get("message", "Unknown Discord API error")
+    except Exception:
+        return f"HTTP {response.status_code}"
+
+
+def _scheduled_event_error_message(response: requests.Response, action: str) -> str:
+    """User-facing message for a rejected scheduled-event request. action: "create", "update" or "delete"."""
+    if response.status_code == 403:
+        return MISSING_EVENT_PERMISSION_MESSAGE
+    detail = _extract_discord_error(response, _SCHEDULED_EVENT_FIELD_LABELS)
+    return f"😖 Discord wouldn't let me {action} the event: {detail}"
+
+
+def get_channel_message(channel_id: str, message_id: str) -> str | None:
+    """Fetch a message's content, or None if it can't be read."""
+    url = f"{DISCORD_API_BASE}/channels/{channel_id}/messages/{message_id}"
+    response = discord_request("GET", url)
+    if not response.ok:
+        return None
+    return response.json().get("content")
+
+
+def edit_channel_message(channel_id: str, message_id: str, content: str) -> bool:
+    """Replace a message's content. Returns True on success."""
+    url = f"{DISCORD_API_BASE}/channels/{channel_id}/messages/{message_id}"
+    return discord_request("PATCH", url, json={"content": content}).ok
 
 
 # MIRROR: src/utils/queue_role_removal.py — keep in sync (independent Lambda packaging prevents imports)

@@ -1,12 +1,12 @@
 # Central place to configure all the bot's static messages
 # Basically where her "personality" may kinda show
-# MIRROR: jobs/sheets_agent — keep in sync (handler._GENERAL_ERROR, db_helper messages)
+# MIRROR: jobs/deferred_worker — keep in sync (handler._GENERAL_ERROR, db_helper messages)
 
 #############################
 # Database Messages        #
 #############################
 SERVER_CONFIG_MISSING = "🙀 This server is not set up! Run `/setup-server` first to get started."
-SERVER_EVENT_DATA_MISSING = "🙀 There is no server event data set up! Run `/setup-server` first to get started."
+SERVER_EVENT_DATA_MISSING = "🙀 I couldn't find that event! Pick one from the list that pops up as you type the event name."
 SERVER_LEAGUE_DATA_MISSING = "🙀 No league found! Use `/league-list` to see existing leagues."
 
 #############################

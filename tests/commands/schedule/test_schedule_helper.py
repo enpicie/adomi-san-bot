@@ -1,6 +1,6 @@
 import unittest
 from datetime import datetime, timezone as dt_timezone
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import commands.schedule.schedule_helper as schedule_helper
 from database.models.event_data import EventData
@@ -117,6 +117,68 @@ class TestBuildScheduleContent(unittest.TestCase):
         event = _make_event("Weekly Bracket", start_time=_FUTURE_ISO)
         content = self._build(real_events=[event])
         self.assertNotIn("*No events.*", content)
+
+
+def _make_server_config(message_id="msg_1", channel_id="chan_1"):
+    config = Mock()
+    config.schedule_message_id = message_id
+    config.schedule_channel_id = channel_id
+    return config
+
+
+_DUPLICATE_SCHEDULE = "\n".join([
+    "# Upcoming Events",
+    "",
+    f"- Chained to Eternity 2 - **<t:{_FUTURE_EPOCH}:F>**",
+    f"- Chained to Eternity 2 - **<t:{_LATER_FUTURE_EPOCH}:F>**",
+    f"- Weekly Bracket - **<t:{_LATER_FUTURE_EPOCH}:F>**",
+])
+
+
+class TestScheduleEditsWithDuplicateNames(unittest.TestCase):
+    """Schedule lines are matched by event name, and two events on a server can
+    share one. An edit aimed at a single event must not touch its twin."""
+
+    def _edit(self, fn, *args):
+        with patch.object(schedule_helper, "discord_helper") as mock_discord:
+            mock_discord.get_channel_message.return_value = _DUPLICATE_SCHEDULE
+            fn(*args)
+            if not mock_discord.edit_channel_message.called:
+                return None
+            return mock_discord.edit_channel_message.call_args.args[2]
+
+    def test_remove_deletes_only_one_of_two_same_named_entries(self):
+        content = self._edit(
+            schedule_helper.remove_schedule_event, _make_server_config(), "Chained to Eternity 2"
+        )
+        self.assertEqual(content.count("Chained to Eternity 2"), 1)
+        # The unrelated event is untouched.
+        self.assertIn("Weekly Bracket", content)
+
+    def test_remove_keeps_the_surviving_entry_intact(self):
+        content = self._edit(
+            schedule_helper.remove_schedule_event, _make_server_config(), "Chained to Eternity 2"
+        )
+        # The first match is dropped, so the later-starting twin is what remains.
+        self.assertIn(f"- Chained to Eternity 2 - **<t:{_LATER_FUTURE_EPOCH}:F>**", content)
+        self.assertNotIn(f"- Chained to Eternity 2 - **<t:{_FUTURE_EPOCH}:F>**", content)
+
+    def test_update_rewrites_only_one_of_two_same_named_entries(self):
+        content = self._edit(
+            schedule_helper.update_schedule_event,
+            _make_server_config(),
+            "Chained to Eternity 2",
+            "Renamed Event",
+            _LATER_FUTURE_ISO,
+        )
+        self.assertEqual(content.count("Renamed Event"), 1)
+        self.assertEqual(content.count("Chained to Eternity 2"), 1)
+
+    def test_remove_of_absent_event_makes_no_edit(self):
+        content = self._edit(
+            schedule_helper.remove_schedule_event, _make_server_config(), "Not On The Schedule"
+        )
+        self.assertIsNone(content)
 
 
 if __name__ == "__main__":

@@ -18,6 +18,7 @@ But you can call her Adomin ~☆！
   - [Check-In Commands](#check-in-commands)
   - [Setup Commands](#setup-commands)
   - [Score Reporting Commands](#score-reporting-commands)
+  - [Scoreboard Commands](#scoreboard-commands)
   - [Schedule Commands](#schedule-commands)
   - [League Commands](#league-commands)
   - [Help Commands](#help-commands)
@@ -338,6 +339,26 @@ Fetches the current entrant list from start.gg and returns all participants who 
 
 ---
 
+### Scoreboard Commands
+
+An event-scoped scoreboard players keep themselves (e.g. counting set wins). Scores are independent of registration and check-in: any user can put themselves on the board while it is open. Player commands only ever change the caller's own score. The scoreboard is **closed by default** on new events; an organizer opens it with `/scoreboard-toggle`. Scores live on the event record and are deleted with it.
+
+| Command              | Who can use | Description                                                    |
+| -------------------- | ----------- | -------------------------------------------------------------- |
+| `/score-add`         | Any user    | Add to your score (`amount`, default 1)                        |
+| `/score-deduct`      | Any user    | Subtract from your score (`amount`, default 1)                 |
+| `/score-set`         | Any user    | Set your score to an exact value (negatives allowed)           |
+| `/score-view`        | Any user    | Show your score and rank                                       |
+| `/scoreboard`        | Any user    | Show all scores, highest first; ties share a rank              |
+| `/scoreboard-toggle` | Organizer   | Open (`Start`) or close (`End`) player score changes           |
+| `/scoreboard-reset`  | Organizer   | Clear every score for the event                                |
+| `/score-override`    | Organizer   | Set another user's score (`user`, `score`); works while closed |
+| `/score-remove`      | Organizer   | Remove a user from the scoreboard                              |
+
+All take `event_name` (autocomplete). `/score-view` and `/scoreboard` work while the board is closed.
+
+---
+
 ### Schedule Commands
 
 These commands manage a persistent schedule message in a Discord channel listing upcoming events. All require the **organizer role**.
@@ -496,6 +517,7 @@ When `/league-sync-participants` is run, any players newly marked **ACTIVE** in 
 | `/help-startgg`  | Help for start.gg score reporting commands |
 | `/help-league`   | Help for league management commands        |
 | `/help-schedule` | Help for schedule commands                 |
+| `/help-score`    | Help for scoreboard commands               |
 
 ---
 
@@ -601,6 +623,8 @@ Planned event placeholders added via `/schedule-plan-event`. The SK key uses the
 | `end_message`          | Custom end message (optional)                                             |
 | `should_post_reminder` | Whether a 24-hour reminder announcement should be sent for this event     |
 | `did_post_reminder`    | Whether the reminder has already been sent (prevents duplicate sends)     |
+| `scores`               | Map of `user_id → {display_name, score}`; absent on pre-scoreboard events |
+| `score_enabled`        | Whether players can change scores (default `False`)                       |
 
 ---
 

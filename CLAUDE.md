@@ -11,7 +11,7 @@ Initialized retroactively against: spec-general.md + spec-coding-general.md + sp
 - **Python 3.12** — Lambda runtime; single language across bot, jobs, and scripts.
 - **AWS Lambda + API Gateway v2** — serverless HTTP entry point for Discord interactions; zero idle cost.
 - **DynamoDB** (single table, pay-per-request) — all server/event/league state; no relational needs at this scale.
-- **SQS** — async role removal and sheets-agent work; keeps slash-command responses under Discord's 3-second limit.
+- **SQS** — async role removal and deferred-worker work (league sheets, start.gg imports); keeps slash-command responses under Discord's 3-second limit.
 - **Secrets Manager** — start.gg API token, OAuth secret, Google Sheets service account credentials at runtime.
 - **EventBridge** — 15-minute schedule driving the cleanup/reminder poller Lambda.
 - **Terraform (S3 remote state via org composite action)** — two independent roots; state keyed per project/env.
@@ -28,10 +28,10 @@ src/                      # Main bot Lambda (Discord interactions)
   commands/command_map.py # Merges every group's mapping.py into the registry
   database/               # DynamoDB access + dataclass models
 jobs/<name>/              # Independent Lambda zips (remove_role, scheduled_job,
-                          # startgg_oauth, sheets_agent). CANNOT import src/ —
+                          # startgg_oauth, deferred_worker). CANNOT import src/ —
                           # shared logic is duplicated with MIRROR comments.
 terraform/infra/          # Root module: bot Lambda, API GW, DynamoDB, SQS,
-                          # secrets, sheets agent, OAuth callback
+                          # secrets, deferred worker, OAuth callback
 terraform/scheduled_job/  # Root module: EventBridge-scheduled poller Lambda
 scripts/                  # Operational scripts (Discord command registration)
 tests/                    # pytest unit tests, mirror source layout
@@ -54,6 +54,8 @@ The Code Style rules at the bottom of this file (imports, Discord mentions, logg
 - **Import carve-out:** Classes, dataclasses, exceptions, and TypedDicts MAY be from-imported; functions/constants of internal modules must use module-alias imports.
 - **Command self-discovery:** to add a command group, create `src/commands/<group>/mapping.py` with the group's `CommandMapping` dict and merge it in `src/commands/command_map.py`. Register with Discord via the register-commands workflow.
 - **Jobs are self-contained:** `jobs/<name>/` packages cannot import from `src/`. When logic must exist in both places, duplicate it and mark both copies with a MIRROR comment; never import across the boundary.
+- **Job module names are unique across jobs and distinct from `src/`'s top-level names.** Each job imports by bare name, and every job directory plus `src/` share one `sys.path` under pytest, so a job module named like another job's module, or like a top-level `src/` module or package (`constants`, `aws_client`, `commands`, …), makes tests resolve the wrong code. `tests/test_job_module_names.py` enforces both; `handler.py` is the one allowed repeat.
+- **Anything that can exceed Discord's 3s deadline defers.** The command handler validates, calls `deferred_dispatch.dispatch(...)`, and returns a `⏳` placeholder; `jobs/deferred_worker` does the work and posts a followup.
 
 ## Do Not Modify Without Explicit Instruction
 

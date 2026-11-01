@@ -24,6 +24,23 @@ def get_discord_timestamp(utc_iso: str, style: str = "F") -> str | None:
     except (ValueError, AttributeError, TypeError):
         return None
 
+def cap_lines(lines: List[str], char_budget: int) -> List[str]:
+    """Keeps whole lines while they fit in char_budget, then adds an "…and N more" line for the rest.
+
+    MIRROR: jobs/deferred_worker/event_commands.py _cap_lines.
+    """
+    kept = []
+    length = 0
+    for line in lines:
+        if length + len(line) + 1 > char_budget:
+            break
+        kept.append(line)
+        length += len(line) + 1
+    hidden = len(lines) - len(kept)
+    if hidden:
+        kept.append(f"…and {hidden} more")
+    return kept
+
 def build_participants_list(list_header: str, participants: List[Dict]) -> str:
     """
     Builds a sorted, numbered list of participants using direct attribute access.

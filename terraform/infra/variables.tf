@@ -9,18 +9,18 @@ variable "sqs_worker_name" {
   type        = string
 }
 
-variable "sheets_agent_name" {
-  description = "The name of the sheets agent Lambda and SQS queue"
+variable "deferred_worker_name" {
+  description = "The name of the deferred worker Lambda and SQS queue (handles work that cannot finish inside Discord's 3s interaction deadline)"
   type        = string
 }
 
-variable "sheets_agent_lambda_layer_s3_key" {
-  description = "S3 key for .zip of Lambda layer built for the sheets agent"
+variable "deferred_worker_lambda_layer_s3_key" {
+  description = "S3 key for .zip of Lambda layer built for the deferred worker"
   type        = string
 }
 
-variable "sheets_agent_lambda_layer_hash_s3_key" {
-  description = "S3 key for .hash file for Lambda layer built for the sheets agent"
+variable "deferred_worker_lambda_layer_hash_s3_key" {
+  description = "S3 key for .hash file for Lambda layer built for the deferred worker"
   type        = string
 }
 

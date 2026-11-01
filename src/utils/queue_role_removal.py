@@ -1,4 +1,4 @@
-# MIRROR: jobs/sheets_agent/discord_api.enqueue_remove_roles — keep in sync (independent Lambda packaging prevents imports)
+# MIRROR: jobs/deferred_worker/worker_discord_api.enqueue_remove_roles — keep in sync (independent Lambda packaging prevents imports)
 import json
 from mypy_boto3_sqs.service_resource import Queue
 from typing import List

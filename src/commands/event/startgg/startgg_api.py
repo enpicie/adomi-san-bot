@@ -10,6 +10,13 @@ STARTGG_API_URL = "https://api.start.gg/gql/alpha"
 
 _SET_STATE_COMPLETED = 3
 
+# MIRROR: jobs/deferred_worker/worker_startgg_api.py STARTGG_UNAVAILABLE_MESSAGE
+STARTGG_UNAVAILABLE_MESSAGE = "😔 I couldn't get a response from start.gg. Please try again in a few minutes."
+STARTGG_EVENT_NOT_FOUND_MESSAGE = (
+    "😔 I couldn't find that event on start.gg. Check that the link points to an event in a tournament, "
+    "like https://www.start.gg/tournament/midweek-melting/event/mbaacc-double-elim"
+)
+
 
 class StartggAuthError(Exception):
     """Raised when start.gg rejects a request due to invalid or expired OAuth token."""
@@ -75,11 +82,14 @@ def query_startgg_event(tourney_url: str) -> StartggEvent:
     while True:
         variables = {"slug": slug, "page": page}
 
-        response = _post_graphql(variables, startgg_graphql.EVENT_PARTICIPANTS_QUERY, headers)
-
-        if not response.ok:
-            print(f"[startgg] Error querying event: status {response.status_code}, body: {response.text[:2000]}")
-        response.raise_for_status()
+        try:
+            response = _post_graphql(variables, startgg_graphql.EVENT_PARTICIPANTS_QUERY, headers)
+            if not response.ok:
+                print(f"[startgg] Error querying event: status {response.status_code}, body: {response.text[:2000]}")
+            response.raise_for_status()
+        except requests.RequestException as e:
+            print(f"[startgg] Request failed querying event slug '{slug}': {type(e).__name__}")
+            raise ValueError(STARTGG_UNAVAILABLE_MESSAGE) from e
 
         data = response.json()
         if "errors" in data:
@@ -106,7 +116,11 @@ def query_startgg_event(tourney_url: str) -> StartggEvent:
 
         page += 1
 
-    if event_data is not None and event_data.get("entrants") is not None:
+    if event_data is None:
+        print(f"[startgg] No event found for slug '{slug}'")
+        raise ValueError(STARTGG_EVENT_NOT_FOUND_MESSAGE)
+
+    if event_data.get("entrants") is not None:
         event_data["entrants"]["nodes"] = all_nodes
 
     return StartggEvent.from_dict(event_data)

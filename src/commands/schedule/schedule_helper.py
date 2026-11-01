@@ -52,6 +52,18 @@ def _line_has_event(line: str, event_name: str) -> bool:
     return _get_event_name_from_line(line) == event_name
 
 
+def _without_first_match(lines: list, event_name: str) -> list:
+    """Drop only the first schedule line matching event_name.
+
+    Two events on a server can share a name, so filtering out every match would
+    remove entries for events that still exist.
+    """
+    for i, line in enumerate(lines):
+        if _line_has_event(line, event_name):
+            return lines[:i] + lines[i + 1:]
+    return list(lines)
+
+
 def _build_event_line(event_name: str, epoch: Optional[int], startgg_url: Optional[str]) -> str:
     display_name = f"[{event_name}]({startgg_url})" if startgg_url else event_name
     timestamp = f"**<t:{epoch}:F>**" if epoch is not None else "**TBD**"
@@ -152,7 +164,12 @@ def strikethrough_schedule_event(server_config: ServerConfig, event_name: str) -
 
 
 def remove_schedule_event(server_config: ServerConfig, event_name: str) -> None:
-    """Remove a specific event entry from the schedule. No-op if not tracked or not found."""
+    """Remove a specific event entry from the schedule. No-op if not tracked or not found.
+
+    Prefer sync_schedule when a table handle is available: it rebuilds from
+    DynamoDB, so it cannot disagree with the stored events. This edits message
+    text by name, which is only safe because it stops at the first match.
+    """
     if not server_config.schedule_message_id or not server_config.schedule_channel_id:
         return
     current = discord_helper.get_channel_message(
@@ -161,7 +178,7 @@ def remove_schedule_event(server_config: ServerConfig, event_name: str) -> None:
     if current is None:
         return
     lines = current.split("\n")
-    new_lines = [line for line in lines if not _line_has_event(line, event_name)]
+    new_lines = _without_first_match(lines, event_name)
     if len(new_lines) == len(lines):
         return
     new_lines = _apply_no_events_placeholder(new_lines)
@@ -188,7 +205,7 @@ def update_schedule_event(
     epoch = _to_epoch(new_start_time) if new_start_time else None
     new_line = _build_event_line(new_name, epoch, new_startgg_url)
     lines = current.split("\n")
-    without_old = [line for line in lines if not _line_has_event(line, old_name)]
+    without_old = _without_first_match(lines, old_name)
     if len(without_old) == len(lines):
         return
     new_lines = _insert_event_sorted(without_old, new_line, epoch)
