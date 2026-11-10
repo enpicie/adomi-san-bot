@@ -19,6 +19,7 @@ But you can call her Adomin ~☆！
   - [Setup Commands](#setup-commands)
   - [Score Reporting Commands](#score-reporting-commands)
   - [Scoreboard Commands](#scoreboard-commands)
+  - [Queue Commands](#queue-commands)
   - [Schedule Commands](#schedule-commands)
   - [League Commands](#league-commands)
   - [Help Commands](#help-commands)
@@ -359,6 +360,24 @@ All take `event_name` (autocomplete). `/score-view` and `/scoreboard` work while
 
 ---
 
+### Queue Commands
+
+An event-scoped first-come, first-served queue of individual users (e.g. who plays next on stream). Players add themselves; each user can hold only one spot, so repeat joins just report their current position. The queue is **closed by default** on new events; an organizer opens it with `/queue-toggle`. Closing it stops new joins but keeps everyone already in line. The queue lives on the event record and is deleted with it.
+
+| Command         | Who can use | Description                                                                         |
+| --------------- | ----------- | ----------------------------------------------------------------------------------- |
+| `/queue-join`   | Any user    | Join the back of the queue; replies with your position                              |
+| `/queue-leave`  | Any user    | Leave the queue; works while closed                                                 |
+| `/queue-view`   | Any user    | Show the queue in order with its length; silent by default                          |
+| `/queue-toggle` | Organizer   | Open (`Start`) or close (`End`) joining                                             |
+| `/queue-pop`    | Organizer   | Take the first `count` users off the queue (default 1, max 10) and ping them        |
+| `/queue-remove` | Organizer   | Remove a specific user from the queue                                               |
+| `/queue-clear`  | Organizer   | Remove everyone from the queue                                                      |
+
+All take `event_name` (autocomplete). `/queue-view` takes an optional `ping_users`; setting it to `True` pings everyone in the queue and requires the organizer role.
+
+---
+
 ### Schedule Commands
 
 These commands manage a persistent schedule message in a Discord channel listing upcoming events. All require the **organizer role**.
@@ -518,6 +537,7 @@ When `/league-sync-participants` is run, any players newly marked **ACTIVE** in 
 | `/help-league`   | Help for league management commands        |
 | `/help-schedule` | Help for schedule commands                 |
 | `/help-score`    | Help for scoreboard commands               |
+| `/help-queue`    | Help for queue commands                    |
 
 ---
 
@@ -617,7 +637,7 @@ Planned event placeholders added via `/schedule-plan-event`. The SK key uses the
 | `register_enabled` | Boolean — whether registration is open                                |
 | `registered`       | Map of `user_id → {display_name, user_id, time_added, source}`        |
 | `checked_in`       | Map of `user_id → {display_name, user_id, check_in_time}`             |
-| `queue`            | Reserved (unused)                                                     |
+| `queue`            | Map of `user_id → {display_name, joined_at}`; ordered by `joined_at` (epoch ms) |
 | `startgg_url`          | start.gg event link (optional)                                            |
 | `start_message`        | Custom start message (optional)                                           |
 | `end_message`          | Custom end message (optional)                                             |
@@ -625,6 +645,7 @@ Planned event placeholders added via `/schedule-plan-event`. The SK key uses the
 | `did_post_reminder`    | Whether the reminder has already been sent (prevents duplicate sends)     |
 | `scores`               | Map of `user_id → {display_name, score}`; absent on pre-scoreboard events |
 | `score_enabled`        | Whether players can change scores (default `False`)                       |
+| `queue_enabled`        | Whether players can join the queue (default `False`)                      |
 
 ---
 

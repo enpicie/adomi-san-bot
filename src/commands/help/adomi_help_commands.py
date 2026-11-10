@@ -8,6 +8,7 @@ from commands.startgg.mapping import startgg_commands_mapping
 from commands.league.mapping import league_commands_mapping
 from commands.schedule.mapping import schedule_commands_mapping
 from commands.score.mapping import score_commands_mapping
+from commands.queue.mapping import queue_commands_mapping
 
 WIKI_LINK = "https://github.com/enpicie/adomi-san-bot/wiki/Adomi-is-here-to-help!"
 
@@ -89,3 +90,8 @@ def help_startgg(event: DiscordEvent, aws_services: AWSServices) -> ResponseMess
 def help_score(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
     """Lists all score and scoreboard commands with their descriptions."""
     return ResponseMessage(content=_build_help_lines("**Score Commands**", score_commands_mapping))
+
+
+def help_queue(event: DiscordEvent, aws_services: AWSServices) -> ResponseMessage:
+    """Lists all queue commands with their descriptions."""
+    return ResponseMessage(content=_build_help_lines("**Queue Commands**", queue_commands_mapping))
