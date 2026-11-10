@@ -41,5 +41,10 @@ help_commands: CommandMapping = {
         "function": adomi_help_commands.help_score,
         "description": "List all score and scoreboard commands with descriptions",
         "params": []
+    },
+    "help-queue": {
+        "function": adomi_help_commands.help_queue,
+        "description": "List all queue commands with descriptions",
+        "params": []
     }
 }
